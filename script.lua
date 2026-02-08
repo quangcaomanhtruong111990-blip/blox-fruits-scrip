@@ -1,4 +1,4 @@
--- Đợi game load xong
+-- Đợi game load
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
@@ -6,12 +6,16 @@ end
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- Đợi LocalPlayer tồn tại
+-- Đợi player tồn tại
 while not player do
     task.wait()
     player = Players.LocalPlayer
 end
 
-print("SCRIPT LOADED OK")
-print("Player Name:", player.Name)
-print("UserId:", player.UserId)
+-- Đợi character spawn (sau khi chọn phe)
+player.CharacterAdded:Wait()
+local char = player.Character
+
+print("SCRIPT OK - CHARACTER SPAWNED")
+print("Player:", player.Name)
+print("Character:", char.Name)
