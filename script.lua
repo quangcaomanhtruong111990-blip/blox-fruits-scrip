@@ -1,9 +1,29 @@
-pcall(function()
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "SCRIPT TEST",
-        Text = "SCRIPT ĐÃ CHẠY",
-        Duration = 5
-    })
-end)
+Config = {
+    Team = "Pirates",
+    Configuration = {
+        HopWhenIdle = true,
+        AutoHop = true,
+        AutoHopDelay = 60 * 60,
+        FpsBoost = false,
+        blackscreen = false
+    },
+    Items = {
 
-print("SCRIPT EXECUTED")
+        -- Melees 
+        AutoFullyMelees = true,
+
+        -- Swords 
+        Saber = true,
+        CursedDualKatana = true,
+
+        -- Guns 
+        SoulGuitar = true,
+
+        -- Upgrades 
+
+        RaceV2 = true
+
+    },
+    Settings = {
+        StayInSea2UntilHaveDarkFragments = false
+    }
