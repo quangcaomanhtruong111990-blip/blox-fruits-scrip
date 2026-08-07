@@ -1,7 +1,10 @@
 local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local isFarming = false
+local NetRemotes = ReplicatedStorage:WaitForChild("Remotes")
 
 -- 1. Tạo Giao Diện Nút Bật/Tắt (Toggle UI)
 local screenGui = Instance.new("ScreenGui")
@@ -22,7 +25,6 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- Sự kiện bấm nút ON / OFF
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -34,14 +36,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Thông báo
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Fix Auto Farm",
-    Text = "Đã thêm nút ON/OFF & nâng độ cao vừa tầm!",
-    Duration = 3
-})
-
--- 2. Hàm cầm vũ khí (Chỉ chạy khi chưa cầm gì trên tay)
+-- 2. Hàm Tự Trang Bị Vũ Khí
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -57,61 +52,78 @@ local function equipWeapon()
     end
 end
 
--- 3. Hàm tìm quái gần nhất
-local function getClosestMob(maxDistance)
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
-    
-    local hrp = character.HumanoidRootPart
-    local closestMob = nil
-    local shortestDistance = maxDistance
+-- 3. Hàm Gom Quái Về 1 Điểm
+local function bringMobs(targetPos, radius)
+    local enemies = Workspace:FindFirstChild("Enemies")
+    if not enemies then return end
 
-    local enemies = workspace:FindFirstChild("Enemies")
-    if enemies then
-        for _, mob in pairs(enemies:GetChildren()) do
-            local mobHrp = mob:FindFirstChild("HumanoidRootPart")
-            local mobHumanoid = mob:FindFirstChild("Humanoid")
-            
-            if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
-                local distance = (hrp.Position - mobHrp.Position).Magnitude
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestMob = mob
-                end
+    for _, mob in pairs(enemies:GetChildren()) do
+        local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+        local mobHum = mob:FindFirstChild("Humanoid")
+        
+        if mobHrp and mobHum and mobHum.Health > 0 then
+            if (mobHrp.Position - targetPos).Magnitude <= radius then
+                mobHrp.CFrame = CFrame.new(targetPos)
+                mobHrp.CanCollide = false
+                mobHum.WalkSpeed = 0
             end
         end
     end
-    return closestMob
 end
 
--- 4. Vòng lặp Farm chính
+-- 4. Hàm Fast Attack (Gửi Remote trực tiếp, không vung tay)
+local function fastAttack()
+    pcall(function()
+        local netRemotesFolder = NetRemotes:FindFirstChild("Validator") or NetRemotes
+        if netRemotesFolder:FindFirstChild("RegisterAttack") then
+            netRemotesFolder.RegisterAttack:FireServer(0.1)
+        elseif NetRemotes:FindFirstChild("CommF_") then
+            NetRemotes.CommF_:InvokeServer("RegisterAttack")
+        end
+    end)
+end
+
+-- 5. Vòng Lặp Farm Chính
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(0.01) do -- Chạy tốc độ siêu nhanh
         if isFarming then
             pcall(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- Đảm bảo luôn cầm vũ khí
                 equipWeapon()
                 
-                local targetMob = getClosestMob(300)
-                
+                -- Tìm quái gần nhất
+                local enemies = Workspace:FindFirstChild("Enemies")
+                local targetMob = nil
+                local shortestDistance = 350
+
+                if enemies then
+                    for _, mob in pairs(enemies:GetChildren()) do
+                        local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+                        local mobHum = mob:FindFirstChild("Humanoid")
+                        if mobHrp and mobHum and mobHum.Health > 0 then
+                            local dist = (character.HumanoidRootPart.Position - mobHrp.Position).Magnitude
+                            if dist < shortestDistance then
+                                shortestDistance = dist
+                                targetMob = mob
+                            end
+                        end
+                    end
+                end
+
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
+                    local farmPos = mobHrp.Position + Vector3.new(0, 10, 0)
                     
-                    -- Đứng cao trên đầu quái 12 studs (Cao hơn bản cũ một chút)
-                    character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
+                    -- Khóa vị trí người chơi trên đầu quái
+                    character.HumanoidRootPart.CFrame = CFrame.new(farmPos, mobHrp.Position)
                     
-                    -- Kích hoạt đòn đánh bằng Tool
-                    local tool = character:FindFirstChildOfClass("Tool")
-                    if tool then
-                        tool:Activate()
-                    end
+                    -- Gom quái xung quanh lại
+                    bringMobs(mobHrp.Position, 250)
                     
-                    -- Giả lập click đánh trên màn hình
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                    -- Xả đòn đánh cực nhanh
+                    fastAttack()
                 end
             end)
         end
