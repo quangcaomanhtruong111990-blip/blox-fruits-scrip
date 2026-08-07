@@ -3,21 +3,31 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Auto Farm Bay Cao",
-    Text = "Đã tăng độ cao an toàn lên 14 studs!",
+    Title = "Auto Farm Fly",
+    Text = "Đã tăng độ cao lên 25 studs & khóa bay lơ lửng!",
     Duration = 3
 })
 
--- 1. Hàm tự cầm vũ khí
+-- Tạo bộ giữ vị trí bay (BodyVelocity)
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+local bodyVelocity = Instance.new("BodyVelocity")
+bodyVelocity.Name = "HoverVelocity"
+bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+bodyVelocity.MaxForce = Vector3.new( math.huge, math.huge, math.huge )
+bodyVelocity.Parent = hrp
+
+-- 1. Hàm tự trang bị vũ khí
 local function equipWeapon()
-    local character = player.Character
+    local char = player.Character
     local backpack = player:FindFirstChild("Backpack")
-    if not character or not backpack then return end
+    if not char or not backpack then return end
     
-    if not character:FindFirstChildOfClass("Tool") then
+    if not char:FindFirstChildOfClass("Tool") then
         for _, item in pairs(backpack:GetChildren()) do
             if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
-                character.Humanoid:EquipTool(item)
+                char.Humanoid:EquipTool(item)
                 break
             end
         end
@@ -26,10 +36,10 @@ end
 
 -- 2. Hàm tìm quái gần nhất
 local function getClosestMob(maxDistance)
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
     
-    local hrp = character.HumanoidRootPart
+    local myHrp = char.HumanoidRootPart
     local closestMob = nil
     local shortestDistance = maxDistance
 
@@ -40,7 +50,7 @@ local function getClosestMob(maxDistance)
             local mobHumanoid = mob:FindFirstChild("Humanoid")
             
             if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
-                local distance = (hrp.Position - mobHrp.Position).Magnitude
+                local distance = (myHrp.Position - mobHrp.Position).Magnitude
                 if distance < shortestDistance then
                     shortestDistance = distance
                     closestMob = mob
@@ -51,27 +61,30 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 3. Vòng lặp Farm bay cao an toàn
+-- 3. Vòng lặp Farm chính
 task.spawn(function()
     while task.wait(0.05) do
         pcall(function()
-            local character = player.Character
-            if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+            local char = player.Character
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
             
+            -- Đảm bảo giữ bộ bay không bị mất khi chết / respawn
+            local myHrp = char.HumanoidRootPart
+            if not myHrp:FindFirstChild("HoverVelocity") then
+                bodyVelocity.Parent = myHrp
+            end
+
             equipWeapon()
-            local targetMob = getClosestMob(300)
+            local targetMob = getClosestMob(400)
             
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                 local mobHrp = targetMob.HumanoidRootPart
                 
-                -- Nâng độ cao lên 14 studs (Cách xa tầm đánh của quái Sea 2)
-                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 14, 0)
-                
-                -- Giữ nhân vật không bị rơi
-                character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                -- Đứng cao trên đầu quái 25 studs (An toàn tuyệt đối)
+                myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 25, 0)
                 
                 -- Thực hiện đòn đánh
-                local tool = character:FindFirstChildOfClass("Tool")
+                local tool = char:FindFirstChildOfClass("Tool")
                 if tool then
                     tool:Activate()
                 end
