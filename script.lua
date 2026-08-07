@@ -3,12 +3,12 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Fix Auto Farm",
-    Text = "Đã tối ưu khoảng cách an toàn & tốc độ đánh!",
+    Title = "Auto Farm Bay Cao",
+    Text = "Đã tăng độ cao an toàn lên 14 studs!",
     Duration = 3
 })
 
--- 1. Hàm cầm vũ khí (Chỉ chạy khi chưa cầm gì trên tay)
+-- 1. Hàm tự cầm vũ khí
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -51,34 +51,31 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- Tự động cầm sẵn vũ khí ngay từ đầu
-equipWeapon()
-
--- 3. Vòng lặp Farm chính
+-- 3. Vòng lặp Farm bay cao an toàn
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(0.05) do
         pcall(function()
             local character = player.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then return end
             
-            -- Đảm bảo luôn cầm vũ khí
             equipWeapon()
-            
             local targetMob = getClosestMob(300)
             
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                 local mobHrp = targetMob.HumanoidRootPart
                 
-                -- Đứng cao trên đầu quái 8 studs (Quái hoàn toàn không đánh tới)
-                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 8, 0)
+                -- Nâng độ cao lên 14 studs (Cách xa tầm đánh của quái Sea 2)
+                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 14, 0)
                 
-                -- Kích hoạt đòn đánh bằng Tool
+                -- Giữ nhân vật không bị rơi
+                character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                
+                -- Thực hiện đòn đánh
                 local tool = character:FindFirstChildOfClass("Tool")
                 if tool then
                     tool:Activate()
                 end
                 
-                -- Giả lập click đánh trên màn hình
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             end
