@@ -1,9 +1,8 @@
 local player = game.Players.LocalPlayer
-local VirtualInputManager = game:GetService("VirtualInputManager")
-
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local isFarming = false
 
--- 1. Tạo Giao Diện Nút Bật/Tắt (Toggle UI)
+-- 1. Giao Diện Nút START / STOP
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoFarmGui"
 screenGui.ResetOnSpawn = false
@@ -22,13 +21,11 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- Tạo sẵn bộ giữ vị trí bay (BodyVelocity)
 local bodyVelocity = Instance.new("BodyVelocity")
 bodyVelocity.Name = "HoverVelocity"
 bodyVelocity.Velocity = Vector3.new(0, 0, 0)
 bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 
--- Xử lý bấm nút START / STOP
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -38,7 +35,6 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
-        -- Hủy hiệu ứng bay để nhân vật rơi xuống di chuyển bình thường
         local char = player.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local hover = char.HumanoidRootPart:FindFirstChild("HoverVelocity")
@@ -47,14 +43,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Thông báo
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Auto Farm Fly UI",
-    Text = "Đã fix lỗi kéo quái lên cao! Quái đứng yên dưới đất.",
-    Duration = 3
-})
-
--- 2. Hàm tự trang bị vũ khí
+-- 2. Hàm Tự Cầm Vũ Khí
 local function equipWeapon()
     local char = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -70,7 +59,7 @@ local function equipWeapon()
     end
 end
 
--- 3. Hàm tìm quái gần nhất
+-- 3. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(maxDistance)
     local char = player.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
@@ -97,7 +86,7 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Vòng lặp Farm chính (Độ cao 12 studs, quái giữ nguyên dưới đất)
+-- 4. Vòng Lặp Farm & Đánh Trực Tiếp (Fast Attack Fix)
 task.spawn(function()
     while task.wait(0.05) do
         if isFarming then
@@ -107,7 +96,6 @@ task.spawn(function()
                 
                 local myHrp = char.HumanoidRootPart
                 
-                -- Đảm bảo giữ bộ bay không bị mất khi chết / respawn
                 if not myHrp:FindFirstChild("HoverVelocity") then
                     bodyVelocity.Parent = myHrp
                 end
@@ -118,17 +106,21 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Đứng cao trên đầu quái 12 studs (Quái vẫn dưới đất)
-                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
+                    -- Nâng độ cao lên 10 studs (Gần hơn chút để hit-box chuẩn)
+                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 10, 0)
                     
-                    -- Thực hiện đòn đánh
+                    -- Ép vũ khí vung đòn
                     local tool = char:FindFirstChildOfClass("Tool")
                     if tool then
                         tool:Activate()
                     end
                     
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                    -- Gửi tín hiệu sát thương trực tiếp (Fix lỗi không đánh)
+                    local net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+                    if net then
+                        net:FindFirstChild("RE/RegisterAttack"):FireServer()
+                        net:FindFirstChild("RE/RegisterHit"):FireServer(mobHrp)
+                    end
                 end
             end)
         end
