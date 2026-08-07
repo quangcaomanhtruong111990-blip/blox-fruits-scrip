@@ -22,6 +22,13 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
+-- Tạo sẵn bộ giữ vị trí bay (BodyVelocity)
+local bodyVelocity = Instance.new("BodyVelocity")
+bodyVelocity.Name = "HoverVelocity"
+bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+
+-- Xử lý bấm nút START / STOP
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -31,14 +38,21 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
-        -- Hủy giữ bay để di chuyển bình thường
-        local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            local hover = character.HumanoidRootPart:FindFirstChild("HoverVelocity")
+        -- Hủy hiệu ứng bay để nhân vật rơi xuống di chuyển bình thường
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local hover = char.HumanoidRootPart:FindFirstChild("HoverVelocity")
             if hover then hover:Destroy() end
         end
     end
 end)
+
+-- Thông báo
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Auto Farm Fly UI",
+    Text = "Đã tích hợp nút START / STOP & Hạ độ cao trúng quái 100%!",
+    Duration = 3
+})
 
 -- 2. Hàm tự trang bị vũ khí
 local function equipWeapon()
@@ -83,7 +97,7 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Vòng lặp Farm chính (Độ cao chuẩn + Gom quái)
+-- 4. Vòng lặp Farm chính
 task.spawn(function()
     while task.wait(0.05) do
         if isFarming then
@@ -93,13 +107,9 @@ task.spawn(function()
                 
                 local myHrp = char.HumanoidRootPart
                 
-                local hover = myHrp:FindFirstChild("HoverVelocity")
-                if not hover then
-                    hover = Instance.new("BodyVelocity")
-                    hover.Name = "HoverVelocity"
-                    hover.Velocity = Vector3.new(0, 0, 0)
-                    hover.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                    hover.Parent = myHrp
+                -- Đảm bảo giữ bộ bay không bị mất khi chết / respawn
+                if not myHrp:FindFirstChild("HoverVelocity") then
+                    bodyVelocity.Parent = myHrp
                 end
 
                 equipWeapon()
@@ -108,14 +118,14 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Bay cách đầu quái 12 studs (Tầm đánh chuẩn xác)
+                    -- Nâng độ cao lên 12 studs (Thay vì 25 studs để đánh trúng quái)
                     myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
                     
-                    -- Ép vị trí quái lên sát chân để hit-box trúng 100%
+                    -- Kéo quái sát lại gần chân nhân vật
                     mobHrp.CFrame = myHrp.CFrame * CFrame.new(0, -8, 0)
                     mobHrp.CanCollide = false
                     
-                    -- Vung đòn đánh
+                    -- Thực hiện đòn đánh
                     local tool = char:FindFirstChildOfClass("Tool")
                     if tool then
                         tool:Activate()
