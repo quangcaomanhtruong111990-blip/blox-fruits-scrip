@@ -50,7 +50,7 @@ end)
 -- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Auto Farm Fly UI",
-    Text = "Đã tích hợp nút START / STOP & Hạ độ cao trúng quái 100%!",
+    Text = "Đã fix lỗi kéo quái lên cao! Quái đứng yên dưới đất.",
     Duration = 3
 })
 
@@ -97,7 +97,7 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Vòng lặp Farm chính
+-- 4. Vòng lặp Farm chính (Độ cao 12 studs, quái giữ nguyên dưới đất)
 task.spawn(function()
     while task.wait(0.05) do
         if isFarming then
@@ -118,12 +118,8 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Nâng độ cao lên 12 studs (Thay vì 25 studs để đánh trúng quái)
+                    -- Đứng cao trên đầu quái 12 studs (Quái vẫn dưới đất)
                     myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
-                    
-                    -- Kéo quái sát lại gần chân nhân vật
-                    mobHrp.CFrame = myHrp.CFrame * CFrame.new(0, -8, 0)
-                    mobHrp.CanCollide = false
                     
                     -- Thực hiện đòn đánh
                     local tool = char:FindFirstChildOfClass("Tool")
