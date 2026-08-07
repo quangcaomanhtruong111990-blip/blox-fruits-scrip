@@ -1,29 +1,63 @@
--- Ví dụ logic nhận quest và teleport đến vị trí quái
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 local player = game.Players.LocalPlayer
+local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
 
--- 1. Gọi RemoteEvent để nhận nhiệm vụ từ xa (không cần chạy lại gặp NPC)
-local function getQuest()
-    -- Tên Quest và Level tương ứng ở Sea 2
-    local args = {
-        [1] = "StartQuest",
-        [2] = "Area1Quest", -- Tên quest ví dụ
-        [3] = 1
-    }
-    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
-end
+-- Thông báo kích hoạt
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Auto Farm Quái",
+    Text = "Đang quét quái xung quanh để đánh...",
+    Duration = 3
+})
 
--- 2. Bay (Tween) nhân vật đến vị trí quái an toàn
-local function teleportToMob(targetCFrame)
-    local hrp = player.Character:WaitForChild("HumanoidRootPart")
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 300 -- Tốc độ bay an toàn chống Anti-Cheat
+-- Hàm tìm con quái gần nhân vật nhất trong phạm vi (Radius)
+local function getClosestMob(maxDistance)
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
-    local tweenInfo = TweenInfo.new(distance / speed, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
-    tween:Play()
+    local hrp = character.HumanoidRootPart
+    local closestMob = nil
+    local shortestDistance = maxDistance
+
+    -- Duyệt qua tất cả các đối tượng nằm trong thư mục Enemies của Blox Fruits
+    local enemies = workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, mob in pairs(enemies:GetChildren()) do
+            local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+            local mobHumanoid = mob:FindFirstChild("Humanoid")
+            
+            -- Kiểm tra quái còn sống và có bộ phận chính
+            if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
+                local distance = (hrp.Position - mobHrp.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestMob = mob
+                end
+            end
+        end
+    end
+    return closestMob
 end
 
--- Chạy thử nhận quest
-getQuest()
+-- Vòng lặp tự động Farm
+task.spawn(function()
+    while task.wait(0.1) do
+        pcall(function()
+            local character = player.Character
+            if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+            
+            -- Quét quái trong phạm vi 300 studs
+            local targetMob = getClosestMob(300)
+            
+            if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                local mobHrp = targetMob.HumanoidRootPart
+                
+                -- Teleport đứng ngay trên đầu quái 5 studs (để quái không đánh trúng mình)
+                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 5, 0)
+                
+                -- Tự động click chuột/nhấp màn hình để vung vũ khí đánh
+                VirtualUser:CaptureController()
+                VirtualUser:Button1Down(Vector2.new(0, 0))
+            end
+        end)
+    end
+end)
