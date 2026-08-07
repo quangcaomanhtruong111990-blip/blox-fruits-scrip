@@ -1,10 +1,11 @@
 local player = game.Players.LocalPlayer
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
 local isFarming = false
 
--- 1. TẠO NÚT BẬT / TẮT (UI TOGGLE)
+-- 1. Tạo Giao Diện Nút Bật/Tắt (Toggle UI)
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmGuiNew"
+screenGui.Name = "AutoFarmGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
@@ -13,7 +14,7 @@ toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
 toggleBtn.Size = UDim2.new(0, 130, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.TextSize = 16
 toggleBtn.Font = Enum.Font.SourceSansBold
@@ -21,55 +22,49 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- Tạo hiệu ứng lơ lửng khi farm
-local bodyVelocity = Instance.new("BodyVelocity")
-bodyVelocity.Name = "HoverVelocity"
-bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-
--- Xử lý khi nhấn nút
+-- Sự kiện bấm nút ON / OFF
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
         toggleBtn.Text = "FARM: ON"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 205, 50)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
     else
         toggleBtn.Text = "FARM: OFF"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-        
-        -- Hủy hiệu ứng bay khi tắt farm để di chuyển bình thường
-        local char = player.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local hover = char.HumanoidRootPart:FindFirstChild("HoverVelocity")
-            if hover then hover:Destroy() end
-        end
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
     end
 end)
 
--- 2. HÀM TỰ CẦM VŨ KHÍ (Melee / Sword)
+-- Thông báo
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Fix Auto Farm",
+    Text = "Đã thêm nút ON/OFF & nâng độ cao vừa tầm!",
+    Duration = 3
+})
+
+-- 2. Hàm cầm vũ khí (Chỉ chạy khi chưa cầm gì trên tay)
 local function equipWeapon()
-    local char = player.Character
+    local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
-    if not char or not backpack then return end
+    if not character or not backpack then return end
     
-    if not char:FindFirstChildOfClass("Tool") then
+    if not character:FindFirstChildOfClass("Tool") then
         for _, item in pairs(backpack:GetChildren()) do
-            if item:IsA("Tool") then
-                char.Humanoid:EquipTool(item)
+            if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
+                character.Humanoid:EquipTool(item)
                 break
             end
         end
     end
 end
 
--- 3. HÀM TÌM QUÁI GẦN NHẤT
-local function getClosestMob()
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+-- 3. Hàm tìm quái gần nhất
+local function getClosestMob(maxDistance)
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
-    local myHrp = char.HumanoidRootPart
+    local hrp = character.HumanoidRootPart
     local closestMob = nil
-    local shortestDistance = 350 -- Bán kính quét quái
+    local shortestDistance = maxDistance
 
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
@@ -78,7 +73,7 @@ local function getClosestMob()
             local mobHumanoid = mob:FindFirstChild("Humanoid")
             
             if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
-                local distance = (myHrp.Position - mobHrp.Position).Magnitude
+                local distance = (hrp.Position - mobHrp.Position).Magnitude
                 if distance < shortestDistance then
                     shortestDistance = distance
                     closestMob = mob
@@ -89,35 +84,34 @@ local function getClosestMob()
     return closestMob
 end
 
--- 4. VÒNG LẶP FARM CHÍNH
+-- 4. Vòng lặp Farm chính
 task.spawn(function()
-    while task.wait(0.03) do
+    while task.wait(0.1) do
         if isFarming then
             pcall(function()
-                local char = player.Character
-                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+                local character = player.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                local myHrp = char.HumanoidRootPart
-                
-                -- Khóa vị trí không bị rơi
-                if not myHrp:FindFirstChild("HoverVelocity") then
-                    bodyVelocity.Parent = myHrp
-                end
-
+                -- Đảm bảo luôn cầm vũ khí
                 equipWeapon()
-                local targetMob = getClosestMob()
+                
+                local targetMob = getClosestMob(300)
                 
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Bay tới đứng phía trên đầu quái 11 studs
-                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 11, 0)
+                    -- Đứng cao trên đầu quái 12 studs (Cao hơn bản cũ một chút)
+                    character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
                     
-                    -- Tự động vung vũ khí đánh
-                    local tool = char:FindFirstChildOfClass("Tool")
+                    -- Kích hoạt đòn đánh bằng Tool
+                    local tool = character:FindFirstChildOfClass("Tool")
                     if tool then
                         tool:Activate()
                     end
+                    
+                    -- Giả lập click đánh trên màn hình
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                 end
             end)
         end
