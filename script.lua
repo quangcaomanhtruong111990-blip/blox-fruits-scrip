@@ -31,6 +31,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
+        -- Hủy giữ bay để di chuyển bình thường
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             local hover = character.HumanoidRootPart:FindFirstChild("HoverVelocity")
@@ -82,7 +83,7 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Vòng lặp Farm chính (Độ cao 15 studs + Gom quái)
+-- 4. Vòng lặp Farm chính (Độ cao chuẩn + Gom quái)
 task.spawn(function()
     while task.wait(0.05) do
         if isFarming then
@@ -107,14 +108,14 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Đặt độ cao vừa chuẩn 15 studs ngay trên đầu quái
-                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 15, 0)
+                    -- Bay cách đầu quái 12 studs (Tầm đánh chuẩn xác)
+                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
                     
-                    -- Kéo quái lại gần chân nhân vật để đảm bảo hit box trúng 100%
-                    mobHrp.CFrame = myHrp.CFrame * CFrame.new(0, -10, 0)
+                    -- Ép vị trí quái lên sát chân để hit-box trúng 100%
+                    mobHrp.CFrame = myHrp.CFrame * CFrame.new(0, -8, 0)
                     mobHrp.CanCollide = false
                     
-                    -- Thực hiện đòn đánh
+                    -- Vung đòn đánh
                     local tool = char:FindFirstChildOfClass("Tool")
                     if tool then
                         tool:Activate()
