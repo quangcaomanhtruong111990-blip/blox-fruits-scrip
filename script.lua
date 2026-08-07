@@ -3,32 +3,18 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
 
--- Đợi 1 giây để game tải xong hoàn toàn
-task.wait(1)
-
--- 1. Di chuyển lên phía trước
-local targetPosition = hrp.Position + (hrp.CFrame.LookVector * 10)
-humanoid:MoveTo(targetPosition)
-
--- Thông báo bắt đầu
+-- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Thông báo",
-    Text = "Đang di chuyển và chuẩn bị nhảy 10 lần...",
+    Title = "Auto Walk",
+    Text = "Nhân vật bắt đầu đi tới liên tục!",
     Duration = 3
 })
 
--- Đợi nhân vật di chuyển xong (khoảng 1.5 giây)
-task.wait(1.5)
-
--- 2. Tăng chiều cao khi nhảy (Mặc định là 50, chỉnh lên 100 để nhảy cao gấp đôi)
-humanoid.JumpPower = 100
-
--- 3. Vòng lặp cho nhân vật nhảy 10 lần
-for i = 1, 10 do
-    humanoid.Jump = true -- Ép nhân vật nhảy
-    print("Đã nhảy lần thứ:", i)
-    task.wait(1) -- Đợi 1 giây giữa mỗi lần nhảy
-end
-
--- Trả lại độ cao nhảy bình thường
-humanoid.JumpPower = 50
+-- Vòng lặp liên tục ép nhân vật đi về phía trước
+task.spawn(function()
+    while true do
+        -- Move hướng theo LookVector (mặt nhân vật nhìn về đâu sẽ đi về đó)
+        humanoid:Move(hrp.CFrame.LookVector, true)
+        task.wait() -- Nghỉ mỗi khung hình để game không bị lag/văng
+    end
+end)
