@@ -1,37 +1,33 @@
---====================================
--- Project: Blox Fruits Lua Learning
--- Author: thienphucs06
--- Purpose: Learn Lua logic (SAFE)
---====================================
+-- Tải thư viện Giao diện (Orion Library)
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
 
--- 1. In ra màn hình
-print("Hello Lua")
-print("Welcome to learning Lua for Roblox")
+-- Tạo cửa sổ Menu
+local Window = OrionLib:MakeWindow({
+    Name = "Menu Script Android", 
+    HidePremium = false, 
+    SaveConfig = true, 
+    ConfigFolder = "OrionTest"
+})
 
--- 2. Biến cơ bản
-local level = 1
-local beli = 500
-local playerName = "Player"
+-- Tạo Tab chức năng
+local MainTab = Window:MakeTab({
+    Name = "Chính",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
 
-print("Level:", level)
-print("Beli:", beli)
-print("Name:", playerName)
+-- Tạo nút bấm (Button)
+MainTab:AddButton({
+    Name = "Hiển thị thông báo",
+    Callback = function()
+        OrionLib:MakeNotification({
+            Name = "Thành công!",
+            Content = "Bạn đã chạy script trên Android!",
+            Image = "rbxassetid://4483345998",
+            Time = 5
+        })
+    end    
+})
 
--- 3. Điều kiện
-if level < 10 then
-    print("Level còn thấp, cần train thêm")
-else
-    print("Level ổn rồi")
-end
-
--- 4. Vòng lặp
-for i = 1, 5 do
-    print("Lần lặp:", i)
-end
-
--- 5. Hàm
-local function sayHello(name)
-    print("Hello", name)
-end
-
-sayHello(playerName)
+-- Khởi tạo Menu
+OrionLib:Init()
