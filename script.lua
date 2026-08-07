@@ -5,11 +5,22 @@ local RunService = game:GetService("RunService")
 -- Thông báo kích hoạt
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Auto Farm Quái",
-    Text = "Hạ cao độ xuống 9 - Tự động tắt sau 3 phút!",
+    Text = "Fix triệt để: Đã khóa trọng lực & quay mặt đánh!",
     Duration = 3
 })
 
--- 1. Hàm Tự Động Chọn & Trang Bị Cận Chiến (Melee)
+-- 1. Bật Noclip xuyên vật thể
+RunService.Stepped:Connect(function()
+    if player.Character then
+        for _, part in pairs(player.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- 2. Hàm Tự Động Chọn & Trang Bị Melee
 local function equipMelee()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -25,7 +36,7 @@ local function equipMelee()
     end
 end
 
--- 2. Hàm Tìm Con Quái Gần Nhất
+-- 3. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -52,16 +63,16 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 3. Vòng Lặp Auto Farm (Chạy trong 3 phút = 180 giây)
+-- 4. Vòng Lặp Auto Farm (Tự tắt sau 3 phút)
 task.spawn(function()
     local startTime = tick()
     
     while task.wait(0.05) do
-        -- Kiểm tra nếu đủ 3 phút (180s) thì tự tắt
+        -- Tự ngắt sau 3 phút (180 giây)
         if tick() - startTime >= 180 then
             game:GetService("StarterGui"):SetCore("SendNotification", {
                 Title = "Auto Farm Quái",
-                Text = "Đã hết 3 phút, script đã tự dừng!",
+                Text = "Đã hết 3 phút, script đã dừng hoàn toàn!",
                 Duration = 5
             })
             break
@@ -71,7 +82,7 @@ task.spawn(function()
             local character = player.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then return end
             
-            -- Tự động lấy Melee cầm lên tay
+            local hrp = character.HumanoidRootPart
             equipMelee()
             
             local targetMob = getClosestMob(300)
@@ -79,16 +90,19 @@ task.spawn(function()
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                 local mobHrp = targetMob.HumanoidRootPart
                 
-                -- Bay cao đúng 9 studs trên đầu quái
-                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
+                -- Triệt tiêu lực rơi, giữ nhân vật đứng im trên không
+                hrp.AssemblyLinearVelocity = Vector3.zero
                 
-                -- Kích hoạt đòn đánh của vũ khí
+                -- Đứng cao 9 studs và XOAY MẶT THẲNG XUỐNG ĐẦU QUÁI để đánh trúng
+                hrp.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 9, 0), mobHrp.Position)
+                
+                -- Kích hoạt đòn đánh trực tiếp từ vũ khí
                 local tool = character:FindFirstChildOfClass("Tool")
                 if tool then
                     tool:Activate()
                 end
                 
-                -- Nhấp chuột đánh liên tục
+                -- Nhấp chuột liên tục
                 VirtualUser:CaptureController()
                 VirtualUser:Button1Down(Vector2.new(1, 1))
                 VirtualUser:Button1Up(Vector2.new(1, 1))
