@@ -2,9 +2,9 @@ local player = game.Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local isFarming = false
 
--- 1. Giao Diện Nút START / STOP
+-- 1. TẠO NÚT BẬT / TẮT (UI TOGGLE)
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmGui"
+screenGui.Name = "AutoFarmGuiNew"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
@@ -13,7 +13,7 @@ toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
 toggleBtn.Size = UDim2.new(0, 130, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.TextSize = 16
 toggleBtn.Font = Enum.Font.SourceSansBold
@@ -21,20 +21,23 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
+-- Tạo hiệu ứng lơ lửng khi farm
 local bodyVelocity = Instance.new("BodyVelocity")
 bodyVelocity.Name = "HoverVelocity"
 bodyVelocity.Velocity = Vector3.new(0, 0, 0)
 bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 
+-- Xử lý khi nhấn nút
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
         toggleBtn.Text = "FARM: ON"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 205, 50)
     else
         toggleBtn.Text = "FARM: OFF"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
         
+        -- Hủy hiệu ứng bay khi tắt farm để di chuyển bình thường
         local char = player.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             local hover = char.HumanoidRootPart:FindFirstChild("HoverVelocity")
@@ -43,7 +46,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 2. Hàm Tự Cầm Vũ Khí
+-- 2. HÀM TỰ CẦM VŨ KHÍ (Melee / Sword)
 local function equipWeapon()
     local char = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -51,7 +54,7 @@ local function equipWeapon()
     
     if not char:FindFirstChildOfClass("Tool") then
         for _, item in pairs(backpack:GetChildren()) do
-            if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
+            if item:IsA("Tool") then
                 char.Humanoid:EquipTool(item)
                 break
             end
@@ -59,14 +62,14 @@ local function equipWeapon()
     end
 end
 
--- 3. Hàm Tìm Quái Gần Nhất
-local function getClosestMob(maxDistance)
+-- 3. HÀM TÌM QUÁI GẦN NHẤT
+local function getClosestMob()
     local char = player.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
     
     local myHrp = char.HumanoidRootPart
     local closestMob = nil
-    local shortestDistance = maxDistance
+    local shortestDistance = 350 -- Bán kính quét quái
 
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
@@ -86,9 +89,9 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Vòng Lặp Farm & Đánh Trực Tiếp (Fast Attack Fix)
+-- 4. VÒNG LẶP FARM CHÍNH
 task.spawn(function()
-    while task.wait(0.05) do
+    while task.wait(0.03) do
         if isFarming then
             pcall(function()
                 local char = player.Character
@@ -96,30 +99,24 @@ task.spawn(function()
                 
                 local myHrp = char.HumanoidRootPart
                 
+                -- Khóa vị trí không bị rơi
                 if not myHrp:FindFirstChild("HoverVelocity") then
                     bodyVelocity.Parent = myHrp
                 end
 
                 equipWeapon()
-                local targetMob = getClosestMob(400)
+                local targetMob = getClosestMob()
                 
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Nâng độ cao lên 10 studs (Gần hơn chút để hit-box chuẩn)
-                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 10, 0)
+                    -- Bay tới đứng phía trên đầu quái 11 studs
+                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 11, 0)
                     
-                    -- Ép vũ khí vung đòn
+                    -- Tự động vung vũ khí đánh
                     local tool = char:FindFirstChildOfClass("Tool")
                     if tool then
                         tool:Activate()
-                    end
-                    
-                    -- Gửi tín hiệu sát thương trực tiếp (Fix lỗi không đánh)
-                    local net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
-                    if net then
-                        net:FindFirstChild("RE/RegisterAttack"):FireServer()
-                        net:FindFirstChild("RE/RegisterHit"):FireServer(mobHrp)
                     end
                 end
             end)
