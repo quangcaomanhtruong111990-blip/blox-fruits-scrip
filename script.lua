@@ -6,15 +6,16 @@ local hrp = character:WaitForChild("HumanoidRootPart")
 -- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Auto Walk",
-    Text = "Nhân vật bắt đầu đi tới liên tục!",
+    Text = "Đã kích hoạt tự động đi tới!",
     Duration = 3
 })
 
--- Vòng lặp liên tục ép nhân vật đi về phía trước
-task.spawn(function()
-    while true do
-        -- Move hướng theo LookVector (mặt nhân vật nhìn về đâu sẽ đi về đó)
-        humanoid:Move(hrp.CFrame.LookVector, true)
-        task.wait() -- Nghỉ mỗi khung hình để game không bị lag/văng
+-- Tạo vòng lặp di chuyển liên tục theo thời gian thực
+local RunService = game:GetService("RunService")
+
+RunService.RenderStepped:Connect(function()
+    if humanoid and hrp then
+        -- Ép nhân vật di chuyển liên tục theo hướng mặt đang nhìn
+        humanoid:Move(hrp.CFrame.LookVector, false)
     end
 end)
