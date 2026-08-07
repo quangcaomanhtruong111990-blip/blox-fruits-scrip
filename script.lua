@@ -5,7 +5,7 @@ local RunService = game:GetService("RunService")
 -- Thông báo kích hoạt
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Auto Farm Quái",
-    Text = "Đang quét quái xung quanh để đánh...",
+    Text = "Đang quét quái... Tự động tắt sau 3 phút!",
     Duration = 3
 })
 
@@ -38,9 +38,21 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- Vòng lặp tự động Farm
+-- Vòng lặp tự động Farm (Chạy trong 3 phút = 180 giây)
 task.spawn(function()
+    local startTime = tick()
+    
     while task.wait(0.1) do
+        -- Kiểm tra nếu đã quá 3 phút (180 giây) thì ngắt vòng lặp
+        if tick() - startTime >= 180 then
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Auto Farm Quái",
+                Text = "Đã hết 3 phút, script đã tự động ngắt!",
+                Duration = 5
+            })
+            break
+        end
+
         pcall(function()
             local character = player.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -51,12 +63,8 @@ task.spawn(function()
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                 local mobHrp = targetMob.HumanoidRootPart
                 
-                -- Nâng quái lên cao 12 studs và tắt va chạm để không bị rớt xuống
-                mobHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
-                mobHrp.CanCollide = false
-                
-                -- Teleport đứng ngay trên đầu quái 5 studs (để quái không đánh trúng mình)
-                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 5, 0)
+                -- Teleport đứng ngay trên đầu quái 12 studs
+                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
                 
                 -- Tự động click chuột/nhấp màn hình để vung vũ khí đánh
                 VirtualUser:CaptureController()
