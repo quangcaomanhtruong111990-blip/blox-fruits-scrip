@@ -1,7 +1,6 @@
 local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
--- Biến trạng thái bật/tắt Auto Farm
 local isFarming = false
 
 -- 1. Tạo Giao Diện Nút Bật/Tắt (Toggle UI)
@@ -14,26 +13,24 @@ local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
 toggleBtn.Size = UDim2.new(0, 130, 0, 45)
-toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0) -- Vị trí bên trái màn hình
-toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Màu đỏ (OFF)
+toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.TextSize = 16
 toggleBtn.Font = Enum.Font.SourceSansBold
 toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
-toggleBtn.Draggable = true -- Cho phép kéo thả nút đến vị trí tùy thích
+toggleBtn.Draggable = true
 
--- Xử lý sự kiện khi bấm nút
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
         toggleBtn.Text = "FARM: ON"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Chuyển màu xanh
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
     else
         toggleBtn.Text = "FARM: OFF"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Chuyển màu đỏ
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
-        -- Xóa bộ giữ bay khi dừng script để nhân vật di chuyển bình thường
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             local hover = character.HumanoidRootPart:FindFirstChild("HoverVelocity")
@@ -85,7 +82,7 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Vòng lặp Farm chính
+-- 4. Vòng lặp Farm chính (Độ cao 15 studs + Gom quái)
 task.spawn(function()
     while task.wait(0.05) do
         if isFarming then
@@ -95,7 +92,6 @@ task.spawn(function()
                 
                 local myHrp = char.HumanoidRootPart
                 
-                -- Tạo bộ giữ bay lơ lửng khi đang bật Farm
                 local hover = myHrp:FindFirstChild("HoverVelocity")
                 if not hover then
                     hover = Instance.new("BodyVelocity")
@@ -111,8 +107,12 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Đứng cao trên đầu quái 25 studs
-                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 25, 0)
+                    -- Đặt độ cao vừa chuẩn 15 studs ngay trên đầu quái
+                    myHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 15, 0)
+                    
+                    -- Kéo quái lại gần chân nhân vật để đảm bảo hit box trúng 100%
+                    mobHrp.CFrame = myHrp.CFrame * CFrame.new(0, -10, 0)
+                    mobHrp.CanCollide = false
                     
                     -- Thực hiện đòn đánh
                     local tool = char:FindFirstChildOfClass("Tool")
