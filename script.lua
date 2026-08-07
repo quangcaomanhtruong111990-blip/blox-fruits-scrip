@@ -1,32 +1,14 @@
--- Tải thư viện Fluent UI (Hoạt động tốt trên Android)
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+-- Lấy thông tin nhân vật
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
 
--- Tạo cửa sổ Menu
-local Window = Fluent:CreateWindow({
-    Title = "Menu Script Android",
-    SubTitle = "by Thành",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
-    Theme = "Dark"
+-- Thông báo
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Script Di Chuyển",
+    Text = "Đang tiến lên phía trước...",
+    Duration = 3
 })
 
--- Tạo Tab
-local Tabs = {
-    Main = Window:AddTab({ Title = "Chính", Icon = "home" })
-}
-
--- Tạo Nút bấm
-Tabs.Main:AddButton({
-    Title = "Hiển thị thông báo",
-    Description = "Bấm để kiểm tra script",
-    Callback = function()
-        Fluent:Notify({
-            Title = "Thành công!",
-            Content = "Script chạy mượt mà trên Android!",
-            Duration = 5
-        })
-    end
-})
-
--- Chọn mặc định Tab chính
-Window:SelectTab(1)
+-- Dịch chuyển nhân vật lên phía trước 10 studs (khoảng 2-3 bước chân)
+hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -10)
