@@ -1,12 +1,11 @@
 local player = game.Players.LocalPlayer
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local isFarming = false
-local NetRemotes = ReplicatedStorage:WaitForChild("Remotes")
 
--- 1. Tạo Giao Diện Nút Bật/Tắt (Toggle UI)
+-- 1. Tạo Giao Diện Toggle
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoFarmGui"
 screenGui.ResetOnSpawn = false
@@ -22,8 +21,6 @@ toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.TextSize = 16
 toggleBtn.Font = Enum.Font.SourceSansBold
 toggleBtn.Text = "FARM: OFF"
-toggleBtn.Active = true
-toggleBtn.Draggable = true
 
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
@@ -36,7 +33,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 2. Hàm Tự Trang Bị Vũ Khí
+-- 2. Hàm Tự Equip Vũ Khí
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -52,45 +49,50 @@ local function equipWeapon()
     end
 end
 
--- 3. Hàm Gom Quái Về 1 Điểm
-local function bringMobs(targetPos, radius)
-    local enemies = Workspace:FindFirstChild("Enemies")
-    if not enemies then return end
-
-    for _, mob in pairs(enemies:GetChildren()) do
-        local mobHrp = mob:FindFirstChild("HumanoidRootPart")
-        local mobHum = mob:FindFirstChild("Humanoid")
-        
-        if mobHrp and mobHum and mobHum.Health > 0 then
-            if (mobHrp.Position - targetPos).Magnitude <= radius then
-                mobHrp.CFrame = CFrame.new(targetPos)
-                mobHrp.CanCollide = false
-                mobHum.WalkSpeed = 0
+-- 3. Noclip & Giữ Vị Trí Tuyệt Đối (Chống giật / chống rơi)
+RunService.Stepped:Connect(function()
+    if isFarming and player.Character then
+        for _, part in pairs(player.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
         end
     end
-end
+end)
 
--- 4. Hàm Fast Attack (Gửi Remote trực tiếp, không vung tay)
-local function fastAttack()
-    pcall(function()
-        local netRemotesFolder = NetRemotes:FindFirstChild("Validator") or NetRemotes
-        if netRemotesFolder:FindFirstChild("RegisterAttack") then
-            netRemotesFolder.RegisterAttack:FireServer(0.1)
-        elseif NetRemotes:FindFirstChild("CommF_") then
-            NetRemotes.CommF_:InvokeServer("RegisterAttack")
-        end
-    end)
+-- 4. Fast Attack Đạt Chuẩn Blox Fruits (Kích hoạt hitbox gây dame thật)
+local function executeFastAttack()
+    local char = player.Character
+    if not char then return end
+    
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        -- Kích hoạt đòn đánh gốc
+        tool:Activate()
+        
+        -- Bypass cooldown đòn đánh
+        pcall(function()
+            local combatFramework = require(player.PlayerScripts:WaitForChild("CombatFramework"))
+            local activeController = combatFramework.activeController
+            if activeController then
+                activeController.timeToNextAttack = 0
+                activeController.hitboxMagnitude = 60
+                activeController:attack()
+            end
+        end)
+    end
 end
 
 -- 5. Vòng Lặp Farm Chính
 task.spawn(function()
-    while task.wait(0.01) do -- Chạy tốc độ siêu nhanh
+    while true do
+        task.wait()
         if isFarming then
             pcall(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
+                local hrp = character.HumanoidRootPart
                 equipWeapon()
                 
                 -- Tìm quái gần nhất
@@ -103,7 +105,7 @@ task.spawn(function()
                         local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                         local mobHum = mob:FindFirstChild("Humanoid")
                         if mobHrp and mobHum and mobHum.Health > 0 then
-                            local dist = (character.HumanoidRootPart.Position - mobHrp.Position).Magnitude
+                            local dist = (hrp.Position - mobHrp.Position).Magnitude
                             if dist < shortestDistance then
                                 shortestDistance = dist
                                 targetMob = mob
@@ -114,16 +116,26 @@ task.spawn(function()
 
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
-                    local farmPos = mobHrp.Position + Vector3.new(0, 10, 0)
                     
-                    -- Khóa vị trí người chơi trên đầu quái
-                    character.HumanoidRootPart.CFrame = CFrame.new(farmPos, mobHrp.Position)
+                    -- Khóa trọng lực để nhân vật KHÔNG RƠI / KHÔNG GIẬT
+                    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                     
-                    -- Gom quái xung quanh lại
-                    bringMobs(mobHrp.Position, 250)
+                    -- Neo nhân vật cách đầu quái 10 studs
+                    hrp.CFrame = mobHrp.CFrame * CFrame.new(0, 10, 0) * CFrame.Angles(math.rad(-90), 0, 0)
                     
-                    -- Xả đòn đánh cực nhanh
-                    fastAttack()
+                    -- Gom quái về vị trí target
+                    for _, mob in pairs(enemies:GetChildren()) do
+                        local mHrp = mob:FindFirstChild("HumanoidRootPart")
+                        local mHum = mob:FindFirstChild("Humanoid")
+                        if mHrp and mHum and mHum.Health > 0 and (mHrp.Position - mobHrp.Position).Magnitude < 200 then
+                            mHrp.CFrame = mobHrp.CFrame
+                            mHrp.CanCollide = false
+                            mHum.WalkSpeed = 0
+                        end
+                    end
+                    
+                    -- Đánh
+                    executeFastAttack()
                 end
             end)
         end
