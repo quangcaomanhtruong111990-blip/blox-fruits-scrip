@@ -1,15 +1,31 @@
 local player = game.Players.LocalPlayer
-local VirtualUser = game:GetService("VirtualUser")
-local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
--- Thông báo kích hoạt
+-- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Auto Farm Quái",
-    Text = "Đang quét quái xung quanh để đánh...",
+    Title = "Auto Farm Fix",
+    Text = "Đã sửa lỗi tự trang bị và đánh quái!",
     Duration = 3
 })
 
--- Hàm tìm con quái gần nhân vật nhất trong phạm vi (Radius)
+-- Hàm tự cầm vũ khí (Ưu tiên Melee/Combat hoặc Sword)
+local function equipWeapon()
+    local character = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    if not character or not backpack then return end
+    
+    -- Nếu chưa cầm vũ khí nào trên tay
+    if not character:FindFirstChildOfClass("Tool") then
+        for _, item in pairs(backpack:GetChildren()) do
+            if item:IsA("Tool") then
+                character.Humanoid:EquipTool(item)
+                break
+            end
+        end
+    end
+end
+
+-- Hàm tìm quái gần nhất
 local function getClosestMob(maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -18,14 +34,12 @@ local function getClosestMob(maxDistance)
     local closestMob = nil
     local shortestDistance = maxDistance
 
-    -- Duyệt qua tất cả các đối tượng nằm trong thư mục Enemies của Blox Fruits
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
             local mobHrp = mob:FindFirstChild("HumanoidRootPart")
             local mobHumanoid = mob:FindFirstChild("Humanoid")
             
-            -- Kiểm tra quái còn sống và có bộ phận chính
             if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
                 local distance = (hrp.Position - mobHrp.Position).Magnitude
                 if distance < shortestDistance then
@@ -38,25 +52,34 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- Vòng lặp tự động Farm
+-- Vòng lặp Farm chính
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(0.05) do
         pcall(function()
             local character = player.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then return end
             
-            -- Quét quái trong phạm vi 300 studs
+            -- 1. Tự động lôi vũ khí ra tay
+            equipWeapon()
+            
+            -- 2. Tìm quái trong bán kính 300 studs
             local targetMob = getClosestMob(300)
             
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                 local mobHrp = targetMob.HumanoidRootPart
                 
-                -- Teleport đứng ngay trên đầu quái 5 studs (để quái không đánh trúng mình)
-                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 5, 0)
+                -- Bay tới giữ khoảng cách 4 studs trên đầu quái
+                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 4, 0)
                 
-                -- Tự động click chuột/nhấp màn hình để vung vũ khí đánh
-                VirtualUser:CaptureController()
-                VirtualUser:Button1Down(Vector2.new(0, 0))
+                -- 3. Ép vũ khí đang cầm thực hiện đòn đánh (Activate)
+                local tool = character:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
+                end
+                
+                -- Giả lập bấm chuột trái trên màn hình
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             end
         end)
     end
