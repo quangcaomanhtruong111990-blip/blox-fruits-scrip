@@ -1,143 +1,67 @@
 local player = game.Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
+local VirtualUser = game:GetService("VirtualUser")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local isFarming = false
+-- Thông báo kích hoạt
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Auto Farm Quái",
+    Text = "Đang quét quái xung quanh để đánh...",
+    Duration = 3
+})
 
--- 1. Tạo Giao Diện Toggle
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
-
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Name = "ToggleButton"
-toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 130, 0, 45)
-toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.TextSize = 16
-toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.Text = "FARM: OFF"
-
-toggleBtn.MouseButton1Click:Connect(function()
-    isFarming = not isFarming
-    if isFarming then
-        toggleBtn.Text = "FARM: ON"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    else
-        toggleBtn.Text = "FARM: OFF"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    end
-end)
-
--- 2. Hàm Tự Equip Vũ Khí
-local function equipWeapon()
+-- Hàm tìm con quái gần nhân vật nhất trong phạm vi (Radius)
+local function getClosestMob(maxDistance)
     local character = player.Character
-    local backpack = player:FindFirstChild("Backpack")
-    if not character or not backpack then return end
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
-    if not character:FindFirstChildOfClass("Tool") then
-        for _, item in pairs(backpack:GetChildren()) do
-            if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
-                character.Humanoid:EquipTool(item)
-                break
+    local hrp = character.HumanoidRootPart
+    local closestMob = nil
+    local shortestDistance = maxDistance
+
+    -- Duyệt qua tất cả các đối tượng nằm trong thư mục Enemies của Blox Fruits
+    local enemies = workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, mob in pairs(enemies:GetChildren()) do
+            local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+            local mobHumanoid = mob:FindFirstChild("Humanoid")
+            
+            -- Kiểm tra quái còn sống và có bộ phận chính
+            if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
+                local distance = (hrp.Position - mobHrp.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestMob = mob
+                end
             end
         end
     end
+    return closestMob
 end
 
--- 3. Noclip & Giữ Vị Trí Tuyệt Đối (Chống giật / chống rơi)
-RunService.Stepped:Connect(function()
-    if isFarming and player.Character then
-        for _, part in pairs(player.Character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    end
-end)
-
--- 4. Fast Attack Đạt Chuẩn Blox Fruits (Kích hoạt hitbox gây dame thật)
-local function executeFastAttack()
-    local char = player.Character
-    if not char then return end
-    
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then
-        -- Kích hoạt đòn đánh gốc
-        tool:Activate()
-        
-        -- Bypass cooldown đòn đánh
+-- Vòng lặp tự động Farm
+task.spawn(function()
+    while task.wait(0.1) do
         pcall(function()
-            local combatFramework = require(player.PlayerScripts:WaitForChild("CombatFramework"))
-            local activeController = combatFramework.activeController
-            if activeController then
-                activeController.timeToNextAttack = 0
-                activeController.hitboxMagnitude = 60
-                activeController:attack()
+            local character = player.Character
+            if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+            
+            -- Quét quái trong phạm vi 300 studs
+            local targetMob = getClosestMob(300)
+            
+            if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                local mobHrp = targetMob.HumanoidRootPart
+                
+                -- Nâng quái lên cao 12 studs và tắt va chạm để không bị rớt xuống
+                mobHrp.CFrame = mobHrp.CFrame * CFrame.new(0, 12, 0)
+                mobHrp.CanCollide = false
+                
+                -- Teleport đứng ngay trên đầu quái 5 studs (để quái không đánh trúng mình)
+                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 5, 0)
+                
+                -- Tự động click chuột/nhấp màn hình để vung vũ khí đánh
+                VirtualUser:CaptureController()
+                VirtualUser:Button1Down(Vector2.new(0, 0))
             end
         end)
-    end
-end
-
--- 5. Vòng Lặp Farm Chính
-task.spawn(function()
-    while true do
-        task.wait()
-        if isFarming then
-            pcall(function()
-                local character = player.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-                
-                local hrp = character.HumanoidRootPart
-                equipWeapon()
-                
-                -- Tìm quái gần nhất
-                local enemies = Workspace:FindFirstChild("Enemies")
-                local targetMob = nil
-                local shortestDistance = 350
-
-                if enemies then
-                    for _, mob in pairs(enemies:GetChildren()) do
-                        local mobHrp = mob:FindFirstChild("HumanoidRootPart")
-                        local mobHum = mob:FindFirstChild("Humanoid")
-                        if mobHrp and mobHum and mobHum.Health > 0 then
-                            local dist = (hrp.Position - mobHrp.Position).Magnitude
-                            if dist < shortestDistance then
-                                shortestDistance = dist
-                                targetMob = mob
-                            end
-                        end
-                    end
-                end
-
-                if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                    local mobHrp = targetMob.HumanoidRootPart
-                    
-                    -- Khóa trọng lực để nhân vật KHÔNG RƠI / KHÔNG GIẬT
-                    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                    
-                    -- Neo nhân vật cách đầu quái 10 studs
-                    hrp.CFrame = mobHrp.CFrame * CFrame.new(0, 10, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-                    
-                    -- Gom quái về vị trí target
-                    for _, mob in pairs(enemies:GetChildren()) do
-                        local mHrp = mob:FindFirstChild("HumanoidRootPart")
-                        local mHum = mob:FindFirstChild("Humanoid")
-                        if mHrp and mHum and mHum.Health > 0 and (mHrp.Position - mobHrp.Position).Magnitude < 200 then
-                            mHrp.CFrame = mobHrp.CFrame
-                            mHrp.CanCollide = false
-                            mHum.WalkSpeed = 0
-                        end
-                    end
-                    
-                    -- Đánh
-                    executeFastAttack()
-                end
-            end)
-        end
     end
 end)
