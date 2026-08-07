@@ -3,21 +3,20 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Auto Farm Fix",
-    Text = "Đã sửa lỗi tự trang bị và đánh quái!",
+    Title = "Fix Auto Farm",
+    Text = "Đã tối ưu khoảng cách an toàn & tốc độ đánh!",
     Duration = 3
 })
 
--- Hàm tự cầm vũ khí (Ưu tiên Melee/Combat hoặc Sword)
+-- 1. Hàm cầm vũ khí (Chỉ chạy khi chưa cầm gì trên tay)
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
     if not character or not backpack then return end
     
-    -- Nếu chưa cầm vũ khí nào trên tay
     if not character:FindFirstChildOfClass("Tool") then
         for _, item in pairs(backpack:GetChildren()) do
-            if item:IsA("Tool") then
+            if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
                 character.Humanoid:EquipTool(item)
                 break
             end
@@ -25,7 +24,7 @@ local function equipWeapon()
     end
 end
 
--- Hàm tìm quái gần nhất
+-- 2. Hàm tìm quái gần nhất
 local function getClosestMob(maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -52,32 +51,34 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- Vòng lặp Farm chính
+-- Tự động cầm sẵn vũ khí ngay từ đầu
+equipWeapon()
+
+-- 3. Vòng lặp Farm chính
 task.spawn(function()
-    while task.wait(0.05) do
+    while task.wait(0.1) do
         pcall(function()
             local character = player.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then return end
             
-            -- 1. Tự động lôi vũ khí ra tay
+            -- Đảm bảo luôn cầm vũ khí
             equipWeapon()
             
-            -- 2. Tìm quái trong bán kính 300 studs
             local targetMob = getClosestMob(300)
             
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                 local mobHrp = targetMob.HumanoidRootPart
                 
-                -- Bay tới giữ khoảng cách 4 studs trên đầu quái
-                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 4, 0)
+                -- Đứng cao trên đầu quái 8 studs (Quái hoàn toàn không đánh tới)
+                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 8, 0)
                 
-                -- 3. Ép vũ khí đang cầm thực hiện đòn đánh (Activate)
+                -- Kích hoạt đòn đánh bằng Tool
                 local tool = character:FindFirstChildOfClass("Tool")
                 if tool then
                     tool:Activate()
                 end
                 
-                -- Giả lập bấm chuột trái trên màn hình
+                -- Giả lập click đánh trên màn hình
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             end
