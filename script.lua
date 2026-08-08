@@ -1,16 +1,15 @@
 --[[
-    MỤC ĐÍCH: HỌC LẬP TRÌNH - BÁM CAO CỐ ĐỊNH, KHÔNG CHẠM ĐẤT, ỔN ĐỊNH MỚI ĐÁNH
+    MỤC ĐÍCH: HỌC LẬP TRÌNH - BÁM CAO + ĐÁNH NHANH HƠN
 ]]
 
 local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService") -- Giữ vị trí cao liên tục
 local playerGui = player:WaitForChild("PlayerGui")
 
--- CẤU HÌNH ĐỘ CAO & TRẠNG THÁI
-local FIXED_HEIGHT = 12        -- === ĐỘ CAO CỐ ĐỊNH LUÔN Ở TRÊN ===
+-- CẤU HÌNH: GIẢM THỜI GIAN ĐỂ ĐÁNH NHANH
+local FIXED_HEIGHT = 12        
 local maxQuests = 1           
 local banditCount = 0         
 local jungleCount = 0         
@@ -20,10 +19,11 @@ local currentIsland = 1
 local isFarming = false       
 local isCheckingQuest = false 
 local isTweening = false      
-local isStableHigh = false     -- Ổn định ở độ cao quy định mới đánh
+local isStableHigh = false     
 local lastAttackTime = 0
-local ATTACK_DELAY = 0.3
-local STABLE_TOLERANCE = 1.5   -- Sai số nhỏ vẫn tính là giữ đúng cao
+local ATTACK_DELAY = 0.12      -- === GIẢM NHỎ RẤT NHIỀU ĐỂ ĐÁNH NHANH ===
+local STABLE_TOLERANCE = 1.5   
+local LOOP_WAIT = 0.02          -- Vòng lặp chạy nhanh hơn phản ứng kịp nhịp đánh
 
 -- Tọa độ NPC nhận nhiệm vụ
 local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
@@ -33,24 +33,24 @@ local DESERT_NPC_POS = CFrame.new(903, 16, 4376)
 
 -- ========== GIAO DIỆN ==========
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmHighStayGui"
+screenGui.Name = "AutoFarmFastAttackGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 240, 0, 45)
+toggleBtn.Size = UDim2.new(0, 260, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.new(1,1,1)
 toggleBtn.TextSize = 14
 toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.Text = "BÁM CAO 12: OFF"
+toggleBtn.Text = "BÁM CAO + ĐÁNH NHANH: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- ========== HÀM BAY MƯỢT LUÔN TẮT VA CHẠM ==========
+-- ========== HÀM BAY MƯỢT LUÔN Ở CAO ==========
 local function flyToTarget(targetCFrame)
     if isTweening then return end
     local character = player.Character
@@ -59,26 +59,25 @@ local function flyToTarget(targetCFrame)
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
 
-    -- Gần đủ thì đặt ngay vị trí cao
     if distance < 8 then
         hrp.CFrame = targetCFrame
         isStableHigh = true
         return
     end
 
-    isStableHigh = false -- Đang di chuyển chờ ổn định
+    isStableHigh = false
     isTweening = true
 
-    -- Tắt va chạm vĩnh viễn khi farming để không chạm đất/đá
+    -- Tắt va chạm giữ trên cao không chạm đất
     for _, part in pairs(character:GetChildren()) do
         if part:IsA("BasePart") then part.CanCollide = false end
     end
 
-    local speed = 220
+    local speed = 240 -- Tăng nhẹ tốc bay cho linh hoạt
     local timeToTravel = distance / speed
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-    -- Giữ chống rơi suốt quá trình bay
+    -- Chống rơi liên tục
     for _, v in pairs(hrp:GetChildren()) do if v.Name == "AntiFall" then v:Destroy() end end
     local bv = Instance.new("BodyVelocity")
     bv.Name = "AntiFall"
@@ -92,7 +91,7 @@ local function flyToTarget(targetCFrame)
     tween.Completed:Wait()
     bv:Destroy()
     isTweening = false
-    isStableHigh = true -- Đến nơi, ổn định cao
+    isStableHigh = true
 end
 
 -- ========== BAY CHUYỂN ĐẢO ==========
@@ -103,7 +102,7 @@ local function ultraSlowTeleport(targetCFrame)
     
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 150
+    local speed = 160
     local timeToTravel = distance / speed
 
     isStableHigh = false
@@ -129,7 +128,7 @@ local function ultraSlowTeleport(targetCFrame)
     isStableHigh = true
 end
 
--- ========== TRANG BỊ VŨ KHÍ & NHẬN NHIỆM VỤ & TÌM QUÁI ==========
+-- ========== TRANG BỊ VŨ KHÍ, NHẬN NHIỆM VỤ, TÌM QUÁI ==========
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -189,15 +188,14 @@ toggleBtn.MouseButton1Click:Connect(function()
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do if v.Name == "AntiFall" then v:Destroy() end end
-            -- Giữ tắt va chạm khi bật farm
             for _, part in pairs(character:GetChildren()) do if part:IsA("BasePart") then part.CanCollide = false end end
         end
         toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        task.spawn(function() ultraSlowTeleport(BANDIT_NPC_POS + Vector3.new(0,FIXED_HEIGHT,0)) toggleBtn.Text = "BANDIT CAO 12: (0/1)" end)
+        task.spawn(function() ultraSlowTeleport(BANDIT_NPC_POS + Vector3.new(0,FIXED_HEIGHT,0)) toggleBtn.Text = "BANDIT CAO 12 - NHANH" end)
     else
         isFarming = false isStableHigh = false
-        toggleBtn.Text = "BÁM CAO 12: OFF"
+        toggleBtn.Text = "BÁM CAO + ĐÁNH NHANH: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
@@ -212,24 +210,24 @@ local questFrame = mainGui:WaitForChild("Quest")
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not questFrame.Visible and isFarming and not isTweening then
         if currentIsland == 1 then
-            banditCount +=1 toggleBtn.Text = "BANDIT CAO 12: ("..banditCount.."/"..maxQuests..")"
-            if banditCount >= maxQuests then currentIsland=2 toggleBtn.Text="BAY SANG KHỈ..." task.spawn(function() ultraSlowTeleport(JUNGLE_NPC_POS+Vector3.new(0,FIXED_HEIGHT,0)) toggleBtn.Text="KHỈ CAO 12: (0/1)" end) end
+            banditCount +=1 toggleBtn.Text = "BANDIT: ("..banditCount.."/"..maxQuests..")"
+            if banditCount >= maxQuests then currentIsland=2 toggleBtn.Text="BAY SANG KHỈ..." task.spawn(function() ultraSlowTeleport(JUNGLE_NPC_POS+Vector3.new(0,FIXED_HEIGHT,0)) toggleBtn.Text="KHỈ - NHANH" end) end
         elseif currentIsland == 2 then
-            jungleCount +=1 toggleBtn.Text = "KHỈ CAO 12: ("..jungleCount.."/"..maxQuests..")"
-            if jungleCount >= maxQuests then currentIsland=3 toggleBtn.Text="BAY SANG HẢI TẶC..." task.spawn(function() ultraSlowTeleport(PIRATE_NPC_POS+Vector3.new(0,FIXED_HEIGHT,0)) toggleBtn.Text="PIRATE CAO 12: (0/1)" end) end
+            jungleCount +=1 toggleBtn.Text = "KHỈ: ("..jungleCount.."/"..maxQuests..")"
+            if jungleCount >= maxQuests then currentIsland=3 toggleBtn.Text="BAY SANG HẢI TẶC..." task.spawn(function() ultraSlowTeleport(PIRATE_NPC_POS+Vector3.new(0,FIXED_HEIGHT,0)) toggleBtn.Text="PIRATE - NHANH" end) end
         elseif currentIsland ==3 then
-            pirateCount +=1 toggleBtn.Text = "PIRATE CAO 12: ("..pirateCount.."/"..maxQuests..")"
-            if pirateCount >= maxQuests then currentIsland=4 toggleBtn.Text="BAY SANG SA MẠC..." task.spawn(function() ultraSlowTeleport(DESERT_NPC_POS+Vector3.new(0,FIXED_HEIGHT,0)) toggleBtn.Text="DESERT CAO 12: (0/1)" end) end
+            pirateCount +=1 toggleBtn.Text = "PIRATE: ("..pirateCount.."/"..maxQuests..")"
+            if pirateCount >= maxQuests then currentIsland=4 toggleBtn.Text="BAY SANG SA MẠC..." task.spawn(function() ultraSlowTeleport(DESERT_NPC_POS+Vector3.new(0,FIXED_HEIGHT,0)) toggleBtn.Text="DESERT - NHANH" end) end
         elseif currentIsland ==4 then
-            desertCount +=1 toggleBtn.Text = "DESERT CAO 12: ("..desertCount.."/"..maxQuests..")"
+            desertCount +=1 toggleBtn.Text = "DESERT: ("..desertCount.."/"..maxQuests..")"
             if desertCount >= maxQuests then isFarming=false toggleBtn.Text="HOÀN THÀNH - OFF" toggleBtn.BackgroundColor3=Color3.new(0.8,0.2,0.2) end
         end
     end
 end)
 
--- ========== LUÔN GIỮ ĐỘ CAO BÁM THEO QUÁI + CHỈ ĐÁNH KHI ỔN ĐỊNH ==========
+-- ========== VÒNG LẶP CHÍNH ĐÁNH NHANH ỔN ĐỊNH ==========
 task.spawn(function()
-    while task.wait(0.03) do -- Lặp nhanh nhẹ để chỉnh cao liên tục
+    while task.wait(LOOP_WAIT) do -- Chạy nhanh bắt kịp nhịp đánh
         if isFarming and not isTweening then
             pcall(function()
                 local dialogueGui = playerGui:FindFirstChild("Dialogue")
@@ -239,14 +237,14 @@ task.spawn(function()
                 equipWeapon()
                 local hrp = character.HumanoidRootPart
 
-                -- Lấy thông tin đảo
+                -- Lấy thông tin đảo hiện tại
                 local questName, mobPattern, npcPos
                 if currentIsland ==1 then questName="BanditQuest1" mobPattern="Bandit" npcPos=BANDIT_NPC_POS
                 elseif currentIsland==2 then questName="JungleQuest" mobPattern="Monkey" npcPos=JUNGLE_NPC_POS
                 elseif currentIsland==3 then questName="BuggyQuest1" mobPattern="Pirate" npcPos=PIRATE_NPC_POS
                 elseif currentIsland==4 then questName="DesertQuest" mobPattern="Desert" npcPos=DESERT_NPC_POS end
 
-                -- Nhận nhiệm vụ nếu chưa có
+                -- Nhận nhiệm vụ khi chưa có
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
                     local distNpc = (hrp.Position - npcPos.Position).Magnitude
                     if distNpc>15 then flyToTarget(CFrame.new(npcPos.Position + Vector3.new(0,FIXED_HEIGHT,0))) task.wait(0.5) end
@@ -255,22 +253,21 @@ task.spawn(function()
                     local targetMob = getClosestMob(mobPattern,1000)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         local mobHrp = targetMob.HumanoidRootPart
-                        -- VỊ TRÍ LUÔN CAO ĐÚNG FIXED_HEIGHT TRÊN QUÁI
+                        -- Vị trí cố định cao + nhìn xuống quái
                         local idealPos = mobHrp.Position + Vector3.new(0,FIXED_HEIGHT,0)
-                        local targetCFrame = CFrame.new(idealPos, mobHrp.Position) -- Nhìn xuống quái
+                        local targetCFrame = CFrame.new(idealPos, mobHrp.Position)
                         local dist = (hrp.Position - idealPos).Magnitude
 
-                        -- Bay nếu còn xa
                         if dist > 10 then
                             flyToTarget(targetCFrame)
                         else
-                            -- CHỈNH LẠI CAO NGAY LẬP TỨC NẾU BỊ TỤT
+                            -- Luôn chỉnh ngay cao nếu lệch
                             if math.abs(hrp.Position.Y - idealPos.Y) > STABLE_TOLERANCE then
                                 hrp.CFrame = targetCFrame
                             end
-                            isStableHigh = true -- Ở đúng cao quy định
+                            isStableHigh = true
 
-                            -- === CHỈ ĐÁNH KHI ỔN ĐỊNH Ở TRÊN CAO ===
+                            -- === ĐÁNH NHANH THEO ATTACK_DELAY ĐÃ GIẢM ===
                             local now = os.clock()
                             if isStableHigh and now - lastAttackTime >= ATTACK_DELAY then
                                 local tool = character:FindFirstChildOfClass("Tool")
