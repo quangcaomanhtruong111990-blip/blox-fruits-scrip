@@ -13,6 +13,7 @@ local isAtJungle = false
 local isCompleted = false      
 local isTweening = false       
 local isTakingQuest = false   
+local lastQuestTime = 0 -- Khóa thời gian nhận quest để chống nhấp nháy
 
 -- Tọa độ 2 Đảo
 local BANDIT_POS = CFrame.new(1059, 16, 1549)
@@ -106,15 +107,16 @@ local function equipWeapon()
     end
 end
 
--- 5. Hàm Nhận Quest Chuẩn
+-- 5. Hàm Nhận Quest Chống Nhấp Nháy Cứng
 local function takeQuestOnce(questName, targetCFrame)
-    if isTakingQuest then return end
+    if isTakingQuest or (tick() - lastQuestTime < 3) then return end
     isTakingQuest = true
+    lastQuestTime = tick()
     
     local character = player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         character.HumanoidRootPart.CFrame = targetCFrame
-        task.wait(0.3)
+        task.wait(0.5)
         
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
@@ -123,7 +125,7 @@ local function takeQuestOnce(questName, targetCFrame)
             end
         end)
         
-        task.wait(0.4)
+        task.wait(0.5)
         clearDialogueUI()
     end
     
@@ -187,6 +189,7 @@ toggleBtn.MouseButton1Click:Connect(function()
             isCompleted = false
             isTweening = false
             isTakingQuest = false
+            lastQuestTime = 0
             toggleBtn.Text = "BANDIT: (0/10)"
         end)
     else
@@ -245,9 +248,9 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm & Đánh Quái (Đã chỉnh chiều cao = 8 studs + Remote Fast Attack)
+-- 9. Vòng Lặp Farm & Đánh Quái (Chống Spam Nhận Quest)
 task.spawn(function()
-    while task.wait(0.02) do
+    while task.wait(0.05) do
         if isFarming and not isTweening and not isCompleted then
             pcall(function()
                 clearDialogueUI()
@@ -255,9 +258,12 @@ task.spawn(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- NHẬN QUEST NẾU CHƯA CÓ
-                if not questFrame.Visible then
-                    if not isTakingQuest then
+                -- KIỂM TRA ĐÃ CÓ QUEST CHƯA (Dựa vào UI hoặc thuộc tính)
+                local hasQuest = questFrame.Visible or (playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("Quest") and playerGui.Main.Quest.Visible)
+                
+                -- BƯỚC 1: NHẬN QUEST NẾU CHƯA CÓ
+                if not hasQuest then
+                    if not isTakingQuest and (tick() - lastQuestTime > 3) then
                         if not isAtJungle then
                             takeQuestOnce("BanditQuest1", BANDIT_POS)
                         else
@@ -267,7 +273,7 @@ task.spawn(function()
                     return
                 end
                 
-                -- TẮT VA CHẠM
+                -- BƯỚC 2: TẮT TÍNH NĂNG VA CHẠM
                 for _, part in pairs(character:GetChildren()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
@@ -283,7 +289,7 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- NÂNG CHIỀU CAO LÊN 8 STUDS VÀ GIỮ NGUYÊN GÓC ĐỨNG THẲNG
+                    -- Bay cao 8 studs so với quái
                     character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 8, 0))
                     
                     if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
@@ -294,13 +300,13 @@ task.spawn(function()
                         bv.Parent = character.HumanoidRootPart
                     end
                     
-                    -- KÍCH HOẠT ĐÁNH BẰNG TẤT CẢ PHƯƠNG PHÁP (BAO GỒM REMOTE GAME)
+                    -- Kích hoạt đòn đánh
                     local tool = character:FindFirstChildOfClass("Tool")
                     if tool then 
                         tool:Activate() 
                     end
                     
-                    -- Gửi remote đánh của Blox Fruits
+                    -- Remote đánh Blox Fruits
                     local netFolder = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
                     if netFolder and netFolder:FindFirstChild("RegisterAttack") then
                         netFolder.RegisterAttack:InvokeServer(0.1)
@@ -308,7 +314,6 @@ task.spawn(function()
                         ReplicatedStorage.RigControllerNeverClose:InvokeServer("WeaponAttack")
                     end
                     
-                    -- Giả lập click bổ sung cho mobile
                     VirtualUser:CaptureController()
                     VirtualUser:Button1Down(Vector2.new(1, 1))
                     VirtualUser:Button1Up(Vector2.new(1, 1))
