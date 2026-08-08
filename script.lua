@@ -106,7 +106,7 @@ local function equipWeapon()
     end
 end
 
--- 4. Hàm Nhận Nhiệm Vụ Bandit (Đảo 1 - Nhận từ xa không cần lại gần)
+-- 4. Hàm Nhận Nhiệm Vụ Bandit (Đảo 1 - Từ xa)
 local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -122,7 +122,7 @@ local function startBanditQuest()
     isCheckingQuest = false
 end
 
--- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Đảo 2 - Nhận từ xa không cần lại gần)
+-- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Đảo 2 - Từ xa)
 local function startJungleQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -243,7 +243,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm Chính (ĐÃ SỬA: BỎ BAY VỀ ÔNG NPC, GỌI NHIỆM VỤ TRỰC TIẾP TỪ XA)
+-- 9. Vòng Lặp Farm Chính (ĐÃ BỎ HOÀN TOÀN LỆNH KÉO VỀ GẶP NPC, CHỈ BAY THẲNG TỚI QUÁI ĐÁNH)
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -257,7 +257,7 @@ task.spawn(function()
                 if not isAtJungle then
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
                         startBanditQuest()
-                        return -- Dừng vòng lặp ngắn để game nhận Q, sau đó tự đánh quái
+                        return
                     end
                     
                     local targetMob = getClosestMob("Bandit", 350)
@@ -275,7 +275,7 @@ task.spawn(function()
                 else
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
                         startJungleQuest()
-                        return -- Dừng vòng lặp ngắn để nhận Q Khỉ từ xa không cần bay về gặp NPC
+                        return
                     end
                     
                     local targetMob = getClosestMob("Monkey", 350)
