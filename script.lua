@@ -8,7 +8,7 @@ local maxBanditQuests = 10     -- Số lần làm Q mỗi đảo
 local banditCount = 0          -- Biến đếm Q Bandit
 local jungleCount = 0          -- Biến đếm Q Khỉ
 local isFarming = false        -- Trạng thái ON/OFF
-local isTakingQuest = false    -- Biến chống spam nhận Q (Đã đồng bộ)
+local isTakingQuest = false    -- Biến chống spam nhận Q
 local lastQuestTime = 0        -- Thời gian nhận Q gần nhất
 local isAtJungle = false       -- Trạng thái đã sang Đảo Khỉ
 local isTweening = false       -- Đang trong quá trình bay
@@ -56,15 +56,24 @@ local function clearDialogueUI()
     end)
 end
 
--- 2. Hàm Bay Mượt Chuẩn Chống Anti-Cheat (Speed 100)
-local function ultraSlowTeleport(targetCFrame)
+-- 2. Hàm Bay Mượt Dùng Chung (Áp dụng cho cả qua đảo và áp sát quái)
+local function smoothFlyTo(targetCFrame, customSpeed)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
+    local speed = customSpeed or 100 
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    
+    -- Nếu đã ở rất gần (dưới 3 studs) thì giữ nguyên, không cần tween
+    if distance < 3 then 
+        hrp.CFrame = targetCFrame
+        return 
+    end
+    
     isTweening = true
     
-    local bodyVelocity = Instance.new("BodyVelocity")
+    local bodyVelocity = hrp:FindFirstChild("FlyBV") or Instance.new("BodyVelocity")
     bodyVelocity.Name = "FlyBV"
     bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
@@ -76,17 +85,12 @@ local function ultraSlowTeleport(targetCFrame)
         end
     end
     
-    local speed = 100 
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
     local timeToTravel = distance / speed
-    
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     tween:Play()
     
     tween.Completed:Wait()
-    
-    if bodyVelocity then bodyVelocity:Destroy() end
     isTweening = false
 end
 
@@ -106,7 +110,7 @@ local function equipWeapon()
     end
 end
 
--- 4. HÀM NHẬN NHIỆM VỤ TỔNG HỢP (ĐÃ GHÉP THEO YÊU CẦU)
+-- 4. Hàm Nhận Nhiệm Vụ
 local function takeQuestOnce(questName, targetCFrame)
     if isTakingQuest or (tick() - lastQuestTime < 4) then return end
     isTakingQuest = true
@@ -114,8 +118,8 @@ local function takeQuestOnce(questName, targetCFrame)
     
     local character = player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
-        character.HumanoidRootPart.CFrame = targetCFrame
-        task.wait(0.4)
+        smoothFlyTo(targetCFrame, 120)
+        task.wait(0.3)
         
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
@@ -124,7 +128,7 @@ local function takeQuestOnce(questName, targetCFrame)
             end
         end)
         
-        task.wait(0.4)
+        task.wait(0.3)
         clearDialogueUI()
     end
     
@@ -179,7 +183,7 @@ toggleBtn.MouseButton1Click:Connect(function()
                 local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
                 if commF then commF:InvokeServer("AbandonQuest") end
             end)
-            ultraSlowTeleport(BANDIT_POS)
+            smoothFlyTo(BANDIT_POS, 100)
             
             toggleBtn.Text = "BANDIT: (0/10)"
         end)
@@ -212,7 +216,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 toggleBtn.Text = "BAY SANG KHỈ..."
                 
                 task.spawn(function()
-                    ultraSlowTeleport(JUNGLE_POS)
+                    smoothFlyTo(JUNGLE_POS, 100)
                     toggleBtn.Text = "KHỈ: (0/10)"
                 end)
             end
@@ -239,7 +243,7 @@ task.spawn(function()
                 
                 equipWeapon()
                 
-                -- BƯỚC 1: KIỂM TRA VÀ GỌI HÀM takeQuestOnce
+                -- BƯỚC 1: KIỂM TRA VÀ BẢO ĐẢM CÓ QUEST
                 if questFrame and not questFrame.Visible then
                     if not isAtJungle then
                         takeQuestOnce("BanditQuest1", BANDIT_POS)
@@ -256,13 +260,16 @@ task.spawn(function()
                     end
                 end
                 
-                -- BƯỚC 3: TÌM VÀ ĐÁNH QUÁI
+                -- BƯỚC 3: ĐÁNH QUÁI (BAY TỪ TỪ ĐẾN VỊ TRÍ QUÁI)
                 local targetMobName = not isAtJungle and "Bandit" or "Monkey"
                 local defaultPos = not isAtJungle and BANDIT_POS or JUNGLE_POS
                 
                 local targetMob = getClosestMob(targetMobName, 400)
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                    character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
+                    local targetCFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
+                    
+                    -- Bay mượt từ từ đến đỉnh đầu quái thay vì dịch chuyển tức thời
+                    smoothFlyTo(targetCFrame, 120)
                     
                     local tool = character:FindFirstChildOfClass("Tool")
                     if tool then
@@ -272,7 +279,7 @@ task.spawn(function()
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                 else
-                    character.HumanoidRootPart.CFrame = defaultPos * CFrame.new(0, 8, 0)
+                    smoothFlyTo(defaultPos * CFrame.new(0, 8, 0), 120)
                 end
             end)
         end
