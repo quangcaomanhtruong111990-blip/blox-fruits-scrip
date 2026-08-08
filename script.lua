@@ -245,7 +245,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm & Đánh Quái
+-- 9. Vòng Lặp Farm & Đánh Quái (ĐÃ FIX LỖI XOAY VÀ LỖI ĐÁNH TRÊN MOBILE)
 task.spawn(function()
     while task.wait(0.05) do
         if isFarming and not isTweening and not isCompleted then
@@ -284,10 +284,10 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Đặt vị trí phía trên đầu quái 3.5 studs, nhìn thẳng vào quái
-                    character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 3.5, 0), mobHrp.Position)
+                    -- SỬA LỖI XOAY NGHIÊNG: Giữ nguyên hướng đứng đứng thẳng (Pitch/Roll = 0)
+                    character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 3, 0))
                     
-                    -- Khóa vị trí bằng BodyVelocity
+                    -- Khóa trọng lực bằng BodyVelocity
                     if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
                         local bv = Instance.new("BodyVelocity")
                         bv.Name = "FarmBV"
@@ -296,16 +296,18 @@ task.spawn(function()
                         bv.Parent = character.HumanoidRootPart
                     end
                     
-                    -- Kích hoạt đòn đánh
+                    -- SỬA LỖI KHÔNG ĐÁNH TRÊN MOBILE: Kết hợp ClickButton1 + VirtualInputManager
                     local tool = character:FindFirstChildOfClass("Tool")
                     if tool then 
                         tool:Activate() 
                     end
                     
+                    -- Giả lập bấm chuột/chạm màn hình chuẩn xác
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                     VirtualUser:CaptureController()
-                    VirtualUser:ClickButton1(Vector2.new(850, 520))
+                    VirtualUser:ClickButton1(Vector2.new(500, 500))
                 else
-                    -- Không tìm thấy quái thì về điểm chờ
                     if character.HumanoidRootPart:FindFirstChild("FarmBV") then
                         character.HumanoidRootPart.FarmBV:Destroy()
                     end
