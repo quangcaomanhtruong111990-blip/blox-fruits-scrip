@@ -4,14 +4,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 -- Cấu hình
-local maxQuests = 10           -- Số lần làm Q mỗi đảo
-local banditCount = 0          -- Đếm Q Bandit
-local jungleCount = 0          -- Đếm Q Khỉ
-local isFarming = false        -- Trạng thái ON/OFF
-local isCheckingQuest = false  -- Chống spam nhận Q
-local isAtJungle = false       -- Đã chuyển sang Đảo Khỉ chưa
-local isCompleted = false      -- Đã hoàn thành cả 2 đảo chưa
-local isTweening = false       -- Đang bay mượt
+local maxQuests = 10           
+local banditCount = 0          
+local jungleCount = 0          
+local isFarming = false        
+local isTakingQuest = false   -- Khóa chống spam nhận Q cực cứng
+local isAtJungle = false       
+local isCompleted = false      
+local isTweening = false       
 
 -- Tọa độ 2 Đảo
 local BANDIT_POS = CFrame.new(1059, 16, 1549)
@@ -36,14 +36,20 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Tự Động Tắt Bảng Dialogue Khi Hiện Lên
-local function closeDialogueUI()
+-- 2. Hàm dọn dẹp GUI đối thoại NPC bị kẹt
+local function clearDialogueUI()
     pcall(function()
         local playerGui = player:FindFirstChild("PlayerGui")
         if playerGui then
+            -- Tắt khung Dialogue chính
             local dialogue = playerGui:FindFirstChild("Dialogue")
-            if dialogue then
-                dialogue.Enabled = false
+            if dialogue then dialogue.Enabled = false end
+            
+            -- Tắt các khung hội thoại NPC phụ nếu có
+            local mainGui = playerGui:FindFirstChild("Main")
+            if mainGui then
+                local talkFrame = mainGui:FindFirstChild("Talk") or mainGui:FindFirstChild("Dialog")
+                if talkFrame then talkFrame.Visible = false end
             end
         end
     end)
@@ -98,20 +104,21 @@ local function equipWeapon()
     end
 end
 
--- 5. Hàm Nhận Quest Bandit (Chống Kẹt UI)
+-- 5. Hàm Nhận Quest Bandit (Đã tối ưu không bấm trùng)
 local function startBanditQuest()
-    if isCheckingQuest then return end
-    isCheckingQuest = true
+    if isTakingQuest then return end
     
     local playerGui = player:FindFirstChild("PlayerGui")
     local mainGui = playerGui and playerGui:FindFirstChild("Main")
     local questFrame = mainGui and mainGui:FindFirstChild("Quest")
     
+    -- Nếu bảng Quest đã hiện (đã nhận thành công) thì xóa UI thoại rồi thoát
     if questFrame and questFrame.Visible then
-        closeDialogueUI()
-        isCheckingQuest = false
+        clearDialogueUI()
         return
     end
+    
+    isTakingQuest = true
     
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
@@ -120,26 +127,33 @@ local function startBanditQuest()
         end
     end)
     
-    task.wait(0.5)
-    closeDialogueUI() -- Đóng khung hội thoại ngay
-    task.wait(2)
-    isCheckingQuest = false
+    task.wait(0.3)
+    clearDialogueUI()
+    
+    -- Lùi nhân vật ra xa NPC 10 bước để ngắt tương tác
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        character.HumanoidRootPart.CFrame = BANDIT_POS * CFrame.new(0, 0, 10)
+    end
+    
+    task.wait(1.5)
+    isTakingQuest = false
 end
 
--- 6. Hàm Nhận Quest Khỉ (Chống Kẹt UI)
+-- 6. Hàm Nhận Quest Khỉ (Đã tối ưu không bấm trùng)
 local function startJungleQuest()
-    if isCheckingQuest then return end
-    isCheckingQuest = true
+    if isTakingQuest then return end
     
     local playerGui = player:FindFirstChild("PlayerGui")
     local mainGui = playerGui and playerGui:FindFirstChild("Main")
     local questFrame = mainGui and mainGui:FindFirstChild("Quest")
     
     if questFrame and questFrame.Visible then
-        closeDialogueUI()
-        isCheckingQuest = false
+        clearDialogueUI()
         return
     end
+    
+    isTakingQuest = true
     
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
@@ -148,10 +162,16 @@ local function startJungleQuest()
         end
     end)
     
-    task.wait(0.5)
-    closeDialogueUI() -- Đóng khung hội thoại ngay
-    task.wait(2)
-    isCheckingQuest = false
+    task.wait(0.3)
+    clearDialogueUI()
+    
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        character.HumanoidRootPart.CFrame = JUNGLE_POS * CFrame.new(0, 0, 10)
+    end
+    
+    task.wait(1.5)
+    isTakingQuest = false
 end
 
 -- 7. Tìm Quái Gần Nhất
@@ -210,7 +230,7 @@ toggleBtn.MouseButton1Click:Connect(function()
             isAtJungle = false
             isCompleted = false
             isTweening = false
-            isCheckingQuest = false
+            isTakingQuest = false
             toggleBtn.Text = "BANDIT: (0/10)"
             
             game:GetService("StarterGui"):SetCore("SendNotification", {
@@ -267,7 +287,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             jungleCount = jungleCount + 1
             toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
             
-            if jungleCount >= maxQuests then
+            if jungleCount >= maxQuests me
                 isCompleted = true
                 toggleBtn.Text = "HOÀN THÀNH (2 ĐẢO)"
                 toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
@@ -287,12 +307,12 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 10. Vòng Lặp Farm Chính (Kèm Auto-Hide Dialogue)
+-- 10. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening and not isCompleted then
             pcall(function()
-                closeDialogueUI() -- Liên tục ép ẩn bảng thoại NPC nếu nó bị hiện lên
+                clearDialogueUI()
                 
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -308,7 +328,7 @@ task.spawn(function()
                 -- ĐẢO 1: Farm Bandit
                 if not isAtJungle then
                     if questFrame and not questFrame.Visible then
-                        if not isCheckingQuest then
+                        if not isTakingQuest then
                             character.HumanoidRootPart.CFrame = BANDIT_POS
                             startBanditQuest()
                         end
@@ -342,7 +362,7 @@ task.spawn(function()
                 -- ĐẢO KHỈ: Farm Monkey
                 else
                     if questFrame and not questFrame.Visible then
-                        if not isCheckingQuest then
+                        if not isTakingQuest then
                             character.HumanoidRootPart.CFrame = JUNGLE_POS
                             startJungleQuest()
                         end
