@@ -4,26 +4,28 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Cấu hình: Đặt số lượng nhiệm vụ mỗi đảo là 1 để test nhanh
+-- Cấu hình: Số lượng nhiệm vụ mỗi đảo (đang để 1 để test nhanh)
 local maxQuests = 1           
 local banditCount = 0         
 local jungleCount = 0         
 local pirateCount = 0         
 local desertCount = 0         
-local currentIsland = 1       -- 1: Bandit, 2: Khỉ, 3: Hải Tặc, 4: Sa Mạc
+local snowCount = 0           -- Đếm Q Làng Tuyết (Đảo 5)
+local currentIsland = 1       -- 1: Bandit, 2: Khỉ, 3: Hải Tặc, 4: Sa Mạc, 5: Làng Tuyết
 local isFarming = false       
 local isCheckingQuest = false 
 local isTweening = false      
 
--- Tọa độ vị trí gần NPC nhận nhiệm vụ của 4 Đảo
+-- Tọa độ vị trí gần NPC nhận nhiệm vụ của 5 Đảo
 local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_NPC_POS = CFrame.new(-1485, 36, 68)
 local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
 local DESERT_NPC_POS = CFrame.new(903, 16, 4376)
+local SNOW_NPC_POS = CFrame.new(1389, 88, -1298) -- Tọa độ NPC đảo Làng Tuyết
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarm4IslandsGui"
+screenGui.Name = "AutoFarm5IslandsGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
@@ -181,6 +183,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         jungleCount = 0
         pirateCount = 0
         desertCount = 0
+        snowCount = 0
         currentIsland = 1
         isCheckingQuest = false
         
@@ -196,7 +199,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         
         task.spawn(function()
             ultraSlowTeleport(BANDIT_NPC_POS)
-            toggleBtn.Text = "BANDIT: (0/1)"
+            toggleBtn.Text = "BANDIT: (0/" .. maxQuests .. ")"
         end)
     else
         toggleBtn.Text = "FARM: OFF"
@@ -211,7 +214,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 7. Bộ Đếm Quest Tự Động Chuyển Đảo
+-- 7. Bộ Đếm Quest Tự Động Chuyển Đảo (1 -> 2 -> 3 -> 4 -> 5)
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
@@ -225,7 +228,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
                 task.spawn(function()
                     ultraSlowTeleport(JUNGLE_NPC_POS)
-                    toggleBtn.Text = "KHỈ: (0/1)"
+                    toggleBtn.Text = "KHỈ: (0/" .. maxQuests .. ")"
                 end)
             end
         elseif currentIsland == 2 then
@@ -236,7 +239,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 toggleBtn.Text = "BAY SANG HẢI TẶC..."
                 task.spawn(function()
                     ultraSlowTeleport(PIRATE_NPC_POS)
-                    toggleBtn.Text = "PIRATE: (0/1)"
+                    toggleBtn.Text = "PIRATE: (0/" .. maxQuests .. ")"
                 end)
             end
         elseif currentIsland == 3 then
@@ -247,22 +250,33 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 toggleBtn.Text = "BAY SANG SA MẠC..."
                 task.spawn(function()
                     ultraSlowTeleport(DESERT_NPC_POS)
-                    toggleBtn.Text = "DESERT: (0/1)"
+                    toggleBtn.Text = "DESERT: (0/" .. maxQuests .. ")"
                 end)
             end
         elseif currentIsland == 4 then
             desertCount = desertCount + 1
             toggleBtn.Text = "DESERT: (" .. desertCount .. "/" .. maxQuests .. ")"
             if desertCount >= maxQuests then
+                currentIsland = 5
+                toggleBtn.Text = "BAY SANG LÀNG TUYẾT..."
+                task.spawn(function()
+                    ultraSlowTeleport(SNOW_NPC_POS)
+                    toggleBtn.Text = "SNOW: (0/" .. maxQuests .. ")"
+                end)
+            end
+        elseif currentIsland == 5 then
+            snowCount = snowCount + 1
+            toggleBtn.Text = "SNOW: (" .. snowCount .. "/" .. maxQuests .. ")"
+            if snowCount >= maxQuests then
                 isFarming = false
-                toggleBtn.Text = "HOÀN THÀNH 4 ĐẢO - OFF"
+                toggleBtn.Text = "HOÀN THÀNH 5 ĐẢO - OFF"
                 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             end
         end
     end
 end)
 
--- 8. Vòng Lặp Farm Chính 4 Đảo
+-- 8. Vòng Lặp Farm Chính 5 Đảo
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -293,6 +307,10 @@ task.spawn(function()
                     questName = "DesertQuest"
                     mobPattern = "Desert"
                     npcPos = DESERT_NPC_POS
+                elseif currentIsland == 5 then
+                    questName = "SnowQuest"
+                    mobPattern = "Snow Bandit" -- Hoặc đổi thành "Yeti" tùy bạn chọn đánh loại nào ở đảo tuyết
+                    npcPos = SNOW_NPC_POS
                 end
 
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
