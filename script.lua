@@ -34,19 +34,24 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Mượt An Toàn (Tween) Tránh Bị Kẹt
-local function smoothTeleport(targetCFrame)
+-- 2. Hàm Bay Siêu Chậm An Toàn (Speed 150 + Anti-Gravity)
+local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 350 -- Tốc độ bay an toàn (càng nhỏ càng chậm và an toàn)
+    local speed = 150 -- Giảm tốc độ xuống cực chậm để chống Anti-Cheat
     local timeToTravel = distance / speed
     
     isTweening = true
     
-    -- Tắt va chạm để tránh bị vướng vật cản khi bay
+    -- Giữ nhân vật không bị rơi và tắt va chạm
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Parent = hrp
+    
     for _, part in pairs(character:GetChildren()) do
         if part:IsA("BasePart") then
             part.CanCollide = false
@@ -58,6 +63,9 @@ local function smoothTeleport(targetCFrame)
     tween:Play()
     
     tween.Completed:Wait()
+    
+    -- Xóa giữ trọng lực sau khi bay xong
+    if bodyVelocity then bodyVelocity:Destroy() end
     isTweening = false
 end
 
@@ -150,7 +158,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "BẮT ĐẦU",
-            Text = "Farm 10 Bandit -> Bay chậm sang Đảo Khỉ -> Đứng yên",
+            Text = "Farm 10 Bandit -> Bay siêu chậm sang Đảo Khỉ -> Đứng yên",
             Duration = 3
         })
     else
@@ -159,7 +167,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 8. Bộ Đếm 10 Lần Quest Bandit -> Kích Hoạt Bay Mượt
+-- 8. Bộ Đếm 10 Lần Quest Bandit -> Kích Hoạt Bay Siêu Chậm
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
@@ -172,16 +180,15 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
         -- Khi đủ 10 lần Bandit
         if banditCount >= maxBanditQuests then
             isAtJungle = true
-            toggleBtn.Text = "ĐANG BAY SANG ĐẢO KHỈ..."
+            toggleBtn.Text = "ĐANG BAY TỪ TỪ SANG KHỈ..."
             
-            -- Gọi tiến trình bay mượt từ từ sang Đảo Khỉ
             task.spawn(function()
-                smoothTeleport(JUNGLE_POS)
+                ultraSlowTeleport(JUNGLE_POS)
                 toggleBtn.Text = "ĐẢO KHỈ (ĐỨNG YÊN)"
                 
                 game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = "ĐÃ TỚI ĐẢO KHỈ",
-                    Text = "Đã bay an toàn sang Đảo Khỉ! Đang nhận Q và đứng yên.",
+                    Text = "Đã tới Đảo Khỉ an toàn! Đang nhận Q và đứng yên.",
                     Duration = 4
                 })
             end)
