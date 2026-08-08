@@ -23,7 +23,6 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoFarm3IslandsGui"
 screenGui.ResetOnSpawn = false
 
--- Đưa vào CoreGui nếu được (chống bị xóa khi reset), nếu không thì vào PlayerGui
 local success, err = pcall(function()
     screenGui.Parent = game:GetService("CoreGui")
 end)
@@ -44,37 +43,51 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Siêu Chậm An Toàn
-local function ultraSlowTeleport(targetCFrame)
+-- 2. Hàm Bay Chắc Chắn Không Lỗi (Dùng CFrame trực tiếp kết hợp Tween mượt)
+local function safeTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 150 
-    local timeToTravel = distance / speed
-    
     isTweening = true
     
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Name = "FlyBV"
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bodyVelocity.Parent = hrp
+    -- Xóa bỏ BodyVelocity cũ nếu có
+    for _, v in pairs(hrp:GetChildren()) do
+        if v.Name == "FlyBV" then v:Destroy() end
+    end
     
+    -- Tắt va chạm tạm thời
     for _, part in pairs(character:GetChildren()) do
         if part:IsA("BasePart") then
             part.CanCollide = false
         end
     end
     
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    local speed = 250 -- Tăng tốc độ bay giữa các đảo một chút cho mượt
+    local timeToTravel = distance / speed
+    if timeToTravel < 1 then timeToTravel = 1 end
+    
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     tween:Play()
     
-    tween.Completed:Wait()
+    local completed = false
+    local connection
+    connection = tween.Completed:Connect(function()
+        completed = true
+        if connection then connection:Disconnect() end
+    end)
     
-    if bodyVelocity then bodyVelocity:Destroy() end
+    -- Đề phòng kẹt tween quá thời gian
+    local startTime = tick()
+    while not completed and tick() - startTime < (timeToTravel + 3) do
+        task.wait(0.1)
+        if not isFarming then break end
+    end
+    
+    -- Đảm bảo ép vị trí đến đích chính xác
+    hrp.CFrame = targetCFrame
     isTweening = false
 end
 
@@ -161,7 +174,7 @@ local function startPirateVillageQuest()
     isCheckingQuest = false
 end
 
--- 5. Hàm Tìm Quái Gần Nhất (Đã sửa lỗi cú pháp dòng trả về nil)
+-- 5. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -199,11 +212,12 @@ toggleBtn.MouseButton1Click:Connect(function()
         pirateCount = 0
         currentIsland = 1
         isCheckingQuest = false
+        isTweening = false
         
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
-                if v:IsA("BodyVelocity") then v:Destroy() end
+                if v.Name == "FlyBV" then v:Destroy() end
             end
             
             local hrp = character.HumanoidRootPart
@@ -252,17 +266,18 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         task.spawn(function()
-            ultraSlowTeleport(BANDIT_POS)
+            safeTeleport(BANDIT_POS)
             toggleBtn.Text = "BANDIT: (0/10)"
         end)
     else
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        isTweening = false
         
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
-                if v:IsA("BodyVelocity") then v:Destroy() end
+                if v.Name == "FlyBV" then v:Destroy() end
             end
         end
     end
@@ -279,7 +294,6 @@ task.spawn(function()
                 if mainGui then
                     local questFrame = mainGui:FindFirstChild("Quest")
                     if questFrame then
-                        -- Kiểm tra nếu khung nhiệm vụ ẩn (nghĩa là vừa hoàn thành Q) và đang bật farm
                         if not questFrame.Visible and isFarming and not isTweening then
                             if currentIsland == 1 then
                                 banditCount = banditCount + 1
@@ -289,7 +303,7 @@ task.spawn(function()
                                     currentIsland = 2
                                     toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
                                     task.spawn(function()
-                                        ultraSlowTeleport(JUNGLE_POS)
+                                        safeTeleport(JUNGLE_POS)
                                         toggleBtn.Text = "KHỈ: (0/10)"
                                     end)
                                 end
@@ -301,7 +315,7 @@ task.spawn(function()
                                     currentIsland = 3
                                     toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
                                     task.spawn(function()
-                                        ultraSlowTeleport(PIRATE_POS)
+                                        safeTeleport(PIRATE_POS)
                                         toggleBtn.Text = "PIRATE: (0/10)"
                                     end)
                                 end
@@ -315,7 +329,7 @@ task.spawn(function()
                                     toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
                                 end
                             end
-                            task.wait(1.5) -- Tránh đếm trùng liên tục
+                            task.wait(1.5)
                         end
                     end
                 end
