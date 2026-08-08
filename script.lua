@@ -13,7 +13,7 @@ local SEA2_MOB_DATA = {
         quest = "ShipQuest2", 
         mob = "Ship Steward", 
         npcPos = CFrame.new(925, 125, 32850),
-        mobPos = CFrame.new(915, 138, 33400) -- Đã nâng độ cao bãi chờ
+        mobPos = CFrame.new(915, 134, 33400)
     }
 }
 
@@ -40,7 +40,7 @@ toggleBtn.Text = "FARM SEA 2: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- Hàm bay mượt & giữ vị trí ổn định
+-- Hàm bay mượt & chống rung lắc
 local function flyToTarget(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -48,8 +48,8 @@ local function flyToTarget(targetCFrame)
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
     
-    -- Nếu đã ở rất gần mục tiêu thì giữ cố định CFrame để tránh giật/nhảy
-    if distance < 3 then
+    -- Đã ở cực gần thì đứng yên cố định CFrame, không Tween nữa
+    if distance < 2 then
         hrp.CFrame = targetCFrame
         return
     end
@@ -58,7 +58,7 @@ local function flyToTarget(targetCFrame)
         if part:IsA("BasePart") then part.CanCollide = false end
     end
     
-    local speed = 220
+    local speed = 250
     local timeToTravel = distance / speed
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
@@ -183,30 +183,32 @@ task.spawn(function()
                 local targetData = getTargetData()
                 local questFrame = playerGui:WaitForChild("Main"):WaitForChild("Quest")
 
-                -- Tự chạy về nhận Q nếu hết Q
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
                     toggleBtn.Text = "ĐANG ĐẾN NHẬN Q..."
                     getQuestFromNPC(targetData.quest, targetData.npcPos)
                 else
                     local targetMob = getClosestMob(targetData.mob)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        toggleBtn.Text = "ĐÁNH BẾP PHÓ (ĐÃ BAY CAO)"
+                        toggleBtn.Text = "ĐÁNH BẾP PHÓ (ĐỨNG YÊN)"
                         local mobHrp = targetMob.HumanoidRootPart
-                        local distance = (hrp.Position - mobHrp.Position).Magnitude
+                        local targetPos = mobHrp.CFrame * CFrame.new(0, 10, 0) -- Tầm cao 10 studs chuẩn đét
+                        local distance = (hrp.Position - targetPos.Position).Magnitude
                         
-                        -- Bay trên đầu quái 14 studs (tầm cao an toàn tuyệt đối)
-                        flyToTarget(mobHrp.CFrame * CFrame.new(0, 14, 0))
-                        
-                        if distance <= 20 then
-                            local tool = character:FindFirstChildOfClass("Tool")
-                            if tool then tool:Activate() end
-                            
-                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                        -- Chỉ di chuyển khi xa hơn 3 studs, đến nơi là đứng im
+                        if distance > 3 then
+                            flyToTarget(targetPos)
+                        else
+                            hrp.CFrame = targetPos
                         end
+                        
+                        -- Đánh quái
+                        local tool = character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                        
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                     else
-                        toggleBtn.Text = "ĐỜI QUÁI SPAWN (ĐỨNG YÊN)"
-                        -- Khi không có quái: Giữ đứng yên cố định ở độ cao an toàn
+                        toggleBtn.Text = "ĐỜI QUÁI SPAWN"
                         flyToTarget(targetData.mobPos)
                     end
                 end
