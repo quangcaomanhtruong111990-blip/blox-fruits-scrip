@@ -8,7 +8,7 @@ local maxBanditQuests = 10     -- Làm 10 lần Q Bandit
 local banditCount = 0          -- Biến đếm
 local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam
-local isAtJungle = false       -- Đã sang Đảo Khỉ chưa
+local isAtJungle = false       -- Trạng thái đã sang Đảo Khỉ chưa
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
 -- Tọa độ 2 Đảo
@@ -24,7 +24,7 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 180, 0, 45)
+toggleBtn.Size = UDim2.new(0, 190, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -99,14 +99,12 @@ local function startBanditQuest()
     isCheckingQuest = false
 end
 
--- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Chậm Chắc - Chờ Server Load)
+-- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ
 local function startJungleQuestSlow()
     if isCheckingQuest then return end
     isCheckingQuest = true
     
-    -- Chờ 1 giây cho nhân vật load vị trí hoàn toàn
     task.wait(1)
-    
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
@@ -114,7 +112,6 @@ local function startJungleQuestSlow()
         end
     end)
     
-    -- Chờ 2.5 giây cho server Blox Fruits phản hồi và hiện Quest
     task.wait(2.5)
     isCheckingQuest = false
 end
@@ -148,28 +145,51 @@ local function getClosestBandit(maxDistance)
     return closestMob
 end
 
--- 7. Xử Lý Bấm Nút ON/OFF
+-- 7. Xử Lý Bấm Nút ON/OFF (Có Check Vị Trí Hiện Tại)
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
-        banditCount = 0
-        isAtJungle = false
-        isTweening = false
-        toggleBtn.Text = "BANDIT: (0/10)"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "BẮT ĐẦU",
-            Text = "Farm 10 Bandit -> Bay chậm sang Đảo Khỉ -> Nhận Q chậm -> Đứng yên",
-            Duration = 3
-        })
+        task.spawn(function()
+            local character = player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local hrp = character.HumanoidRootPart
+                local distToJungle = (hrp.Position - JUNGLE_POS.Position).Magnitude
+                
+                -- CHECK: Nếu khoảng cách tới Đảo Khỉ < 500 (Đang ở Đảo Khỉ)
+                if distToJungle < 500 then
+                    toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
+                    game:GetService("StarterGui"):SetCore("SendNotification", {
+                        Title = "KÍCH HOẠT LẠI",
+                        Text = "Phát hiện đang ở Đảo Khỉ. Đang bay mượt về Đảo 1 để bắt đầu lại!",
+                        Duration = 4
+                    })
+                    
+                    -- Bay mượt từ từ quay lại Đảo 1
+                    ultraSlowTeleport(BANDIT_POS)
+                end
+            end
+            
+            -- Reset các trạng thái để bắt đầu lại từ đầu
+            banditCount = 0
+            isAtJungle = false
+            isTweening = false
+            toggleBtn.Text = "BANDIT: (0/10)"
+            
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "BẮT ĐẦU FARM",
+                Text = "Đã ở Đảo 1! Tiến hành farm 10 Q Bandit...",
+                Duration = 3
+            })
+        end)
     else
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
     end
 end)
 
--- 8. Bộ Đếm 10 Lần Quest Bandit -> Kích Hoạt Bay & Nhận Q Đảo Khỉ
+-- 8. Bộ Đếm 10 Lần Quest Bandit -> Bay & Nhận Q Đảo Khỉ
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
@@ -185,12 +205,10 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             toggleBtn.Text = "ĐANG BAY TỪ TỪ SANG KHỈ..."
             
             task.spawn(function()
-                -- Bay siêu chậm
                 ultraSlowTeleport(JUNGLE_POS)
                 
                 toggleBtn.Text = "ĐANG NHẬN Q ĐẢO KHỈ..."
                 
-                -- Thử nhận Quest Đảo Khỉ từ từ cho tới khi bảng Q xuất hiện
                 while isFarming and isAtJungle and not questFrame.Visible do
                     startJungleQuestSlow()
                 end
