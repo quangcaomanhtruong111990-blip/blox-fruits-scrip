@@ -1,4 +1,5 @@
 local player = game.Players.LocalPlayer
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -60,6 +61,7 @@ screenGui.Name = "AutoFarmModernGui"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = CoreGui
 
+-- Khung chính
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 180, 0, 50)
@@ -80,6 +82,7 @@ frameStroke.Color = Color3.fromRGB(0, 230, 150)
 frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 frameStroke.Parent = mainFrame
 
+-- Đèn LED trạng thái
 local statusDot = Instance.new("Frame")
 statusDot.Name = "StatusDot"
 statusDot.Size = UDim2.new(0, 10, 0, 10)
@@ -91,6 +94,7 @@ local dotCorner = Instance.new("UICorner")
 dotCorner.CornerRadius = UDim.new(1, 0)
 dotCorner.Parent = statusDot
 
+-- Tiêu đề chữ
 local titleText = Instance.new("TextLabel")
 titleText.Name = "TitleText"
 titleText.Size = UDim2.new(0, 100, 0, 20)
@@ -103,6 +107,7 @@ titleText.Font = Enum.Font.GothamBold
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = mainFrame
 
+-- Sub Text (Phím tắt)
 local subText = Instance.new("TextLabel")
 subText.Name = "SubText"
 subText.Size = UDim2.new(0, 100, 0, 14)
@@ -115,6 +120,7 @@ subText.Font = Enum.Font.GothamMedium
 subText.TextXAlignment = Enum.TextXAlignment.Left
 subText.Parent = mainFrame
 
+-- Nút Bật/Tắt click trực tiếp lên Frame
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleBtn"
 toggleBtn.Size = UDim2.new(1, 0, 1, 0)
@@ -295,30 +301,16 @@ local function getClosestMob(mobNamePattern)
     return closestMob
 end
 
--- ĐÁNH NGẦM CHUẨN (KHÔNG DÙNG CLICK CHUỘT BÊN NGOÀI)
-local function silentFastAttack(targetMob)
+-- Fast Attack
+local function fastAttack()
     pcall(function()
         local character = player.Character
         local tool = character and character:FindFirstChildOfClass("Tool")
         if tool then
-            -- 1. Kích hoạt vũ khí ngầm
             tool:Activate()
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             
-            -- 2. Gửi sát thương trực tiếp lên Server thông qua Net Remote
-            local registerAttack = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net") and ReplicatedStorage.Modules.Net:FindFirstChild("RegisterAttack")
-            if registerAttack then
-                registerAttack:FireServer()
-            end
-
-            -- 3. Truyền sát thương vào quái gần nhất
-            if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                local registerHit = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net") and ReplicatedStorage.Modules.Net:FindFirstChild("RegisterHit")
-                if registerHit then
-                    registerHit:FireServer(targetMob.HumanoidRootPart, {targetMob})
-                end
-            end
-            
-            -- 4. Tắt hoạt ảnh vung tay gây giật
             local humanoid = character:FindFirstChildOfClass("Humanoid")
             if humanoid and humanoid:FindFirstChild("Animator") then
                 for _, track in pairs(humanoid.Animator:GetPlayingAnimationTracks()) do
@@ -391,10 +383,10 @@ task.spawn(function()
                         flyShort(targetCFrame)
                         
                         local currentDistance = (hrp.Position - mobHrp.Position).Magnitude
-                        if currentDistance <= 15 and isScriptEnabled then
-                            for i = 1, 3 do
+                        if currentDistance <= 12 and isScriptEnabled then
+                            for i = 1, 4 do
                                 if not isScriptEnabled then break end
-                                silentFastAttack(targetMob)
+                                fastAttack()
                             end
                         end
                     else
