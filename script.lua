@@ -32,56 +32,80 @@ local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
 local PIRATE_MOB_POS = CFrame.new(-1050, 6, 3900)
 
 ------------------------------------------------------------------
--- LẤY GIÁ TRỊ Beli & Bone
+-- === HÀM LẤY GIÁ TRỊ ĐÃ SỬA: TÌM GẦN ĐÚNG TÊN + IN DEBUG ===
 ------------------------------------------------------------------
 local function getStatValue(statName)
-    local leaderstats = player:FindFirstChild("leaderstats")
-    if leaderstats then
-        local stat = leaderstats:FindFirstChild(statName)
-        if stat then return stat.Value end
+    local leaderstats = player:WaitForChild("leaderstats", 5) -- Chờ chắc chắn có leaderstats
+    if not leaderstats then
+        warn("[DEBUG] Không tìm thấy leaderstats!")
+        return 0
     end
+    -- Lặp tìm bỏ qua chữ hoa/thường để tránh lỗi tên
+    for _, stat in pairs(leaderstats:GetChildren()) do
+        if string.lower(stat.Name) == string.lower(statName) then
+            print("[DEBUG] "..statName.." hiện có: "..tostring(stat.Value)) -- Xem số tiền thật ở Console
+            return tonumber(stat.Value) or 0
+        end
+    end
+    warn("[DEBUG] Không tìm thấy chỉ số: "..statName)
     return 0
 end
 
 ------------------------------------------------------------------
--- TỰ HỌC DARK STEP KHI ĐỦ TIỀN
+-- === HÀM KIỂM TRA & MUA ĐÃ SỬA ===
 ------------------------------------------------------------------
 local function tryBuyLearnDarkStep()
     if hasLearnedDarkStep or not isScriptEnabled or isLearningFighting then return true end
-    local currentBeli = getStatValue("Beli")
+    isLearningFighting = true
+
+    -- === THỬ TÊN TIỀN: Đổi "Money" thành "$" nếu cần ===
+    local currentBeli = getStatValue("Money") -- Phù hợp ảnh hiển thị $
+    print("[DEBUG] Kiểm tra mua Dark Step: Cần "..DARK_STEP_PRICE.." | Có "..currentBeli)
+
     if currentBeli < DARK_STEP_PRICE then
         game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Chưa đủ tiền Dark Step",
-            Text = string.format("Cần %d Beli | Có %d Beli → farm tiếp kiếm tiền", DARK_STEP_PRICE, currentBeli),
-            Duration = 3
+            Title = "⚠️ Kiểm tra lại tiền",
+            Text = string.format("Cần %d | Đọc được %d → xem Console", DARK_STEP_PRICE, currentBeli),
+            Duration = 4
         })
-        return false -- chưa đủ tiền
+        isLearningFighting = false
+        return false
     end
 
     -- Đủ tiền → đi học nhanh
-    isLearningFighting = true
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Đủ tiền! Đi học Dark Step", Duration = 3
+        Title = "✅ Đủ tiền! Đang mua Dark Step", Duration = 3
     })
-
     flyLinearTo(BLACK_LEG_POS, FLY_SPEED_LONG)
     task.wait(1.2)
 
+    local buySuccess = false
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
+            -- === THỬ ĐỔI TÊN LỆNH: "BuySkill" / "LearnFightingStyle" nếu không được ===
             commF:InvokeServer("BuyFightingStyle", "Dark Step", DARK_STEP_PRICE)
             task.wait(1)
+            buySuccess = true
             hasLearnedDarkStep = true
             game:GetService("StarterGui"):SetCore("SendNotification", {
                 Title = "✅ Học thành công Dark Step!",
-                Text = "Bắt đầu farm Bone đến 100 điểm rồi dừng!", Duration = 4
+                Text = "Tiếp tục farm Bone đến 100 điểm", Duration = 4
             })
+        else
+            warn("[DEBUG] Không tìm thấy Remote gửi yêu cầu mua!")
         end
     end)
 
+    if not buySuccess then
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "❌ Mua thất bại",
+            Text = "Kiểm tra tên kỹ năng hoặc vị trí NPC", Duration = 4
+        })
+    end
+
     isLearningFighting = false
-    return hasLearnedDarkStep
+    return buySuccess
 end
 
 ------------------------------------------------------------------
@@ -285,15 +309,9 @@ task.spawn(function()
             elseif currentIsland==3 then
                 -- Ở đảo 3: kiểm tra & học võ trước khi tập trung farm Bone
                 if not hasLearnedDarkStep then
-                    local learned = tryBuyLearnDarkStep()
-                    if not learned then -- chưa đủ tiền → vẫn farm kiếm tiền bình thường
-                        qName="BuggyQuest1" mobPat="Pirate" npcP=PIRATE_NPC_POS mobP=PIRATE_MOB_POS
-                    else -- đã học rồi → chuyển sang farm lấy Bone
-                        qName="BuggyQuest1" mobPat="Pirate" npcP=PIRATE_NPC_POS mobP=PIRATE_MOB_POS
-                    end
-                else -- đã học xong → chỉ tập farm Bone
-                    qName="BuggyQuest1" mobPat="Pirate" npcP=PIRATE_NPC_POS mobP=PIRATE_MOB_POS
+                    tryBuyLearnDarkStep() -- Gọi kiểm tra + tự học
                 end
+                qName="BuggyQuest1" mobPat="Pirate" npcP=PIRATE_NPC_POS mobP=PIRATE_MOB_POS
             end
 
             -- Nhận nhiệm vụ khi chưa có
