@@ -304,11 +304,24 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 8. Vòng Lặp Farm Chính (3 Đảo)
+-- 8. Vòng Lặp Farm Chính (3 Đảo + Tự động bỏ qua hội thoại NPC)
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
             pcall(function()
+                -- Tự động bấm nút "Bỏ qua" nếu vô tình dính hội thoại NPC
+                local dialogueGui = playerGui:FindFirstChild("Dialogue")
+                if dialogueGui then
+                    for _, v in pairs(dialogueGui:GetDescendants()) do
+                        if v:IsA("TextButton") and (v.Text == "Bỏ qua" or v.Text == "Skip") then
+                            local absPos = v.AbsolutePosition
+                            local absSize = v.AbsoluteSize
+                            VirtualInputManager:SendMouseButtonEvent(absPos.X + absSize.X/2, absPos.Y + absSize.Y/2, 0, true, game, 1)
+                            VirtualInputManager:SendMouseButtonEvent(absPos.X + absSize.X/2, absPos.Y + absSize.Y/2, 0, false, game, 1)
+                        end
+                    end
+                end
+
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
