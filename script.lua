@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local maxBanditQuests = 10     -- Làm 10 lần Q Bandit
 local banditCount = 0         -- Biến đếm Q Bandit
 local isScriptActive = true
+local isGettingQuest = false  -- Chống spam nhận Q liên tục
 
 -- Tọa độ Đảo Khỉ (Tự bay sang khi xong 10 Q)
 local JUNGLE_POS = CFrame.new(-1612, 37, 149)
@@ -12,7 +13,7 @@ local JUNGLE_POS = CFrame.new(-1612, 37, 149)
 -- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Auto Farm Bandit",
-    Text = "Xong 10 Q -> Bay sang Đảo Khỉ rồi TẮT script!",
+    Text = "Fix lỗi kẹt NPC! Xong 10 Q -> Đảo Khỉ rồi TẮT!",
     Duration = 4
 })
 
@@ -32,14 +33,20 @@ local function equipWeapon()
     end
 end
 
--- 2. Hàm Nhận Nhiệm Vụ Bandit
+-- 2. Hàm Nhận Nhiệm Vụ Bandit (Đã Chống Spam)
 local function startBanditQuest()
+    if isGettingQuest then return end
+    isGettingQuest = true
+    
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
             commF:InvokeServer("StartQuest", "BanditQuest1", 1)
         end
     end)
+    
+    task.wait(1) -- Chờ 1 giây để Server xử lý
+    isGettingQuest = false
 end
 
 -- 3. Hàm Tìm Quái Bandit
@@ -108,7 +115,6 @@ end)
 -- 5. Vòng Lặp Farm
 task.spawn(function()
     while task.wait(0.1) do
-        -- Ngắt vòng lặp khi đã dừng script
         if not isScriptActive then break end
 
         pcall(function()
@@ -117,12 +123,13 @@ task.spawn(function()
             
             equipWeapon()
             
-            -- Tự động nhận Q Bandit nếu chưa nhận
+            -- Tự động nhận Q nếu bảng Quest đang không bật
             if questFrame and not questFrame.Visible then
                 startBanditQuest()
-                task.wait(0.5)
+                return -- Tạm dừng 1 nhịp vòng lặp để nhận Q xong rồi mới tìm quái
             end
             
+            -- Đã có Quest -> Đi tìm quái đánh
             local targetMob = getClosestMob(350)
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                 character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
