@@ -12,9 +12,9 @@ local isCheckingQuest = false  -- Chống spam nhận Q
 local isAtJungle = false       -- Đã sang Đảo Khỉ chưa
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
--- Tọa độ 2 Đảo
-local BANDIT_POS = CFrame.new(1059, 16, 1549)
-local JUNGLE_POS = CFrame.new(-1612.8, 36.8, 149.2)
+-- Tọa độ trung tâm hoặc bãi quái của 2 Đảo (Đã đổi vị trí để không bao giờ đứng gần NPC nhận nhiệm vụ)
+local BANDIT_POS = CFrame.new(1038, 16, 1575)
+local JUNGLE_POS = CFrame.new(-1485, 36, 68)
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
@@ -243,7 +243,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm Chính (HOÀN TOÀN KHÔNG CÒN LỆNH KÉO VỀ GẶP NPC)
+-- 9. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
