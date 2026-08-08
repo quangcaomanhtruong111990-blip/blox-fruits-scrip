@@ -8,30 +8,50 @@ local isFarming = false
 local isCheckingQuest = false 
 local isTweening = false      
 
--- Tọa độ vị trí gần NPC nhận nhiệm vụ của 5 Đảo
+-- Danh sách đảo từ Sea 1 đến Sea 3 (Tự động quét theo cấp độ)
 local ISLAND_DATA = {
-    {minLevel = 1,  maxLevel = 9,  name = "BANDIT",  questName = "BanditQuest1", mobPattern = "Bandit",       pos = CFrame.new(1038, 16, 1575)},
-    {minLevel = 10, maxLevel = 29, name = "JUNGLE",  questName = "JungleQuest",  mobPattern = "Monkey",       pos = CFrame.new(-1485, 36, 68)},
-    {minLevel = 30, maxLevel = 59, name = "PIRATE",  questName = "BuggyQuest1",  mobPattern = "Pirate",       pos = CFrame.new(-1140, 4, 3825)},
-    {minLevel = 60, maxLevel = 89, name = "DESERT",  questName = "DesertQuest",  mobPattern = "Desert",       pos = CFrame.new(903, 16, 4376)},
-    {minLevel = 90, maxLevel = 9999, name = "SNOW",   questName = "SnowQuest",    mobPattern = "Snow Bandit",  pos = CFrame.new(1389, 88, -1298)}
+    {minLevel = 1,    maxLevel = 9,    name = "BANDIT",     questName = "BanditQuest1",     mobPattern = "Bandit",       pos = CFrame.new(1038, 16, 1575)},
+    {minLevel = 10,   maxLevel = 29,   name = "JUNGLE",     questName = "JungleQuest",      mobPattern = "Monkey",       pos = CFrame.new(-1485, 36, 68)},
+    {minLevel = 30,   maxLevel = 59,   name = "PIRATE",     questName = "BuggyQuest1",      mobPattern = "Pirate",       pos = CFrame.new(-1140, 4, 3825)},
+    {minLevel = 60,   maxLevel = 89,   name = "DESERT",     questName = "DesertQuest",      mobPattern = "Desert",       pos = CFrame.new(903, 16, 4376)},
+    {minLevel = 90,   maxLevel = 119,  name = "SNOW",       questName = "SnowQuest",        mobPattern = "Snow Bandit",  pos = CFrame.new(1389, 88, -1298)},
+    {minLevel = 120,  maxLevel = 149,  name = "MARINE",     questName = "MarineQuest",      mobPattern = "Chief Petty Officer", pos = CFrame.new(-2466, 17, 3792)},
+    {minLevel = 150,  maxLevel = 174,  name = "UNDERWATER", questName = "DeepForestQuest",  mobPattern = "Fishman",      pos = CFrame.new(61123, 18, 1569)}, -- Ví dụ trạm trung chuyển/đảo tiếp theo
+    -- Bạn đang ở Level 1513 (Sea 3), script dưới đây sẽ tự động nhận diện cấp > 700 để nhảy cóc đến các đảo phù hợp nếu cần, hoặc bạn có thể bổ sung thêm mốc quái tương ứng:
+    {minLevel = 700,  maxLevel = 9999, name = "SEA 3 / CAO", questName = "PiratePortQuest", mobPattern = "Pirate Millionaire", pos = CFrame.new(-290, 43, 5580)}
 }
 
--- Hàm lấy thông tin đảo hiện tại dựa vào Level của nhân vật
-local function getCurrentIslandByLevel()
-    local leaderstats = player:FindFirstChild("leaderstats")
-    if leaderstats then
-        local levelVal = leaderstats:FindFirstChild("Level")
-        if levelVal then
-            local lvl = levelVal.Value
-            for i, data in ipairs(ISLAND_DATA) do
-                if lvl >= data.minLevel and lvl <= data.maxLevel then
-                    return i
+-- Hàm quét trực tiếp số Cấp trên màn hình game (Lấy từ Text hiển thị của bạn)
+local function getRealPlayerLevel()
+    local success, level = pcall(function()
+        -- Quét toàn bộ TextLabel trong PlayerGui để tìm chữ bắt đầu bằng "Cấp"
+        for _, descendant in ipairs(playerGui:GetDescendants()) do
+            if descendant:IsA("TextLabel") and string.find(descendant.Text, "Cấp") then
+                local num = tonumber(string.match(descendant.Text, "%d+"))
+                if num and num > 0 then
+                    return num
                 end
             end
         end
+        return nil
+    end)
+    
+    if success and level then
+        return level
     end
-    return 1
+    
+    -- Fallback phòng hờ nếu không quét được chữ
+    return 1513 
+end
+
+local function getCurrentIslandByLevel()
+    local lvl = getRealPlayerLevel()
+    for i, data in ipairs(ISLAND_DATA) do
+        if lvl >= data.minLevel and lvl <= data.maxLevel then
+            return i
+        end
+    end
+    return #ISLAND_DATA -- Mặc định lấy mốc cao nhất nếu vượt bảng
 end
 
 local currentIsland = getCurrentIslandByLevel()
@@ -45,7 +65,7 @@ screenGui.Parent = playerGui
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 200, 0, 45)
+toggleBtn.Size = UDim2.new(0, 220, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -55,7 +75,7 @@ toggleBtn.Text = "FARM LEVEL: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Mượt Chống Kẹt (Noclip & AntiFall)
+-- 2. Hàm Bay Mượt Chống Kẹt
 local function flyToTarget(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -69,14 +89,11 @@ local function flyToTarget(targetCFrame)
     end
     
     for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
+        if part:IsA("BasePart") then part.CanCollide = false end
     end
     
     local speed = 250
     local timeToTravel = distance / speed
-    
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     
@@ -96,7 +113,6 @@ local function flyToTarget(targetCFrame)
     end)
 end
 
--- Hàm bay chuyển đảo mượt
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -105,13 +121,10 @@ local function ultraSlowTeleport(targetCFrame)
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
     local speed = 150 
     local timeToTravel = distance / speed
-    
     isTweening = true
     
     for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
+        if part:IsA("BasePart") then part.CanCollide = false end
     end
     
     local bv = Instance.new("BodyVelocity")
@@ -159,7 +172,7 @@ local function startQuestForIsland(questName)
     isCheckingQuest = false
 end
 
--- 5. Hàm Tìm Quái Linh Hoạt
+-- 5. Hàm Tìm Quái
 local function getClosestMob(mobNamePattern, maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -203,12 +216,11 @@ toggleBtn.MouseButton1Click:Connect(function()
         end
         
         local data = ISLAND_DATA[currentIsland]
-        toggleBtn.Text = "ĐANG ĐẾN ĐẢO " .. data.name .. "..."
+        toggleBtn.Text = "LV " .. getRealPlayerLevel() .. " -> " .. data.name
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         task.spawn(function()
             ultraSlowTeleport(data.pos)
-            toggleBtn.Text = data.name .. " (LEVEL CHECK)"
         end)
     else
         toggleBtn.Text = "FARM LEVEL: OFF"
@@ -223,15 +235,15 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 7. Tự động kiểm tra và cập nhật đảo liên tục theo Level thực tế của nhân vật
+-- 7. Tự động kiểm tra cấp độ thực tế liên tục
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(2) do
         if isFarming and not isTweening then
             local realIsland = getCurrentIslandByLevel()
             if realIsland ~= currentIsland then
                 currentIsland = realIsland
                 local data = ISLAND_DATA[currentIsland]
-                toggleBtn.Text = "LÊN LEVEL! ĐẾN " .. data.name
+                toggleBtn.Text = "LÊN CẤP! ĐẾN " .. data.name
                 task.spawn(function()
                     ultraSlowTeleport(data.pos)
                 end)
