@@ -2,24 +2,25 @@ local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 
 -- Cấu hình
 local maxQuests = 10           -- Số lần làm Q cho mỗi đảo (10 lần)
 local banditCount = 0          -- Đếm Q Bandit
 local jungleCount = 0          -- Đếm Q Khỉ
+local pirateCount = 0          -- Đếm Q Pirate (Đảo 3)
+local currentIsland = 1        -- 1: Bandit, 2: Khỉ, 3: Làng Hải Tặc
 local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam nhận Q
-local isAtJungle = false       -- Đã sang Đảo Khỉ chưa
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
--- Tọa độ trung tâm/bãi quái (Không đứng gần NPC nhận nhiệm vụ)
+-- Tọa độ trung tâm/bãi quái cho 3 Đảo (Không đứng gần NPC nhận nhiệm vụ)
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
+local PIRATE_POS = CFrame.new(-1140, 14, 3828) -- Tọa độ khu vực Làng Hải Tặc (Đảo 3)
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmBanditToJungleGui"
+screenGui.Name = "AutoFarm3IslandsGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
@@ -107,39 +108,48 @@ local function equipWeapon()
     end
 end
 
--- 4. Hàm Nhận Nhiệm Vụ Bandit (Đảo 1 - Từ xa)
+-- 4. Các Hàm Nhận Nhiệm Vụ Từ Xa
 local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
-    
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
             commF:InvokeServer("StartQuest", "BanditQuest1", 1)
         end
     end)
-    
     task.wait(1.2)
     isCheckingQuest = false
 end
 
--- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Đảo 2 - Từ xa)
 local function startJungleQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
-    
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
             commF:InvokeServer("StartQuest", "JungleQuest", 1)
         end
     end)
-    
     task.wait(1.2)
     isCheckingQuest = false
 end
 
--- 6. Hàm Tìm Quái Gần Nhất
+local function startPirateVillageQuest()
+    if isCheckingQuest then return end
+    isCheckingQuest = true
+    pcall(function()
+        local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        if commF then
+            -- Tên nhiệm vụ Làng Hải Tặc (Pirate Village) ở Sea 1 thường là PirateQuest
+            commF:InvokeServer("StartQuest", "PirateQuest", 1)
+        end
+    end)
+    task.wait(1.2)
+    isCheckingQuest = false
+end
+
+-- 5. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -168,13 +178,14 @@ local function getClosestMob(mobName, maxDistance)
     return closestMob
 end
 
--- 7. Xử Lý Bấm Nút ON/OFF (Kèm tính năng tự quay trái & cất vào rương khi bật)
+-- 6. Xử Lý Bấm Nút ON/OFF (Quay trái, cất rương, gacha, bay về đảo 1)
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
         banditCount = 0
         jungleCount = 0
-        isAtJungle = false
+        pirateCount = 0
+        currentIsland = 1
         isCheckingQuest = false
         
         local character = player.Character
@@ -183,12 +194,13 @@ toggleBtn.MouseButton1Click:Connect(function()
                 if v:IsA("BodyVelocity") then v:Destroy() end
             end
             
-            -- Tự động quay trái 90 độ ngay tại chỗ
+            -- Quay trái chuẩn góc Y
             local hrp = character.HumanoidRootPart
-            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(90), 0)
+            local x, y, z = hrp.CFrame:ToOrientation()
+            hrp.CFrame = CFrame.new(hrp.Position) * CFrame.fromOrientation(x, y + math.rad(90), z)
         end
         
-        -- Tự động cất trái cây (Blox Fruit) vào rương (StoreFruit)
+        -- Cất trái cây vào rương trước
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
@@ -202,6 +214,26 @@ toggleBtn.MouseButton1Click:Connect(function()
                         if item:IsA("Tool") and item.ToolTip == "Blox Fruit" then
                             commF:InvokeServer("StoreFruit", item.Name)
                         end
+                    end
+                end
+            end
+        end)
+
+        -- Random trái cây (Cousin)
+        pcall(function()
+            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+            if commF then
+                commF:InvokeServer("Cousin", "Buy")
+            end
+        end)
+
+        task.wait(1)
+        pcall(function()
+            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+            if commF then
+                for _, item in pairs(player.Backpack:GetChildren()) do
+                    if item:IsA("Tool") and item.ToolTip == "Blox Fruit" then
+                        commF:InvokeServer("StoreFruit", item.Name)
                     end
                 end
             end
@@ -227,47 +259,51 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 8. Bộ Đếm Quest Đảo 1 & Đảo 2
+-- 7. Bộ Đếm Quest Cho 3 Đảo
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not questFrame.Visible and isFarming and not isTweening then
-        -- Đang ở Đảo Bandit
-        if not isAtJungle then
+        if currentIsland == 1 then
             banditCount = banditCount + 1
             toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
             
             if banditCount >= maxQuests then
-                isAtJungle = true
+                currentIsland = 2
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
-                
                 task.spawn(function()
                     ultraSlowTeleport(JUNGLE_POS)
                     toggleBtn.Text = "KHỈ: (0/10)"
                 end)
             end
-        -- Đang ở Đảo Khỉ
-        else
+        elseif currentIsland == 2 then
             jungleCount = jungleCount + 1
             toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
             
             if jungleCount >= maxQuests then
-                isFarming = false
-                toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
-                
+                currentIsland = 3
+                toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
                 task.spawn(function()
-                    ultraSlowTeleport(BANDIT_POS)
-                    toggleBtn.Text = "HOÀN THÀNH - OFF"
-                    toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+                    ultraSlowTeleport(PIRATE_POS)
+                    toggleBtn.Text = "PIRATE: (0/10)"
                 end)
+            end
+        elseif currentIsland == 3 then
+            pirateCount = pirateCount + 1
+            toggleBtn.Text = "PIRATE: (" .. pirateCount .. "/" .. maxQuests .. ")"
+            
+            if pirateCount >= maxQuests then
+                isFarming = false
+                toggleBtn.Text = "HOÀN THÀNH - OFF"
+                toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             end
         end
     end
 end)
 
--- 9. Vòng Lặp Farm Chính
+-- 8. Vòng Lặp Farm Chính (3 Đảo)
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -277,8 +313,8 @@ task.spawn(function()
                 
                 equipWeapon()
                 
-                -- GIAI ĐOẠN 1: ĐẢO BANDIT (ĐẢO 1)
-                if not isAtJungle then
+                -- ĐẢO 1: BANDIT
+                if currentIsland == 1 then
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
                         startBanditQuest()
                     end
@@ -294,13 +330,30 @@ task.spawn(function()
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                     end
                     
-                -- GIAI ĐOẠN 2: ĐẢO KHỈ (ĐẢO 2)
-                else
+                -- ĐẢO 2: KHỈ (MONKEY)
+                elseif currentIsland == 2 then
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
                         startJungleQuest()
                     end
                     
                     local targetMob = getClosestMob("Monkey", 350)
+                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        flyToMob(targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0))
+                        
+                        local tool = character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                        
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                    end
+                    
+                -- ĐẢO 3: LÀNG HẢI TẶC (PIRATE) - Lưu ý tên quái hải tặc thường là "Pirate"
+                elseif currentIsland == 3 then
+                    if questFrame and not questFrame.Visible and not isCheckingQuest then
+                        startPirateVillageQuest()
+                    end
+                    
+                    local targetMob = getClosestMob("Pirate", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         flyToMob(targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0))
                         
