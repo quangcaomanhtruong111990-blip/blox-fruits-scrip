@@ -7,31 +7,15 @@ local playerGui = player:WaitForChild("PlayerGui")
 local isFarming = false       
 local isCheckingQuest = false 
 
--- Bảng dữ liệu bao gồm vị trí NPC nhận Q và vị trí Quái (Cúp Bếp / Ship Steward - Cấp 1300)
 local SEA2_MOB_DATA = {
     {
         minLvl = 1250, maxLvl = 1513, 
         quest = "ShipQuest2", 
         mob = "Ship Steward", 
-        npcPos = CFrame.new(925, 125, 32850), -- Vị trí NPC nhận Quest trên Tàu Ma
-        mobPos = CFrame.new(915, 130, 33400)  -- Bãi quái Bếp Phó
+        npcPos = CFrame.new(925, 125, 32850),
+        mobPos = CFrame.new(915, 138, 33400) -- Đã nâng độ cao bãi chờ
     }
 }
-
--- Quét Cấp độ thực tế
-local function getRealPlayerLevel()
-    local success, level = pcall(function()
-        for _, descendant in ipairs(playerGui:GetDescendants()) do
-            if descendant:IsA("TextLabel") and string.find(descendant.Text, "Cấp") then
-                local num = tonumber(string.match(descendant.Text, "%d+"))
-                if num and num > 0 then return num end
-            end
-        end
-        return nil
-    end)
-    if success and level then return level end
-    return 1300
-end
 
 local function getTargetData()
     return SEA2_MOB_DATA[1]
@@ -56,7 +40,7 @@ toggleBtn.Text = "FARM SEA 2: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- Hàm Bay
+-- Hàm bay mượt & giữ vị trí ổn định
 local function flyToTarget(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -64,7 +48,8 @@ local function flyToTarget(targetCFrame)
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
     
-    if distance < 6 then
+    -- Nếu đã ở rất gần mục tiêu thì giữ cố định CFrame để tránh giật/nhảy
+    if distance < 3 then
         hrp.CFrame = targetCFrame
         return
     end
@@ -117,11 +102,9 @@ local function getQuestFromNPC(questName, npcPos)
     
     local character = player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
-        -- Bay trực tiếp đến NPC
         flyToTarget(npcPos)
-        task.wait(1)
+        task.wait(0.8)
         
-        -- Gửi lệnh nhận Quest
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
@@ -130,7 +113,7 @@ local function getQuestFromNPC(questName, npcPos)
         end)
     end
     
-    task.wait(1)
+    task.wait(0.8)
     isCheckingQuest = false
 end
 
@@ -163,7 +146,7 @@ local function getClosestMob(mobNamePattern)
     return closestMob
 end
 
--- Bật/Tắt nút
+-- Nút Bật/Tắt
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -200,22 +183,21 @@ task.spawn(function()
                 local targetData = getTargetData()
                 local questFrame = playerGui:WaitForChild("Main"):WaitForChild("Quest")
 
-                -- Nếu chưa nhận được Quest thì bay về NPC lấy
+                -- Tự chạy về nhận Q nếu hết Q
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
                     toggleBtn.Text = "ĐANG ĐẾN NHẬN Q..."
                     getQuestFromNPC(targetData.quest, targetData.npcPos)
                 else
-                    toggleBtn.Text = "ĐANG ĐÁNH BẾP PHÓ"
-                    -- Đã có Quest -> Bay ra bãi đánh quái
                     local targetMob = getClosestMob(targetData.mob)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        toggleBtn.Text = "ĐÁNH BẾP PHÓ (ĐÃ BAY CAO)"
                         local mobHrp = targetMob.HumanoidRootPart
                         local distance = (hrp.Position - mobHrp.Position).Magnitude
                         
-                        -- Bay đứng trên đầu quái 9 studs để tránh bị quái đánh trúng
-                        flyToTarget(mobHrp.CFrame * CFrame.new(0, 9, 0))
+                        -- Bay trên đầu quái 14 studs (tầm cao an toàn tuyệt đối)
+                        flyToTarget(mobHrp.CFrame * CFrame.new(0, 14, 0))
                         
-                        if distance <= 15 then
+                        if distance <= 20 then
                             local tool = character:FindFirstChildOfClass("Tool")
                             if tool then tool:Activate() end
                             
@@ -223,6 +205,8 @@ task.spawn(function()
                             VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                         end
                     else
+                        toggleBtn.Text = "ĐỜI QUÁI SPAWN (ĐỨNG YÊN)"
+                        -- Khi không có quái: Giữ đứng yên cố định ở độ cao an toàn
                         flyToTarget(targetData.mobPos)
                     end
                 end
