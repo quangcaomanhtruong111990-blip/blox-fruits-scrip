@@ -4,43 +4,54 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Cấu hình: Số lượng nhiệm vụ mỗi đảo (đang để 1 để test nhanh)
-local maxQuests = 1           
-local banditCount = 0         
-local jungleCount = 0         
-local pirateCount = 0         
-local desertCount = 0         
-local snowCount = 0           
-local marineCount = 0         -- Đếm Q Marine Ford (Đảo 6)
-local currentIsland = 1       -- 1: Bandit, 2: Khỉ, 3: Hải Tặc, 4: Sa Mạc, 5: Làng Tuyết, 6: Marine Ford
 local isFarming = false       
 local isCheckingQuest = false 
 local isTweening = false      
 
--- Tọa độ vị trí gần NPC nhận nhiệm vụ của 6 Đảo (Đã sửa lại tọa độ Marine Ford chuẩn)
-local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
-local JUNGLE_NPC_POS = CFrame.new(-1485, 36, 68)
-local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
-local DESERT_NPC_POS = CFrame.new(903, 16, 4376)
-local SNOW_NPC_POS = CFrame.new(1389, 88, -1298)
-local MARINE_NPC_POS = CFrame.new(-2466, 17, 3792) -- Tọa độ chuẩn đảo Marine Ford
+-- Tọa độ vị trí gần NPC nhận nhiệm vụ của 5 Đảo
+local ISLAND_DATA = {
+    {minLevel = 1,  maxLevel = 9,  name = "BANDIT",  questName = "BanditQuest1", mobPattern = "Bandit",       pos = CFrame.new(1038, 16, 1575)},
+    {minLevel = 10, maxLevel = 29, name = "JUNGLE",  questName = "JungleQuest",  mobPattern = "Monkey",       pos = CFrame.new(-1485, 36, 68)},
+    {minLevel = 30, maxLevel = 59, name = "PIRATE",  questName = "BuggyQuest1",  mobPattern = "Pirate",       pos = CFrame.new(-1140, 4, 3825)},
+    {minLevel = 60, maxLevel = 89, name = "DESERT",  questName = "DesertQuest",  mobPattern = "Desert",       pos = CFrame.new(903, 16, 4376)},
+    {minLevel = 90, maxLevel = 9999, name = "SNOW",   questName = "SnowQuest",    mobPattern = "Snow Bandit",  pos = CFrame.new(1389, 88, -1298)}
+}
+
+-- Hàm lấy thông tin đảo hiện tại dựa vào Level của nhân vật
+local function getCurrentIslandByLevel()
+    local leaderstats = player:FindFirstChild("leaderstats")
+    if leaderstats then
+        local levelVal = leaderstats:FindFirstChild("Level")
+        if levelVal then
+            local lvl = levelVal.Value
+            for i, data in ipairs(ISLAND_DATA) do
+                if lvl >= data.minLevel and lvl <= data.maxLevel then
+                    return i
+                end
+            end
+        end
+    end
+    return 1
+end
+
+local currentIsland = getCurrentIslandByLevel()
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarm6IslandsGui"
+screenGui.Name = "AutoLevelFarmGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 180, 0, 45)
+toggleBtn.Size = UDim2.new(0, 200, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.TextSize = 14
 toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.Text = "FARM: OFF"
+toggleBtn.Text = "FARM LEVEL: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
@@ -85,7 +96,7 @@ local function flyToTarget(targetCFrame)
     end)
 end
 
--- Hàm bay chuyển đảo
+-- Hàm bay chuyển đảo mượt
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -181,14 +192,8 @@ end
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
-        banditCount = 0
-        jungleCount = 0
-        pirateCount = 0
-        desertCount = 0
-        snowCount = 0
-        marineCount = 0
-        currentIsland = 1
         isCheckingQuest = false
+        currentIsland = getCurrentIslandByLevel()
         
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
@@ -197,15 +202,16 @@ toggleBtn.MouseButton1Click:Connect(function()
             end
         end
         
-        toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
+        local data = ISLAND_DATA[currentIsland]
+        toggleBtn.Text = "ĐANG ĐẾN ĐẢO " .. data.name .. "..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         task.spawn(function()
-            ultraSlowTeleport(BANDIT_NPC_POS)
-            toggleBtn.Text = "BANDIT: (0/" .. maxQuests .. ")"
+            ultraSlowTeleport(data.pos)
+            toggleBtn.Text = data.name .. " (LEVEL CHECK)"
         end)
     else
-        toggleBtn.Text = "FARM: OFF"
+        toggleBtn.Text = "FARM LEVEL: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
         local character = player.Character
@@ -217,80 +223,24 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 7. Bộ Đếm Quest Tự Động Chuyển Đảo (1 -> 2 -> 3 -> 4 -> 5 -> 6)
-local mainGui = playerGui:WaitForChild("Main")
-local questFrame = mainGui:WaitForChild("Quest")
-
-questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
-    if not questFrame.Visible and isFarming and not isTweening then
-        if currentIsland == 1 then
-            banditCount = banditCount + 1
-            toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
-            if banditCount >= maxQuests then
-                currentIsland = 2
-                toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
+-- 7. Tự động kiểm tra và cập nhật đảo liên tục theo Level thực tế của nhân vật
+task.spawn(function()
+    while task.wait(1) do
+        if isFarming and not isTweening then
+            local realIsland = getCurrentIslandByLevel()
+            if realIsland ~= currentIsland then
+                currentIsland = realIsland
+                local data = ISLAND_DATA[currentIsland]
+                toggleBtn.Text = "LÊN LEVEL! ĐẾN " .. data.name
                 task.spawn(function()
-                    ultraSlowTeleport(JUNGLE_NPC_POS)
-                    toggleBtn.Text = "KHỈ: (0/" .. maxQuests .. ")"
+                    ultraSlowTeleport(data.pos)
                 end)
-            end
-        elseif currentIsland == 2 then
-            jungleCount = jungleCount + 1
-            toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
-            if jungleCount >= maxQuests then
-                currentIsland = 3
-                toggleBtn.Text = "BAY SANG HẢI TẶC..."
-                task.spawn(function()
-                    ultraSlowTeleport(PIRATE_NPC_POS)
-                    toggleBtn.Text = "PIRATE: (0/" .. maxQuests .. ")"
-                end)
-            end
-        elseif currentIsland == 3 then
-            pirateCount = pirateCount + 1
-            toggleBtn.Text = "PIRATE: (" .. pirateCount .. "/" .. maxQuests .. ")"
-            if pirateCount >= maxQuests then
-                currentIsland = 4
-                toggleBtn.Text = "BAY SANG SA MẠC..."
-                task.spawn(function()
-                    ultraSlowTeleport(DESERT_NPC_POS)
-                    toggleBtn.Text = "DESERT: (0/" .. maxQuests .. ")"
-                end)
-            end
-        elseif currentIsland == 4 then
-            desertCount = desertCount + 1
-            toggleBtn.Text = "DESERT: (" .. desertCount .. "/" .. maxQuests .. ")"
-            if desertCount >= maxQuests then
-                currentIsland = 5
-                toggleBtn.Text = "BAY SANG LÀNG TUYẾT..."
-                task.spawn(function()
-                    ultraSlowTeleport(SNOW_NPC_POS)
-                    toggleBtn.Text = "SNOW: (0/" .. maxQuests .. ")"
-                end)
-            end
-        elseif currentIsland == 5 then
-            snowCount = snowCount + 1
-            toggleBtn.Text = "SNOW: (" .. snowCount .. "/" .. maxQuests .. ")"
-            if snowCount >= maxQuests then
-                currentIsland = 6
-                toggleBtn.Text = "BAY SANG MARINE FORD..."
-                task.spawn(function()
-                    ultraSlowTeleport(MARINE_NPC_POS)
-                    toggleBtn.Text = "MARINE: (0/" .. maxQuests .. ")"
-                end)
-            end
-        elseif currentIsland == 6 then
-            marineCount = marineCount + 1
-            toggleBtn.Text = "MARINE: (" .. marineCount .. "/" .. maxQuests .. ")"
-            if marineCount >= maxQuests then
-                isFarming = false
-                toggleBtn.Text = "HOÀN THÀNH 6 ĐẢO - OFF"
-                toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             end
         end
     end
 end)
 
--- 8. Vòng Lặp Farm Chính 6 Đảo
+-- 8. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -304,32 +254,12 @@ task.spawn(function()
                 equipWeapon()
                 local hrp = character.HumanoidRootPart
 
-                local questName, mobPattern, npcPos
-                if currentIsland == 1 then
-                    questName = "BanditQuest1"
-                    mobPattern = "Bandit"
-                    npcPos = BANDIT_NPC_POS
-                elseif currentIsland == 2 then
-                    questName = "JungleQuest"
-                    mobPattern = "Monkey"
-                    npcPos = JUNGLE_NPC_POS
-                elseif currentIsland == 3 then
-                    questName = "BuggyQuest1"
-                    mobPattern = "Pirate"
-                    npcPos = PIRATE_NPC_POS
-                elseif currentIsland == 4 then
-                    questName = "DesertQuest"
-                    mobPattern = "Desert"
-                    npcPos = DESERT_NPC_POS
-                elseif currentIsland == 5 then
-                    questName = "SnowQuest"
-                    mobPattern = "Snow Bandit"
-                    npcPos = SNOW_NPC_POS
-                elseif currentIsland == 6 then
-                    questName = "MarineQuest"
-                    mobPattern = "Chief Petty Officer"
-                    npcPos = MARINE_NPC_POS
-                end
+                local data = ISLAND_DATA[currentIsland]
+                local questName = data.questName
+                local mobPattern = data.mobPattern
+                local npcPos = data.pos
+
+                local questFrame = playerGui:WaitForChild("Main"):WaitForChild("Quest")
 
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
                     local distToNpc = (hrp.Position - npcPos.Position).Magnitude
