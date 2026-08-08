@@ -34,19 +34,18 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Siêu Chậm An Toàn (Speed 150 + Anti-Gravity)
+-- 2. Hàm Bay Siêu Chậm An Toàn (Speed 150)
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 150 -- Giảm tốc độ xuống cực chậm để chống Anti-Cheat
+    local speed = 150
     local timeToTravel = distance / speed
     
     isTweening = true
     
-    -- Giữ nhân vật không bị rơi và tắt va chạm
     local bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
@@ -64,7 +63,6 @@ local function ultraSlowTeleport(targetCFrame)
     
     tween.Completed:Wait()
     
-    -- Xóa giữ trọng lực sau khi bay xong
     if bodyVelocity then bodyVelocity:Destroy() end
     isTweening = false
 end
@@ -85,7 +83,7 @@ local function equipWeapon()
     end
 end
 
--- 4. Hàm Nhận Nhiệm Vụ Bandit
+-- 4. Hàm Nhận Nhiệm Vụ Bandit (Đảo 1)
 local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -97,14 +95,17 @@ local function startBanditQuest()
         end
     end)
     
-    task.wait(1.2)
+    task.wait(1.5)
     isCheckingQuest = false
 end
 
--- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ
-local function startJungleQuest()
+-- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Chậm Chắc - Chờ Server Load)
+local function startJungleQuestSlow()
     if isCheckingQuest then return end
     isCheckingQuest = true
+    
+    -- Chờ 1 giây cho nhân vật load vị trí hoàn toàn
+    task.wait(1)
     
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
@@ -113,7 +114,8 @@ local function startJungleQuest()
         end
     end)
     
-    task.wait(1.2)
+    -- Chờ 2.5 giây cho server Blox Fruits phản hồi và hiện Quest
+    task.wait(2.5)
     isCheckingQuest = false
 end
 
@@ -158,7 +160,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "BẮT ĐẦU",
-            Text = "Farm 10 Bandit -> Bay siêu chậm sang Đảo Khỉ -> Đứng yên",
+            Text = "Farm 10 Bandit -> Bay chậm sang Đảo Khỉ -> Nhận Q chậm -> Đứng yên",
             Duration = 3
         })
     else
@@ -167,7 +169,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 8. Bộ Đếm 10 Lần Quest Bandit -> Kích Hoạt Bay Siêu Chậm
+-- 8. Bộ Đếm 10 Lần Quest Bandit -> Kích Hoạt Bay & Nhận Q Đảo Khỉ
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
@@ -183,13 +185,22 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             toggleBtn.Text = "ĐANG BAY TỪ TỪ SANG KHỈ..."
             
             task.spawn(function()
+                -- Bay siêu chậm
                 ultraSlowTeleport(JUNGLE_POS)
-                toggleBtn.Text = "ĐẢO KHỈ (ĐỨNG YÊN)"
+                
+                toggleBtn.Text = "ĐANG NHẬN Q ĐẢO KHỈ..."
+                
+                -- Thử nhận Quest Đảo Khỉ từ từ cho tới khi bảng Q xuất hiện
+                while isFarming and isAtJungle and not questFrame.Visible do
+                    startJungleQuestSlow()
+                end
+                
+                toggleBtn.Text = "ĐẢO KHỈ (ĐÃ NHẬN Q - ĐỨNG YÊN)"
                 
                 game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "ĐÃ TỚI ĐẢO KHỈ",
-                    Text = "Đã tới Đảo Khỉ an toàn! Đang nhận Q và đứng yên.",
-                    Duration = 4
+                    Title = "HOÀN THÀNH",
+                    Text = "Đã nhận Quest Đảo Khỉ thành công! Đang đứng yên giữ Script.",
+                    Duration = 5
                 })
             end)
         end
@@ -228,13 +239,9 @@ task.spawn(function()
                         character.HumanoidRootPart.CFrame = BANDIT_POS
                     end
                     
-                -- GIAI ĐOẠN 2: ĐÃ BAY XONG SANG ĐẢO KHỈ (ĐỨNG YÊN & NHẬN Q)
+                -- GIAI ĐOẠN 2: ĐÃ SANG ĐẢO KHỈ (CỐ ĐỊNH VỊ TRÍ)
                 else
                     character.HumanoidRootPart.CFrame = JUNGLE_POS
-                    
-                    if questFrame and not questFrame.Visible and not isCheckingQuest then
-                        startJungleQuest()
-                    end
                 end
             end)
         end
