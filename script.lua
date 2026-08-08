@@ -13,10 +13,9 @@ local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam nhận Q
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
--- Tọa độ trung tâm/bãi quái cho 3 Đảo (TUYỆT ĐỐI KHÔNG ĐỨNG GẦN NPC)
+-- Tọa độ trung tâm/bãi quái cho 3 Đảo
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
--- Tọa độ dời sâu vào bãi quái Hải Tặc (cách xa NPC)
 local PIRATE_POS = CFrame.new(-1190, 16, 3950) 
 
 -- 1. Giao diện nút bấm ON/OFF
@@ -38,17 +37,17 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Siêu Chậm An Toàn (Dành cho bay giữa các Đảo)
-local function ultraSlowTeleport(targetCFrame)
+-- 2. Hàm Bay Vòng Lên Cao Tuyệt Đối Tránh Thợ Rèn / NPC (Áp dụng cho mọi lần đổi đảo)
+local function safeHighTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 150 
-    local timeToTravel = distance / speed
-    
     isTweening = true
+    
+    for _, v in pairs(hrp:GetChildren()) do
+        if v.Name == "FlyBV" then v:Destroy() end
+    end
     
     local bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.Name = "FlyBV"
@@ -62,11 +61,26 @@ local function ultraSlowTeleport(targetCFrame)
         end
     end
     
-    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
-    tween:Play()
+    -- Bước 1: Bay vút lên độ cao Y = 450 (Cao hơn mọi tòa nhà, thợ rèn, NPC trên đảo)
+    local currentPos = hrp.Position
+    local highPos = CFrame.new(currentPos.X, 450, currentPos.Z)
+    local dist1 = (hrp.Position - highPos.Position).Magnitude
+    local tween1 = TweenService:Create(hrp, TweenInfo.new(dist1 / 200, Enum.EasingStyle.Linear), {CFrame = highPos})
+    tween1:Play()
+    tween1.Completed:Wait()
     
-    tween.Completed:Wait()
+    -- Bước 2: Bay ngang trên không đến thẳng tọa độ đích (ở độ cao 450)
+    local targetHighPos = CFrame.new(targetCFrame.X, 450, targetCFrame.Z)
+    local dist2 = (hrp.Position - targetHighPos.Position).Magnitude
+    local tween2 = TweenService:Create(hrp, TweenInfo.new(dist2 / 250, Enum.EasingStyle.Linear), {CFrame = targetHighPos})
+    tween2:Play()
+    tween2.Completed:Wait()
+    
+    -- Bước 3: Hạ thẳng xuống bãi quái mục tiêu
+    local dist3 = (hrp.Position - targetCFrame.Position).Magnitude
+    local tween3 = TweenService:Create(hrp, TweenInfo.new(dist3 / 200, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+    tween3:Play()
+    tween3.Completed:Wait()
     
     if bodyVelocity then bodyVelocity:Destroy() end
     isTweening = false
@@ -129,7 +143,7 @@ local function startJungleQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            commF:InvokeServer("StartQuest", "JungleQuest", 1)
+            commF:InvokeServer("StartQuest", "JungleQuest1", 1)
         end
     end)
     task.wait(1.2)
@@ -142,7 +156,6 @@ local function startPirateVillageQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            -- MÃ CHUẨN CỦA ĐẢO HẢI TẶC LÀ "BuggyQuest1"
             commF:InvokeServer("StartQuest", "BuggyQuest1", 1)
         end
     end)
@@ -195,13 +208,11 @@ toggleBtn.MouseButton1Click:Connect(function()
                 if v:IsA("BodyVelocity") then v:Destroy() end
             end
             
-            -- Quay trái chuẩn góc Y
             local hrp = character.HumanoidRootPart
             local x, y, z = hrp.CFrame:ToOrientation()
             hrp.CFrame = CFrame.new(hrp.Position) * CFrame.fromOrientation(x, y + math.rad(90), z)
         end
         
-        -- Cất trái cây vào rương trước
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
@@ -220,7 +231,6 @@ toggleBtn.MouseButton1Click:Connect(function()
             end
         end)
 
-        -- Random trái cây (Cousin)
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
@@ -244,7 +254,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         task.spawn(function()
-            ultraSlowTeleport(BANDIT_POS)
+            safeHighTeleport(BANDIT_POS)
             toggleBtn.Text = "BANDIT: (0/10)"
         end)
     else
@@ -275,7 +285,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 currentIsland = 2
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
                 task.spawn(function()
-                    ultraSlowTeleport(JUNGLE_POS)
+                    safeHighTeleport(JUNGLE_POS)
                     toggleBtn.Text = "KHỈ: (0/10)"
                 end)
             end
@@ -287,7 +297,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 currentIsland = 3
                 toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
                 task.spawn(function()
-                    ultraSlowTeleport(PIRATE_POS)
+                    safeHighTeleport(PIRATE_POS)
                     toggleBtn.Text = "PIRATE: (0/10)"
                 end)
             end
