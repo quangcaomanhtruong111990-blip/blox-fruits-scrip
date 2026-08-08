@@ -142,7 +142,6 @@ local function getClosestMob(mobName, maxDistance)
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
-            -- Kiểm tra tên quái (bao gồm cả quái clone từ server)
             if string.find(mob.Name, mobName) then
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 local mobHumanoid = mob:FindFirstChild("Humanoid")
@@ -246,7 +245,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm & Đánh Quái Chính (Đã Sửa Lỗi Đánh Quái)
+-- 9. Vòng Lặp Farm & Đánh Quái
 task.spawn(function()
     while task.wait(0.05) do
         if isFarming and not isTweening and not isCompleted then
@@ -268,7 +267,7 @@ task.spawn(function()
                     return
                 end
                 
-                -- BƯỚC 2: TẮT TÍNH NĂNG VA CHẠM ĐỂ KHÔNG BỊ KHỰNG
+                -- BƯỚC 2: TẮT TÍNH NĂNG VA CHẠM
                 for _, part in pairs(character:GetChildren()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
@@ -285,10 +284,10 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- Đặt vị trí ngay trên đầu quái 3.5 studs (Đứng thẳng hướng vào quái)
+                    -- Đặt vị trí phía trên đầu quái 3.5 studs, nhìn thẳng vào quái
                     character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 3.5, 0), mobHrp.Position)
                     
-                    -- Giữ cố định trên không
+                    -- Khóa vị trí bằng BodyVelocity
                     if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
                         local bv = Instance.new("BodyVelocity")
                         bv.Name = "FarmBV"
@@ -297,17 +296,16 @@ task.spawn(function()
                         bv.Parent = character.HumanoidRootPart
                     end
                     
-                    -- KÍCH HOẠT ĐÁN
+                    -- Kích hoạt đòn đánh
                     local tool = character:FindFirstChildOfClass("Tool")
                     if tool then 
                         tool:Activate() 
                     end
                     
-                    -- Mô phỏng nhấp chuột chuẩn Roblox
                     VirtualUser:CaptureController()
                     VirtualUser:ClickButton1(Vector2.new(850, 520))
                 else
-                    -- Nếu không tìm thấy quái thì đứng chờ ở khu vực NPC
+                    -- Không tìm thấy quái thì về điểm chờ
                     if character.HumanoidRootPart:FindFirstChild("FarmBV") then
                         character.HumanoidRootPart.FarmBV:Destroy()
                     end
