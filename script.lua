@@ -7,7 +7,7 @@ local jungleCount = 0          -- Đếm số lần xong Q
 local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam
 
--- Tọa độ Đảo Khỉ (Đã fix chuẩn Vector3)
+-- Tọa độ Đảo Khỉ
 local JUNGLE_CFRAME = CFrame.new(-1612.8, 36.8, 149.2)
 
 -- 1. Giao Diện Nút ON/OFF
@@ -45,7 +45,17 @@ local function equipWeapon()
     end
 end
 
--- 3. Hàm Nhận Nhiệm Vụ Khỉ
+-- 3. Hàm Tự Đặt Điểm Hồi Sinh (Set Spawn Point) tại Đảo Khỉ
+local function setJungleSpawn()
+    pcall(function()
+        local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        if commF then
+            commF:InvokeServer("SetSpawnPoint")
+        end
+    end)
+end
+
+-- 4. Hàm Nhận Nhiệm Vụ Khỉ
 local function startJungleQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -61,7 +71,7 @@ local function startJungleQuest()
     isCheckingQuest = false
 end
 
--- 4. Hàm Tìm Quái Khỉ Gần Nhất
+-- 5. Hàm Tìm Quái Khỉ Gần Nhất
 local function getClosestMob(maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -90,7 +100,7 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 5. Xử Lý Bấm Nút ON/OFF
+-- 6. Xử Lý Bấm Nút ON/OFF
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -98,10 +108,12 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "KHỈ: ON (0/10)"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
-        -- Dịch chuyển tức thời sang Đảo Khỉ ngay khi bấm ON
+        -- Dịch chuyển sang Đảo Khỉ & Khóa luôn điểm hồi sinh tại Đảo Khỉ
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             character.HumanoidRootPart.CFrame = JUNGLE_CFRAME
+            task.wait(0.5)
+            setJungleSpawn()
         end
     else
         toggleBtn.Text = "FARM KHỈ: OFF"
@@ -109,7 +121,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 6. Bộ Đếm 10 Lần Quest Đảo Khỉ
+-- 7. Bộ Đếm 10 Lần Quest Đảo Khỉ
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
@@ -133,7 +145,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 7. Vòng Lặp Farm Chính
+-- 8. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming then
@@ -143,10 +155,11 @@ task.spawn(function()
                 
                 equipWeapon()
                 
-                -- Nếu khoảng cách quá xa Đảo Khỉ (> 1000 studs) -> Tự tele về Đảo Khỉ
+                -- Nếu vị trí bị văng xa khỏi Đảo Khỉ (> 800 studs) -> Bay lại Đảo Khỉ ngay lập tức
                 local distanceToJungle = (character.HumanoidRootPart.Position - JUNGLE_CFRAME.Position).Magnitude
-                if distanceToJungle > 1000 then
+                if distanceToJungle > 800 then
                     character.HumanoidRootPart.CFrame = JUNGLE_CFRAME
+                    setJungleSpawn()
                     task.wait(0.5)
                 end
                 
@@ -168,7 +181,6 @@ task.spawn(function()
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                 else
-                    -- Chưa thấy quái thì giữ nhân vật ở Đảo Khỉ
                     character.HumanoidRootPart.CFrame = JUNGLE_CFRAME
                 end
             end)
