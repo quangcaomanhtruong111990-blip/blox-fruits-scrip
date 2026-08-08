@@ -2,22 +2,18 @@ local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local maxBanditQuests = 10     -- Số lần làm Q Bandit
-local banditCount = 0         -- Đếm số lần xong Q
+local maxQuests = 10         -- Số lần nhiệm vụ muốn làm trước khi dừng
+local completedCount = 0      -- Biến đếm số lần đã xong
 local isScriptActive = true
-local isGettingQuest = false  -- Chống kẹt NPC
 
--- Tọa độ Đảo Khỉ
-local JUNGLE_POS = CFrame.new(-1612, 37, 149)
-
--- Thông báo khởi chạy
+-- Thông báo kích hoạt
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Auto Farm Bandit",
-    Text = "Farm 10 Q Bandit -> Bay sang Đảo Khỉ rồi TẮT!",
+    Title = "Auto Quest Lvl 1",
+    Text = "Sẽ tự động TẮT sau khi hoàn thành " .. maxQuests .. " lần NV!",
     Duration = 4
 })
 
--- 1. Tự trang bị vũ khí Melee / Sword
+-- 1. Hàm Tự Trang Bị Melee
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -33,23 +29,17 @@ local function equipWeapon()
     end
 end
 
--- 2. Nhận Q Bandit (Có khóa chống spam kẹt NPC)
+-- 2. Hàm Tự Nhận Nhiệm Vụ Bandit (Level 1)
 local function startBanditQuest()
-    if isGettingQuest then return end
-    isGettingQuest = true
-    
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
             commF:InvokeServer("StartQuest", "BanditQuest1", 1)
         end
     end)
-    
-    task.wait(1)
-    isGettingQuest = false
 end
 
--- 3. Tìm quái Bandit gần nhất
+-- 3. Hàm Tìm Quái Bandit Gần Nhất
 local function getClosestMob(maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -78,61 +68,63 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Bộ đếm 10 lần hoàn thành Quest & Tắt Script
+-- 4. Bộ Lắng Nghe Hoàn Thành Nhiệm Vụ (Đếm đủ 10 lần)
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+    -- Mỗi khi khung Quest ẩn đi (nghĩa là vừa làm xong 1 Quest)
     if not questFrame.Visible and isScriptActive then
-        banditCount = banditCount + 1
+        completedCount = completedCount + 1
         
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "Tiến Độ Farm",
-            Text = "Đã xong: " .. banditCount .. "/" .. maxBanditQuests .. " nhiệm vụ",
+            Text = "Đã xong: " .. completedCount .. "/" .. maxQuests .. " nhiệm vụ",
             Duration = 3
         })
         
-        -- Khi đủ 10 lần -> Teleport sang Đảo Khỉ & Tắt Script
-        if banditCount >= maxBanditQuests then
+        -- Nếu đủ 10 lần thì khóa script
+        if completedCount >= maxQuests then
             isScriptActive = false
-            
-            local character = player.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.CFrame = JUNGLE_POS
-            end
-            
             game:GetService("StarterGui"):SetCore("SendNotification", {
                 Title = "HOÀN THÀNH!",
-                Text = "Đã đến Đảo Khỉ. Script đã TẮT HOÀN TOÀN!",
+                Text = "Đã hoàn thành đủ " .. maxQuests .. " lần NV. Script dừng hẳn!",
                 Duration = 6
             })
         end
     end
 end)
 
--- 5. Vòng lặp Farm chính
+-- 5. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
+        -- Dừng hẳn vòng lặp khi đủ 10 lần
         if not isScriptActive then break end
 
         pcall(function()
             local character = player.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then return end
             
-            equipWeapon()
-            
-            -- Nếu chưa có Quest -> Nhận Q và tạm nghỉ 1 nhịp
+            -- Nếu chưa có nhiệm vụ -> Tự nhận Quest Bandit
             if questFrame and not questFrame.Visible then
                 startBanditQuest()
-                return
+                task.wait(0.5)
             end
             
-            -- Đã có Quest -> Đi tìm Bandit đánh
+            -- Đảm bảo cầm sẵn vũ khí
+            equipWeapon()
+            
+            -- Tìm quái Bandit
             local targetMob = getClosestMob(350)
+            
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
+                local mobHrp = targetMob.HumanoidRootPart
                 
+                -- Đứng cao trên đầu quái 9 studs
+                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
+                
+                -- Kích hoạt đòn đánh
                 local tool = character:FindFirstChildOfClass("Tool")
                 if tool then
                     tool:Activate()
@@ -141,6 +133,7 @@ task.spawn(function()
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             else
+                -- Tự quay về bãi Bandit nếu quái chưa spawn
                 character.HumanoidRootPart.CFrame = CFrame.new(1059, 16, 1549)
             end
         end)
