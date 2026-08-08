@@ -35,7 +35,7 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Siêu Chậm An Toàn (Dành riêng cho việc bay giữa các Đảo)
+-- 2. Hàm Bay Siêu Chậm An Toàn (Dành cho bay giữa các Đảo)
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -141,7 +141,7 @@ end
 -- 6. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    if not character or not character:FindFirstChild("HumanoidRootPart") then nil end
     
     local hrp = character.HumanoidRootPart
     local closestMob = nil
@@ -167,34 +167,30 @@ local function getClosestMob(mobName, maxDistance)
     return closestMob
 end
 
--- 7. Xử Lý Bấm Nút ON/OFF (ĐÃ SỬA: DỊCH CHUYỂN TRỰC TIẾP KHI BẤM ON)
+-- 7. Xử Lý Bấm Nút ON/OFF (ĐÃ SỬA: BẤT KỲ Ở ĐÂU KHI BẬT ON SẼ BAY TỪ TỪ VỀ ĐẢO 1 TRƯỚC)
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
         banditCount = 0
         jungleCount = 0
         isAtJungle = false
-        isTweening = false
         isCheckingQuest = false
         
-        -- Dọn dẹp BodyVelocity cũ nếu có
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
                 if v:IsA("BodyVelocity") then v:Destroy() end
             end
-            -- Dịch chuyển tức thời về Đảo 1 ngay lập tức
-            character.HumanoidRootPart.CFrame = BANDIT_POS
         end
         
-        toggleBtn.Text = "BANDIT: (0/10)"
+        toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "BẮT ĐẦU",
-            Text = "Về Đảo 1 -> Farm 10 Bandit -> Bay sang Khỉ -> Farm 10 Khỉ -> Về Đảo 1 Tắt Script",
-            Duration = 3
-        })
+        -- Cho nhân vật bay từ từ về Đảo 1 trước khi bắt đầu chu trình farm
+        task.spawn(function()
+            ultraSlowTeleport(BANDIT_POS)
+            toggleBtn.Text = "BANDIT: (0/10)"
+        end)
     else
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
@@ -220,7 +216,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             banditCount = banditCount + 1
             toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
             
-            -- Xong 10 lần Bandit -> Bay sang Đảo Khỉ
+            -- Xong 10 lần Bandit -> Bay mượt sang Đảo Khỉ
             if banditCount >= maxQuests then
                 isAtJungle = true
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
@@ -235,10 +231,10 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             jungleCount = jungleCount + 1
             toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
             
-            -- Xong 10 lần Khỉ -> Bay về Đảo 1 & Tắt Script
+            -- Xong 10 lần Khỉ -> Bay từ từ về Đảo 1 & Tắt Script
             if jungleCount >= maxQuests then
                 isFarming = false
-                toggleBtn.Text = "BAY VỀ ĐẢO 1 TẮT..."
+                toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
                 
                 task.spawn(function()
                     ultraSlowTeleport(BANDIT_POS)
