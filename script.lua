@@ -7,7 +7,7 @@ local CoreGui = game:GetService("CoreGui")
 
 -- Trạng thái Script
 local isScriptEnabled = true
-local currentIsland = 1 -- 1: Đảo Bandit, 2: Đảo Khỉ (Jungle)
+local currentIsland = 1 -- 1: Bandit, 2: Khỉ Jungle, 3: Hải Tặc Pirate
 local isTweening = false
 local currentTween = nil
 
@@ -15,12 +15,15 @@ local currentTween = nil
 local FLY_SPEED_LONG = 120  -- Bay giữa các đảo
 local FLY_SPEED_SHORT = 90   -- Bay lại gần quái
 
--- Tọa độ cố định
+-- Tọa độ cố định - BỔ SUNG THÊM HẢI TẶC
 local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
 local BANDIT_MOB_POS = CFrame.new(1145, 17, 1630)
 
 local JUNGLE_NPC_POS = CFrame.new(-1600, 36, 153)
 local JUNGLE_MOB_POS = CFrame.new(-1450, 26, 200)
+
+local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825) -- Tọa độ NPC nhận nhiệm vụ Hải Tặc
+local PIRATE_MOB_POS = CFrame.new(-1050, 6, 3900) -- Tọa độ khu vực quái Hải Tặc
 
 ------------------------------------------------------------------
 -- HÀM DỌN DẸP / TRẢ LẠI QUYỀN ĐIỀU KHIỂN
@@ -107,13 +110,13 @@ titleText.Font = Enum.Font.GothamBold
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = mainFrame
 
--- Sub Text (Phím tắt)
+-- Sub Text (Phím tắt + đảo hiện tại)
 local subText = Instance.new("TextLabel")
 subText.Name = "SubText"
-subText.Size = UDim2.new(0, 100, 0, 14)
+subText.Size = UDim2.new(0, 150, 0, 14)
 subText.Position = UDim2.new(0, 32, 0, 26)
 subText.BackgroundTransparency = 1
-subText.Text = "Status: RUNNING [K]"
+subText.Text = "Đảo: Bandit | RUNNING [K]"
 subText.TextColor3 = Color3.fromRGB(0, 230, 115)
 subText.TextSize = 11
 subText.Font = Enum.Font.GothamMedium
@@ -132,12 +135,14 @@ local function updateUIState()
     if isScriptEnabled then
         frameStroke.Color = Color3.fromRGB(0, 230, 150)
         statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
-        subText.Text = "Status: RUNNING [K]"
+        -- Cập nhật tên đảo trên giao diện
+        local islandName = currentIsland ==1 and "Bandit" or currentIsland==2 and "Jungle" or "Pirate"
+        subText.Text = "Đảo: "..islandName.." | RUNNING [K]"
         subText.TextColor3 = Color3.fromRGB(0, 230, 115)
     else
         frameStroke.Color = Color3.fromRGB(235, 60, 60)
         statusDot.BackgroundColor3 = Color3.fromRGB(235, 60, 60)
-        subText.Text = "Status: PAUSED [K]"
+        subText.Text = "PAUSED [K]"
         subText.TextColor3 = Color3.fromRGB(235, 60, 60)
     end
 end
@@ -171,7 +176,7 @@ local function flyLinearTo(targetCFrame, speed)
     
     local startPos = hrp.Position
     local endPos = targetCFrame.Position
-    local cruiseHeight = math.max(startPos.Y, endPos.Y) + 25
+    local cruiseHeight = math.max(startPos.Y, endPos.Y) + 25 -- Bay cao tránh va chạm đường đi
     
     local targetStraightCFrame = CFrame.new(endPos.X, cruiseHeight, endPos.Z)
     local distance = (hrp.Position - targetStraightCFrame.Position).Magnitude
@@ -301,7 +306,7 @@ local function getClosestMob(mobNamePattern)
     return closestMob
 end
 
--- Fast Attack
+-- Fast Attack giữ nguyên, có thể điều chỉnh nếu muốn thấy hoạt ảnh
 local function fastAttack()
     pcall(function()
         local character = player.Character
@@ -310,21 +315,12 @@ local function fastAttack()
             tool:Activate()
             VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
             VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-            
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid:FindFirstChild("Animator") then
-                for _, track in pairs(humanoid.Animator:GetPlayingAnimationTracks()) do
-                    if track.Name:lower():find("attack") or track.Name:lower():find("slash") or track.Name:lower():find("punch") then
-                        track:Stop()
-                    end
-                end
-            end
         end
     end)
 end
 
 ------------------------------------------------------------------
--- CHUYỂN ĐẢO KHI XONG QUEST
+-- CHUYỂN ĐẢO LIỀN MẠCH: Bandit → Jungle → Pirate
 ------------------------------------------------------------------
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
@@ -333,22 +329,32 @@ local questFrame = mainGui:WaitForChild("Quest")
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not questFrame.Visible and isScriptEnabled and not isTweening then
         if currentIsland == 1 then
+            -- Xong Bandit → sang Jungle
             currentIsland = 2
+            updateUIState()
             game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "Xong Đảo 1!",
-                Text = "Đang bay từ từ sang Đảo Khỉ...",
+                Title = "✅ Xong Đảo Bandit!",
+                Text = "Đang bay sang Đảo Khỉ Jungle...",
+                Duration = 3
+            })
+            task.spawn(function() flyLinearTo(JUNGLE_NPC_POS, FLY_SPEED_LONG) end)
+
+        elseif currentIsland == 2 then
+            -- Xong Jungle → sang Hải Tặc Pirate
+            currentIsland = 3
+            updateUIState()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "✅ Xong Đảo Jungle!",
+                Text = "Đang bay sang Làng Hải Tặc nhận nhiệm vụ...",
                 Duration = 4
             })
-            
-            task.spawn(function()
-                flyLinearTo(JUNGLE_NPC_POS, FLY_SPEED_LONG)
-            end)
+            task.spawn(function() flyLinearTo(PIRATE_NPC_POS, FLY_SPEED_LONG) end)
         end
     end
 end)
 
 ------------------------------------------------------------------
--- VÒNG LẮP CHÍNH
+-- VÒNG LẮP CHÍNH - CẬP NHẬT LẤY DỮ LIỆU ĐẢO HIỆN TẠI
 ------------------------------------------------------------------
 task.spawn(function()
     while task.wait(0.01) do
@@ -360,12 +366,27 @@ task.spawn(function()
                 equipWeapon()
                 local hrp = character.HumanoidRootPart
 
-                local questName = (currentIsland == 1) and "BanditQuest1" or "JungleQuest"
-                local mobPattern = (currentIsland == 1) and "Bandit" or "Monkey"
-                local npcPos = (currentIsland == 1) and BANDIT_NPC_POS or JUNGLE_NPC_POS
-                local mobPos = (currentIsland == 1) and BANDIT_MOB_POS or JUNGLE_MOB_POS
+                -- Lấy thông tin tương ứng đảo hiện tại
+                local questName, mobPattern, npcPos, mobPos
+                if currentIsland == 1 then
+                    questName = "BanditQuest1"
+                    mobPattern = "Bandit"
+                    npcPos = BANDIT_NPC_POS
+                    mobPos = BANDIT_MOB_POS
+                elseif currentIsland == 2 then
+                    questName = "JungleQuest"
+                    mobPattern = "Monkey"
+                    npcPos = JUNGLE_NPC_POS
+                    mobPos = JUNGLE_MOB_POS
+                elseif currentIsland == 3 then
+                    questName = "BuggyQuest1" -- Sửa tên nhiệm vụ cho đúng tên game của bạn
+                    mobPattern = "Pirate" -- Tên quái hải tặc
+                    npcPos = PIRATE_NPC_POS
+                    mobPos = PIRATE_MOB_POS
+                end
 
                 if questFrame and not questFrame.Visible then
+                    -- Không có nhiệm vụ → đi gặp NPC nhận
                     local distToNpc = (hrp.Position - npcPos.Position).Magnitude
                     if distToNpc > 15 then
                         flyLinearTo(npcPos, FLY_SPEED_LONG)
@@ -375,21 +396,25 @@ task.spawn(function()
                         task.wait(0.5)
                     end
                 else
+                    -- Có nhiệm vụ → tìm quái gần nhất để farm
                     local targetMob = getClosestMob(mobPattern)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         local mobHrp = targetMob.HumanoidRootPart
+                        -- Bay cao 9 đơn vị trên quái như cũ
                         local targetCFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
                         
                         flyShort(targetCFrame)
                         
                         local currentDistance = (hrp.Position - mobHrp.Position).Magnitude
                         if currentDistance <= 12 and isScriptEnabled then
+                            -- Đánh liên tục
                             for i = 1, 4 do
                                 if not isScriptEnabled then break end
                                 fastAttack()
                             end
                         end
                     else
+                        -- Không thấy quái → về vị trí khu quái
                         flyShort(mobPos)
                     end
                 end
