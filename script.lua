@@ -3,13 +3,15 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Cấu hình
-local maxBanditQuests = 10     -- Làm đủ 10 lần Q Bandit
-local banditCount = 0          -- Biến đếm số lần hoàn thành Q
+local maxBanditQuests = 10     -- Làm 10 lần Q Bandit
+local banditCount = 0          -- Biến đếm
 local isFarming = false        -- Trạng thái ON/OFF
-local isCheckingQuest = false  -- Chống spam nhận Q
-local reachedJungleState = 0   -- 0: Đang farm Bandit, 1: Đã sang Đảo Khỉ (chờ nhận Q), 2: Đã nhận Q Đảo Khỉ & đứng yên
+local isCheckingQuest = false  -- Chống spam
 
--- Tọa độ Đảo Khởi Đầu và Đảo Khỉ
+-- Trạng thái: 0 = Đang ở Đảo Bandit, 1 = Đã sang Đảo Khỉ (Khóa vĩnh viễn không cho về đảo cũ)
+local isAtJungle = false
+
+-- Tọa độ 2 Đảo
 local BANDIT_POS = CFrame.new(1059, 16, 1549)
 local JUNGLE_POS = CFrame.new(-1612.8, 36.8, 149.2)
 
@@ -22,7 +24,7 @@ screenGui.Parent = player:WaitForChild("PlayerGui")
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 170, 0, 45)
+toggleBtn.Size = UDim2.new(0, 180, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -114,13 +116,13 @@ toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
         banditCount = 0
-        reachedJungleState = 0
+        isAtJungle = false
         toggleBtn.Text = "BANDIT: (0/10)"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "BẮT ĐẦU",
-            Text = "Farm 10 Bandit -> Tele Đảo Khỉ nhận Q -> Đứng yên",
+            Text = "Farm 10 Bandit -> Tới Đảo Khỉ nhận Q -> Đứng yên!",
             Duration = 3
         })
     else
@@ -129,30 +131,29 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 7. Bộ Đếm 10 Lần Quest Bandit -> Chuyển Trạng Thái Đảo Khỉ
+-- 7. Bộ Đếm 10 Lần Quest Bandit (CHỈ HOẠT ĐỘNG KHI CHƯA SANG ĐẢO KHỈ)
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
-    if not questFrame.Visible and isFarming and reachedJungleState == 0 then
+    if not questFrame.Visible and isFarming and not isAtJungle then
         banditCount = banditCount + 1
         toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxBanditQuests .. ")"
         
-        -- Khi đủ 10 lần Bandit
+        -- Khi đủ 10 lần Bandit -> Khóa chế độ Đảo Khỉ ngay lập tức
         if banditCount >= maxBanditQuests then
-            reachedJungleState = 1 -- Chuyển sang bước sang Đảo Khỉ nhận Q
-            toggleBtn.Text = "ĐANG TỚI ĐẢO KHỈ..."
+            isAtJungle = true -- KHÓA VĨNH VIỄN, KHÔNG BAO GIỜ CHẠY LẠI ĐẢO BANDIT NỮA
+            toggleBtn.Text = "ĐẢO KHỈ (ĐỨNG YÊN)"
             
-            -- Teleport sang Đảo Khỉ
             local character = player.Character
             if character and character:FindFirstChild("HumanoidRootPart") then
                 character.HumanoidRootPart.CFrame = JUNGLE_POS
             end
             
             game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "CHUYỂN ĐẢO",
-                Text = "Đã xong 10 Q Bandit! Đang sang Đảo Khỉ nhận Quest...",
+                Title = "HOÀN THÀNH BANDIT",
+                Text = "Đã xong 10 Q Bandit! Đang giữ vị trí ở Đảo Khỉ.",
                 Duration = 4
             })
         end
@@ -167,8 +168,8 @@ task.spawn(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- Giai đoạn 1: Farm Bandit 10 lần
-                if reachedJungleState == 0 then
+                -- GIAI ĐOẠN 1: ĐANG Ở ĐẢO BANDIT
+                if not isAtJungle then
                     equipWeapon()
                     
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
@@ -191,30 +192,15 @@ task.spawn(function()
                         character.HumanoidRootPart.CFrame = BANDIT_POS
                     end
                     
-                -- Giai đoạn 2: Tới Đảo Khỉ và Nhận Quest
-                elseif reachedJungleState == 1 then
+                -- GIAI ĐOẠN 2: ĐÃ CHUYỂN SANG ĐẢO KHỈ (CỐ ĐỊNH HOÀN TOÀN TẠI ĐẢO KHỈ)
+                else
+                    -- Cố định tọa độ ở Đảo Khỉ, không cho di chuyển đi đâu khác
                     character.HumanoidRootPart.CFrame = JUNGLE_POS
                     
+                    -- Nếu chưa nhận Quest ở Đảo Khỉ thì nhận
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
                         startJungleQuest()
-                        task.wait(1)
                     end
-                    
-                    -- Nếu bảng Quest đã hiện (nhận xong Q Đảo Khỉ) -> Chuyển sang đứng yên
-                    if questFrame and questFrame.Visible then
-                        reachedJungleState = 2
-                        toggleBtn.Text = "ĐÃ NHẬN Q KHỈ (ĐỨNG YÊN)"
-                        
-                        game:GetService("StarterGui"):SetCore("SendNotification", {
-                            Title = "HOÀN THÀNH",
-                            Text = "Đã nhận Quest Đảo Khỉ! Đang đứng yên giữ Script.",
-                            Duration = 5
-                        })
-                    end
-                    
-                -- Giai đoạn 3: Giữ nguyên vị trí ở Đảo Khỉ, không đánh quái, không tắt script
-                elseif reachedJungleState == 2 then
-                    character.HumanoidRootPart.CFrame = JUNGLE_POS
                 end
             end)
         end
