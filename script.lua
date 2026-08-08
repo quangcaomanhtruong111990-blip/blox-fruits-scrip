@@ -13,10 +13,11 @@ local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam nhận Q
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
--- Tọa độ trung tâm/bãi quái cho 3 Đảo (Không đứng gần NPC nhận nhiệm vụ)
+-- Tọa độ trung tâm/bãi quái cho 3 Đảo (TUYỆT ĐỐI KHÔNG ĐỨNG GẦN NPC)
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
-local PIRATE_POS = CFrame.new(-1140, 14, 3828) -- Tọa độ khu vực Làng Hải Tặc (Đảo 3)
+-- Tọa độ dời sâu vào bãi quái Hải Tặc (cách xa NPC)
+local PIRATE_POS = CFrame.new(-1190, 16, 3950) 
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
@@ -141,8 +142,8 @@ local function startPirateVillageQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            -- Tên nhiệm vụ Làng Hải Tặc (Pirate Village) ở Sea 1 thường là PirateQuest
-            commF:InvokeServer("StartQuest", "PirateQuest", 1)
+            -- MÃ CHUẨN CỦA ĐẢO HẢI TẶC LÀ "BuggyQuest1"
+            commF:InvokeServer("StartQuest", "BuggyQuest1", 1)
         end
     end)
     task.wait(1.2)
@@ -178,7 +179,7 @@ local function getClosestMob(mobName, maxDistance)
     return closestMob
 end
 
--- 6. Xử Lý Bấm Nút ON/OFF (Quay trái, cất rương, gacha, bay về đảo 1)
+-- 6. Xử Lý Bấm Nút ON/OFF
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -347,7 +348,7 @@ task.spawn(function()
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                     end
                     
-                -- ĐẢO 3: LÀNG HẢI TẶC (PIRATE) - Lưu ý tên quái hải tặc thường là "Pirate"
+                -- ĐẢO 3: LÀNG HẢI TẶC (PIRATE)
                 elseif currentIsland == 3 then
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
                         startPirateVillageQuest()
