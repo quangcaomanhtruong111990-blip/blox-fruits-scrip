@@ -178,6 +178,14 @@ toggleBtn.MouseButton1Click:Connect(function()
     else
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        
+        -- Dọn dẹp hiệu ứng lơ lửng khi TẮT script
+        local character = player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            if character.HumanoidRootPart:FindFirstChild("FarmBV") then
+                character.HumanoidRootPart.FarmBV:Destroy()
+            end
+        end
     end
 end)
 
@@ -197,6 +205,12 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             if banditCount >= maxQuests then
                 isAtJungle = true
                 toggleBtn.Text = "ĐANG BAY SANG KHỈ..."
+                
+                -- Xóa BodyVelocity cũ trước khi bay
+                local character = player.Character
+                if character and character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart:FindFirstChild("FarmBV") then
+                    character.HumanoidRootPart.FarmBV:Destroy()
+                end
                 
                 task.spawn(function()
                     ultraSlowTeleport(JUNGLE_POS)
@@ -220,6 +234,12 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 toggleBtn.Text = "HOÀN THÀNH (2 ĐẢO)"
                 toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
                 
+                -- Xóa BodyVelocity khi xong việc
+                local character = player.Character
+                if character and character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart:FindFirstChild("FarmBV") then
+                    character.HumanoidRootPart.FarmBV:Destroy()
+                end
+                
                 game:GetService("StarterGui"):SetCore("SendNotification", {
                     Title = "HOÀN THÀNH",
                     Text = "Đã xong 10 Q Bandit và 10 Q Khỉ! Đang đứng yên.",
@@ -230,7 +250,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm Chính
+-- 9. Vòng Lặp Farm Chính (Đã tối ưu chống giật)
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening and not isCompleted then
@@ -239,6 +259,13 @@ task.spawn(function()
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
                 equipWeapon()
+                
+                -- Tắt va chạm liên tục giúp di chuyển không bị vướng tán cây hay đá
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
                 
                 -- ĐẢO 1: Farm Bandit
                 if not isAtJungle then
@@ -249,7 +276,16 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Bandit", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
+                        -- Lơ lửng 10 stud trên đầu quái + Triệt tiêu trọng lực
+                        character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                        
+                        if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
+                            local bv = Instance.new("BodyVelocity")
+                            bv.Name = "FarmBV"
+                            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                            bv.Velocity = Vector3.new(0, 0, 0)
+                            bv.Parent = character.HumanoidRootPart
+                        end
                         
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
@@ -257,49 +293,45 @@ task.spawn(function()
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                     else
+                        if character.HumanoidRootPart:FindFirstChild("FarmBV") then
+                            character.HumanoidRootPart.FarmBV:Destroy()
+                        end
                         character.HumanoidRootPart.CFrame = BANDIT_POS
                     end
                     
-               -- ĐẢO KHỈ: Farm Monkey (Đã tối ưu mượt, không giật)
-else
-    if questFrame and not questFrame.Visible and not isCheckingQuest then
-        startJungleQuest()
-        return
+                -- ĐẢO KHỈ: Farm Monkey (Đã tối ưu không giật)
+                else
+                    if questFrame and not questFrame.Visible and not isCheckingQuest then
+                        startJungleQuest()
+                        return
+                    end
+                    
+                    local targetMob = getClosestMob("Monkey", 350)
+                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        -- Lơ lửng 10 stud trên đầu Khỉ tránh va chạm cành cây
+                        character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0)
+                        
+                        if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
+                            local bv = Instance.new("BodyVelocity")
+                            bv.Name = "FarmBV"
+                            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                            bv.Velocity = Vector3.new(0, 0, 0)
+                            bv.Parent = character.HumanoidRootPart
+                        end
+                        
+                        local tool = character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                        
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                    else
+                        if character.HumanoidRootPart:FindFirstChild("FarmBV") then
+                            character.HumanoidRootPart.FarmBV:Destroy()
+                        end
+                        character.HumanoidRootPart.CFrame = JUNGLE_POS
+                    end
+                end
+            end)
+        end
     end
-    
-    local targetMob = getClosestMob("Monkey", 350)
-    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-        local mobHrp = targetMob.HumanoidRootPart
-        
-        -- 1. Tắt va chạm với cây cối/vật cản xung quanh quái
-        for _, part in pairs(character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-        
-        -- 2. Giữ khoảng cách an toàn 10 stud phía trên đầu quái
-        character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 10, 0)
-        
-        -- 3. Triệt tiêu vận tốc rơi để đứng im mượt mà trên không
-        if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
-            local bv = Instance.new("BodyVelocity")
-            bv.Name = "FarmBV"
-            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-            bv.Velocity = Vector3.new(0, 0, 0)
-            bv.Parent = character.HumanoidRootPart
-        end
-        
-        -- Đánh quái
-        local tool = character:FindFirstChildOfClass("Tool")
-        if tool then tool:Activate() end
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-    else
-        -- Xóa giữ trọng lực khi không có quái để di chuyển bình thường
-        if character.HumanoidRootPart:FindFirstChild("FarmBV") then
-            character.HumanoidRootPart.FarmBV:Destroy()
-        end
-        character.HumanoidRootPart.CFrame = JUNGLE_POS
-    end
-end
+end)
