@@ -17,13 +17,13 @@ local isFarming = false
 local isCheckingQuest = false 
 local isTweening = false      
 
--- Tọa độ vị trí gần NPC nhận nhiệm vụ của 6 Đảo
+-- Tọa độ vị trí gần NPC nhận nhiệm vụ của 6 Đảo (Đã sửa lại tọa độ Marine Ford chuẩn)
 local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_NPC_POS = CFrame.new(-1485, 36, 68)
 local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
 local DESERT_NPC_POS = CFrame.new(903, 16, 4376)
 local SNOW_NPC_POS = CFrame.new(1389, 88, -1298)
-local MARINE_NPC_POS = CFrame.new(-2440, 16, 3302) -- Tọa độ NPC đảo Marine Ford
+local MARINE_NPC_POS = CFrame.new(-2466, 17, 3792) -- Tọa độ chuẩn đảo Marine Ford
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
