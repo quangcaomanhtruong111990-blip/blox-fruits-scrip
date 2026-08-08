@@ -8,7 +8,7 @@ local maxQuests = 10
 local banditCount = 0          
 local jungleCount = 0          
 local isFarming = false        
-local isTakingQuest = false   -- Khóa chống spam nhận Q cực cứng
+local isTakingQuest = false   -- Khóa chống spam nhận Q
 local isAtJungle = false       
 local isCompleted = false      
 local isTweening = false       
@@ -41,11 +41,9 @@ local function clearDialogueUI()
     pcall(function()
         local playerGui = player:FindFirstChild("PlayerGui")
         if playerGui then
-            -- Tắt khung Dialogue chính
             local dialogue = playerGui:FindFirstChild("Dialogue")
             if dialogue then dialogue.Enabled = false end
             
-            -- Tắt các khung hội thoại NPC phụ nếu có
             local mainGui = playerGui:FindFirstChild("Main")
             if mainGui then
                 local talkFrame = mainGui:FindFirstChild("Talk") or mainGui:FindFirstChild("Dialog")
@@ -104,7 +102,7 @@ local function equipWeapon()
     end
 end
 
--- 5. Hàm Nhận Quest Bandit (Đã tối ưu không bấm trùng)
+-- 5. Hàm Nhận Quest Bandit
 local function startBanditQuest()
     if isTakingQuest then return end
     
@@ -112,7 +110,6 @@ local function startBanditQuest()
     local mainGui = playerGui and playerGui:FindFirstChild("Main")
     local questFrame = mainGui and mainGui:FindFirstChild("Quest")
     
-    -- Nếu bảng Quest đã hiện (đã nhận thành công) thì xóa UI thoại rồi thoát
     if questFrame and questFrame.Visible then
         clearDialogueUI()
         return
@@ -130,7 +127,6 @@ local function startBanditQuest()
     task.wait(0.3)
     clearDialogueUI()
     
-    -- Lùi nhân vật ra xa NPC 10 bước để ngắt tương tác
     local character = player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
         character.HumanoidRootPart.CFrame = BANDIT_POS * CFrame.new(0, 0, 10)
@@ -140,7 +136,7 @@ local function startBanditQuest()
     isTakingQuest = false
 end
 
--- 6. Hàm Nhận Quest Khỉ (Đã tối ưu không bấm trùng)
+-- 6. Hàm Nhận Quest Khỉ
 local function startJungleQuest()
     if isTakingQuest then return end
     
@@ -287,7 +283,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             jungleCount = jungleCount + 1
             toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
             
-            if jungleCount >= maxQuests me
+            if jungleCount >= maxQuests then
                 isCompleted = true
                 toggleBtn.Text = "HOÀN THÀNH (2 ĐẢO)"
                 toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
