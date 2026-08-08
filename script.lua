@@ -7,24 +7,18 @@ local playerGui = player:WaitForChild("PlayerGui")
 local isFarming = false       
 local isCheckingQuest = false 
 
--- Danh sách quái Sea 2 chuẩn tên tiếng Anh
+-- Bảng dữ liệu bao gồm vị trí NPC nhận Q và vị trí Quái (Cúp Bếp / Ship Steward - Cấp 1300)
 local SEA2_MOB_DATA = {
-    {minLvl = 700,  maxLvl = 724,  quest = "Area1Quest",        mob = "Raider",            pos = CFrame.new(-425, 73, 2996)},
-    {minLvl = 725,  maxLvl = 774,  quest = "Area1Quest",        mob = "Mercenary",         pos = CFrame.new(-868, 141, 1398)},
-    {minLvl = 775,  maxLvl = 874,  quest = "Area2Quest",        mob = "Swan Pirate",       pos = CFrame.new(878, 122, 1235)},
-    {minLvl = 875,  maxLvl = 949,  quest = "MarineQuest2",      mob = "Marine Lieutenant", pos = CFrame.new(-2840, 73, -3010)},
-    {minLvl = 950,  maxLvl = 999,  quest = "MarineQuest2",      mob = "Marine Captain",    pos = CFrame.new(-3100, 73, -2840)},
-    {minLvl = 1000, maxLvl = 1099, quest = "ZombieQuest",       mob = "Zombie",            pos = CFrame.new(-5490, 48, -795)},
-    {minLvl = 1100, maxLvl = 1174, quest = "SnowMountainQuest", mob = "Snow Trooper",      pos = CFrame.new(1150, 410, -5180)},
-    {minLvl = 1175, maxLvl = 1249, quest = "SnowMountainQuest", mob = "Winter Warrior",     pos = CFrame.new(1280, 430, -5400)},
-    {minLvl = 1250, maxLvl = 1274, quest = "ShipQuest1",        mob = "Ship Deckhand",     pos = CFrame.new(1030, 125, 32900)},
-    {minLvl = 1275, maxLvl = 1299, quest = "ShipQuest1",        mob = "Ship Engineer",     pos = CFrame.new(920, 130, 32800)},
-    {minLvl = 1300, maxLvl = 1324, quest = "ShipQuest2",        mob = "Ship Steward",      pos = CFrame.new(915, 130, 33400)}, -- Bếp Phó
-    {minLvl = 1325, maxLvl = 1349, quest = "ShipQuest2",        mob = "Ship Officer",      pos = CFrame.new(915, 180, 33200)},
-    {minLvl = 1350, maxLvl = 1424, quest = "IceFireQuest",      mob = "Horned Warrior",    pos = CFrame.new(-6400, 15, -5800)},
-    {minLvl = 1425, maxLvl = 9999, quest = "IceFireQuest",      mob = "Magma Ninja",       pos = CFrame.new(-5400, 15, -5800)}
+    {
+        minLvl = 1250, maxLvl = 1513, 
+        quest = "ShipQuest2", 
+        mob = "Ship Steward", 
+        npcPos = CFrame.new(925, 125, 32850), -- Vị trí NPC nhận Quest trên Tàu Ma
+        mobPos = CFrame.new(915, 130, 33400)  -- Bãi quái Bếp Phó
+    }
 }
 
+-- Quét Cấp độ thực tế
 local function getRealPlayerLevel()
     local success, level = pcall(function()
         for _, descendant in ipairs(playerGui:GetDescendants()) do
@@ -36,22 +30,16 @@ local function getRealPlayerLevel()
         return nil
     end)
     if success and level then return level end
-    return 1500
+    return 1300
 end
 
 local function getTargetData()
-    local lvl = getRealPlayerLevel()
-    for _, data in ipairs(SEA2_MOB_DATA) do
-        if lvl >= data.minLvl and lvl <= data.maxLvl then
-            return data
-        end
-    end
-    return SEA2_MOB_DATA[#SEA2_MOB_DATA]
+    return SEA2_MOB_DATA[1]
 end
 
--- 1. Giao diện ON/OFF
+-- Giao diện ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmSea2Gui"
+screenGui.Name = "AutoFarmSea2FixGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
@@ -64,11 +52,11 @@ toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.TextSize = 14
 toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.Text = "AUTO FARM SEA 2: OFF"
+toggleBtn.Text = "FARM SEA 2: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Bay mượt
+-- Hàm Bay
 local function flyToTarget(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -85,7 +73,7 @@ local function flyToTarget(targetCFrame)
         if part:IsA("BasePart") then part.CanCollide = false end
     end
     
-    local speed = 250
+    local speed = 220
     local timeToTravel = distance / speed
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
@@ -106,6 +94,7 @@ local function flyToTarget(targetCFrame)
     end)
 end
 
+-- Tự động cầm vũ khí
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -121,20 +110,31 @@ local function equipWeapon()
     end
 end
 
-local function startQuestRemote(questName)
+-- Nhận Quest trực tiếp tại NPC
+local function getQuestFromNPC(questName, npcPos)
     if isCheckingQuest then return end
     isCheckingQuest = true
-    pcall(function()
-        local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-        if commF then
-            commF:InvokeServer("StartQuest", questName, 2)
-        end
-    end)
+    
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        -- Bay trực tiếp đến NPC
+        flyToTarget(npcPos)
+        task.wait(1)
+        
+        -- Gửi lệnh nhận Quest
+        pcall(function()
+            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+            if commF then
+                commF:InvokeServer("StartQuest", questName, 1)
+            end
+        end)
+    end
+    
     task.wait(1)
     isCheckingQuest = false
 end
 
--- Tìm quái theo Quest hiện tại
+-- Tìm quái Bếp Phó
 local function getClosestMob(mobNamePattern)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -163,14 +163,15 @@ local function getClosestMob(mobNamePattern)
     return closestMob
 end
 
+-- Bật/Tắt nút
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
         isCheckingQuest = false
-        toggleBtn.Text = "FARM SEA 2: ON"
+        toggleBtn.Text = "FARM BẾP PHÓ: ON"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
     else
-        toggleBtn.Text = "AUTO FARM SEA 2: OFF"
+        toggleBtn.Text = "FARM SEA 2: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
         local character = player.Character
@@ -182,6 +183,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Vòng lặp Farm chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming then
@@ -198,26 +200,31 @@ task.spawn(function()
                 local targetData = getTargetData()
                 local questFrame = playerGui:WaitForChild("Main"):WaitForChild("Quest")
 
+                -- Nếu chưa nhận được Quest thì bay về NPC lấy
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
-                    startQuestRemote(targetData.quest)
-                end
-
-                local targetMob = getClosestMob("Ship Steward") or getClosestMob(targetData.mob)
-                if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                    local mobHrp = targetMob.HumanoidRootPart
-                    local distance = (hrp.Position - mobHrp.Position).Magnitude
-                    
-                    flyToTarget(mobHrp.CFrame * CFrame.new(0, 8, 0))
-                    
-                    if distance <= 15 then
-                        local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then tool:Activate() end
-                        
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                    end
+                    toggleBtn.Text = "ĐANG ĐẾN NHẬN Q..."
+                    getQuestFromNPC(targetData.quest, targetData.npcPos)
                 else
-                    flyToTarget(targetData.pos)
+                    toggleBtn.Text = "ĐANG ĐÁNH BẾP PHÓ"
+                    -- Đã có Quest -> Bay ra bãi đánh quái
+                    local targetMob = getClosestMob(targetData.mob)
+                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        local mobHrp = targetMob.HumanoidRootPart
+                        local distance = (hrp.Position - mobHrp.Position).Magnitude
+                        
+                        -- Bay đứng trên đầu quái 9 studs để tránh bị quái đánh trúng
+                        flyToTarget(mobHrp.CFrame * CFrame.new(0, 9, 0))
+                        
+                        if distance <= 15 then
+                            local tool = character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                            
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                        end
+                    else
+                        flyToTarget(targetData.mobPos)
+                    end
                 end
             end)
         end
