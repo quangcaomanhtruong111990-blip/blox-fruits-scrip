@@ -8,12 +8,12 @@ local hasQuestStarted = false
 
 -- Thông báo khởi chạy
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Auto Quest Lvl 1",
-    Text = "Đang nhận Q & Bay đánh 5 quái... Xong sẽ tự tắt!",
+    Title = "Auto Quest Lvl 1 - Max Speed",
+    Text = "Đã bật Fast Attack Max Tốc Độ!",
     Duration = 4
 })
 
--- Hàm bay mượt (Bay từ từ thay vì dịch chuyển tức thời)
+-- Hàm bay mượt
 local function flyToTarget(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -21,27 +21,22 @@ local function flyToTarget(targetCFrame)
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
     
-    -- Nếu khoảng cách quá gần, gán trực tiếp để tránh giật
     if distance < 3 then
         hrp.CFrame = targetCFrame
         return
     end
     
-    -- Xóa va chạm cơ thể
     for _, part in pairs(character:GetChildren()) do
         if part:IsA("BasePart") then
             part.CanCollide = false
         end
     end
     
-    -- Tốc độ bay vừa phải (220-250) giúp di chuyển từ từ
     local speed = 230
     local timeToTravel = distance / speed
-    
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     
-    -- Chống rơi tự do khi bay
     for _, v in pairs(hrp:GetChildren()) do
         if v.Name == "AntiFall" then v:Destroy() end
     end
@@ -74,7 +69,7 @@ local function equipWeapon()
     end
 end
 
--- 2. Hàm Nhận Nhiệm Vụ Bandit
+-- 2. Hàm Nhận Nhiệm Vụ
 local function startBanditQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
@@ -113,9 +108,35 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Vòng Lặp Chính
+-- 4. Fast Attack Max Tốc Độ (Bỏ qua animation giơ tay)
+local function fastAttack()
+    pcall(function()
+        local character = player.Character
+        local tool = character and character:FindFirstChildOfClass("Tool")
+        if tool then
+            -- Kích hoạt tool cực nhanh
+            tool:Activate()
+            
+            -- Gửi lệnh Click liên tục không độ trễ
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+            
+            -- Bỏ qua Animation đánh để tay giữ nguyên không di chuyển
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid:FindFirstChild("Animator") then
+                for _, track in pairs(humanoid.Animator:GetPlayingAnimationTracks()) do
+                    if track.Name:lower():find("attack") or track.Name:lower():find("slash") or track.Name:lower():find("punch") then
+                        track:Stop()
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- 5. Vòng Lặp Chính
 task.spawn(function()
-    while task.wait(0.1) do
+    while task.wait(0.01) do -- Chạy siêu nhanh 0.01s
         if questCompleted then break end
 
         pcall(function()
@@ -126,39 +147,30 @@ task.spawn(function()
             local mainGui = playerGui and playerGui:FindFirstChild("Main")
             local questFrame = mainGui and mainGui:FindFirstChild("Quest")
             
-            -- Nếu chưa có nhiệm vụ -> Bay từ từ về NPC để nhận Q
+            -- Nếu chưa có nhiệm vụ -> Bay từ từ về NPC
             if questFrame and not questFrame.Visible then
                 local npcPos = CFrame.new(1059, 16, 1549)
                 flyToTarget(npcPos)
                 startBanditQuest()
-                task.wait(0.5)
+                task.wait(0.3)
             else
                 hasQuestStarted = true
             end
             
-            -- Đảm bảo đã trang bị vũ khí
             equipWeapon()
             
-            -- Tìm quái Bandit
             local targetMob = getClosestMob(500)
-            
             if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                 local mobHrp = targetMob.HumanoidRootPart
                 local targetCFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
                 
-                -- Bay từ từ tới vị trí trên đầu quái
                 flyToTarget(targetCFrame)
                 
-                -- Đánh quái khi ở đủ gần
-                local tool = character:FindFirstChildOfClass("Tool")
-                if tool then
-                    tool:Activate()
+                -- Đánh siêu tốc độ
+                for i = 1, 5 do
+                    fastAttack()
                 end
-                
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             else
-                -- Nếu không thấy quái gần đó, bay từ từ về khu vực spawn quái
                 local mobArea = CFrame.new(1145, 17, 1630)
                 flyToTarget(mobArea)
             end
@@ -166,7 +178,7 @@ task.spawn(function()
     end
 end)
 
--- Tự động tắt script khi làm xong 5 con quái (Bảng Quest biến mất)
+-- Tự động tắt khi xong Quest
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
@@ -175,7 +187,6 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not questFrame.Visible and hasQuestStarted then
         questCompleted = true
         
-        -- Dọn dẹp hiệu ứng AntiFall nếu có
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
@@ -185,7 +196,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
 
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "Auto Quest Lvl 1",
-            Text = "Đã xong 1 nhiệm vụ! Script đã tự động TẮT.",
+            Text = "Xong Quest! Script đã tự ngắt.",
             Duration = 5
         })
     end
