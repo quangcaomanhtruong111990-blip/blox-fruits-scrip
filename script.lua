@@ -10,22 +10,24 @@ local banditCount = 0
 local jungleCount = 0         
 local pirateCount = 0         
 local desertCount = 0         
-local snowCount = 0           -- Đếm Q Làng Tuyết (Đảo 5)
-local currentIsland = 1       -- 1: Bandit, 2: Khỉ, 3: Hải Tặc, 4: Sa Mạc, 5: Làng Tuyết
+local snowCount = 0           
+local marineCount = 0         -- Đếm Q Marine Ford (Đảo 6)
+local currentIsland = 1       -- 1: Bandit, 2: Khỉ, 3: Hải Tặc, 4: Sa Mạc, 5: Làng Tuyết, 6: Marine Ford
 local isFarming = false       
 local isCheckingQuest = false 
 local isTweening = false      
 
--- Tọa độ vị trí gần NPC nhận nhiệm vụ của 5 Đảo
+-- Tọa độ vị trí gần NPC nhận nhiệm vụ của 6 Đảo
 local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_NPC_POS = CFrame.new(-1485, 36, 68)
 local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
 local DESERT_NPC_POS = CFrame.new(903, 16, 4376)
-local SNOW_NPC_POS = CFrame.new(1389, 88, -1298) -- Tọa độ NPC đảo Làng Tuyết
+local SNOW_NPC_POS = CFrame.new(1389, 88, -1298)
+local MARINE_NPC_POS = CFrame.new(-2440, 16, 3302) -- Tọa độ NPC đảo Marine Ford
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarm5IslandsGui"
+screenGui.Name = "AutoFarm6IslandsGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
@@ -184,6 +186,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         pirateCount = 0
         desertCount = 0
         snowCount = 0
+        marineCount = 0
         currentIsland = 1
         isCheckingQuest = false
         
@@ -214,7 +217,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 7. Bộ Đếm Quest Tự Động Chuyển Đảo (1 -> 2 -> 3 -> 4 -> 5)
+-- 7. Bộ Đếm Quest Tự Động Chuyển Đảo (1 -> 2 -> 3 -> 4 -> 5 -> 6)
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
@@ -268,15 +271,26 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             snowCount = snowCount + 1
             toggleBtn.Text = "SNOW: (" .. snowCount .. "/" .. maxQuests .. ")"
             if snowCount >= maxQuests then
+                currentIsland = 6
+                toggleBtn.Text = "BAY SANG MARINE FORD..."
+                task.spawn(function()
+                    ultraSlowTeleport(MARINE_NPC_POS)
+                    toggleBtn.Text = "MARINE: (0/" .. maxQuests .. ")"
+                end)
+            end
+        elseif currentIsland == 6 then
+            marineCount = marineCount + 1
+            toggleBtn.Text = "MARINE: (" .. marineCount .. "/" .. maxQuests .. ")"
+            if marineCount >= maxQuests then
                 isFarming = false
-                toggleBtn.Text = "HOÀN THÀNH 5 ĐẢO - OFF"
+                toggleBtn.Text = "HOÀN THÀNH 6 ĐẢO - OFF"
                 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             end
         end
     end
 end)
 
--- 8. Vòng Lặp Farm Chính 5 Đảo
+-- 8. Vòng Lặp Farm Chính 6 Đảo
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -309,8 +323,12 @@ task.spawn(function()
                     npcPos = DESERT_NPC_POS
                 elseif currentIsland == 5 then
                     questName = "SnowQuest"
-                    mobPattern = "Snow Bandit" -- Hoặc đổi thành "Yeti" tùy bạn chọn đánh loại nào ở đảo tuyết
+                    mobPattern = "Snow Bandit"
                     npcPos = SNOW_NPC_POS
+                elseif currentIsland == 6 then
+                    questName = "MarineQuest"
+                    mobPattern = "Chief Petty Officer"
+                    npcPos = MARINE_NPC_POS
                 end
 
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
