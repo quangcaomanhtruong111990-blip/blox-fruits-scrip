@@ -245,9 +245,9 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm & Đánh Quái (ĐÃ FIX LỖI XOAY VÀ LỖI ĐÁNH TRÊN MOBILE)
+-- 9. Vòng Lặp Farm & Đánh Quái (Đã chỉnh chiều cao = 8 studs + Remote Fast Attack)
 task.spawn(function()
-    while task.wait(0.05) do
+    while task.wait(0.02) do
         if isFarming and not isTweening and not isCompleted then
             pcall(function()
                 clearDialogueUI()
@@ -255,7 +255,7 @@ task.spawn(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- BƯỚC 1: NHẬN QUEST NẾU CHƯA CÓ
+                -- NHẬN QUEST NẾU CHƯA CÓ
                 if not questFrame.Visible then
                     if not isTakingQuest then
                         if not isAtJungle then
@@ -267,14 +267,13 @@ task.spawn(function()
                     return
                 end
                 
-                -- BƯỚC 2: TẮT TÍNH NĂNG VA CHẠM
+                -- TẮT VA CHẠM
                 for _, part in pairs(character:GetChildren()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
                 end
                 
-                -- BƯỚC 3: TRANG BỊ VŨ KHÍ
                 equipWeapon()
                 
                 local targetMobName = not isAtJungle and "Bandit" or "Monkey"
@@ -284,10 +283,9 @@ task.spawn(function()
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     local mobHrp = targetMob.HumanoidRootPart
                     
-                    -- SỬA LỖI XOAY NGHIÊNG: Giữ nguyên hướng đứng đứng thẳng (Pitch/Roll = 0)
-                    character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 3, 0))
+                    -- NÂNG CHIỀU CAO LÊN 8 STUDS VÀ GIỮ NGUYÊN GÓC ĐỨNG THẲNG
+                    character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 8, 0))
                     
-                    -- Khóa trọng lực bằng BodyVelocity
                     if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
                         local bv = Instance.new("BodyVelocity")
                         bv.Name = "FarmBV"
@@ -296,22 +294,29 @@ task.spawn(function()
                         bv.Parent = character.HumanoidRootPart
                     end
                     
-                    -- SỬA LỖI KHÔNG ĐÁNH TRÊN MOBILE: Kết hợp ClickButton1 + VirtualInputManager
+                    -- KÍCH HOẠT ĐÁNH BẰNG TẤT CẢ PHƯƠNG PHÁP (BAO GỒM REMOTE GAME)
                     local tool = character:FindFirstChildOfClass("Tool")
                     if tool then 
                         tool:Activate() 
                     end
                     
-                    -- Giả lập bấm chuột/chạm màn hình chuẩn xác
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                    -- Gửi remote đánh của Blox Fruits
+                    local netFolder = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+                    if netFolder and netFolder:FindFirstChild("RegisterAttack") then
+                        netFolder.RegisterAttack:InvokeServer(0.1)
+                    elseif ReplicatedStorage:FindFirstChild("RigControllerNeverClose") then
+                        ReplicatedStorage.RigControllerNeverClose:InvokeServer("WeaponAttack")
+                    end
+                    
+                    -- Giả lập click bổ sung cho mobile
                     VirtualUser:CaptureController()
-                    VirtualUser:ClickButton1(Vector2.new(500, 500))
+                    VirtualUser:Button1Down(Vector2.new(1, 1))
+                    VirtualUser:Button1Up(Vector2.new(1, 1))
                 else
                     if character.HumanoidRootPart:FindFirstChild("FarmBV") then
                         character.HumanoidRootPart.FarmBV:Destroy()
                     end
-                    character.HumanoidRootPart.CFrame = defaultPos * CFrame.new(0, 5, 0)
+                    character.HumanoidRootPart.CFrame = defaultPos * CFrame.new(0, 8, 0)
                 end
             end)
         end
