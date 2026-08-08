@@ -20,7 +20,7 @@ local isLearningFighting = false
 -- === CẤU HÌNH ===
 local FLY_SPEED_LONG = 120
 local FLY_SPEED_SHORT = 90
-local DARK_STEP_PRICE = 150000
+local DARK_STEP_PRICE = 150000 -- Đúng giá Dark Step
 local BLACK_LEG_POS = CFrame.new(-1125, 5, 3850) -- Sửa đúng vị trí thầy võ!
 
 -- Tọa độ
@@ -32,75 +32,83 @@ local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
 local PIRATE_MOB_POS = CFrame.new(-1050, 6, 3900)
 
 ------------------------------------------------------------------
--- === HÀM LẤY GIÁ TRỊ ĐÃ SỬA: TÌM GẦN ĐÚNG TÊN + IN DEBUG ===
+-- === HÀM LẤY TIỀN SỬA CHÍNH XÁC: ƯU TIÊN TÌM "$" TRƯỚC ===
 ------------------------------------------------------------------
 local function getStatValue(statName)
-    local leaderstats = player:WaitForChild("leaderstats", 5) -- Chờ chắc chắn có leaderstats
+    local leaderstats = player:WaitForChild("leaderstats", 5)
     if not leaderstats then
-        warn("[DEBUG] Không tìm thấy leaderstats!")
+        warn("[DEBUG] ❌ Không tìm thấy leaderstats!")
         return 0
     end
-    -- Lặp tìm bỏ qua chữ hoa/thường để tránh lỗi tên
+    -- Tìm chính xác tên trước, bỏ qua hoa/thường
     for _, stat in pairs(leaderstats:GetChildren()) do
         if string.lower(stat.Name) == string.lower(statName) then
-            print("[DEBUG] "..statName.." hiện có: "..tostring(stat.Value)) -- Xem số tiền thật ở Console
+            print(string.format("[DEBUG] ✅ %s = %d", statName, stat.Value)) -- IN RA SỐ TIỀN ĐỂ KIỂM TRA
             return tonumber(stat.Value) or 0
         end
     end
-    warn("[DEBUG] Không tìm thấy chỉ số: "..statName)
+    warn(string.format("[DEBUG] ❌ Không có chỉ số tên: %s", statName))
     return 0
 end
 
 ------------------------------------------------------------------
--- === HÀM KIỂM TRA & MUA ĐÃ SỬA ===
+-- === HÀM KIỂM TRA & MUA ĐÃ SỬA ƯU TIÊN KIỂM TRA "$" ===
 ------------------------------------------------------------------
 local function tryBuyLearnDarkStep()
     if hasLearnedDarkStep or not isScriptEnabled or isLearningFighting then return true end
     isLearningFighting = true
 
-    -- === THỬ TÊN TIỀN: Đổi "Money" thành "$" nếu cần ===
-    local currentBeli = getStatValue("Money") -- Phù hợp ảnh hiển thị $
-    print("[DEBUG] Kiểm tra mua Dark Step: Cần "..DARK_STEP_PRICE.." | Có "..currentBeli)
+    -- === SỬA CHÍNH: ĐỌC THẲNG TÊN "$" NHƯ TRONG HÌNH ===
+    local currentMoney = getStatValue("$") -- CHÍNH LÀ ĐÂY! Đổi từ Money → "$"
+    print(string.format("[DEBUG] === Kiểm tra mua Dark Step: Cần %d | Có %d ===", DARK_STEP_PRICE, currentMoney))
 
-    if currentBeli < DARK_STEP_PRICE then
+    -- === Kiểm tra rõ ràng ===
+    if currentMoney < DARK_STEP_PRICE then
         game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "⚠️ Kiểm tra lại tiền",
-            Text = string.format("Cần %d | Đọc được %d → xem Console", DARK_STEP_PRICE, currentBeli),
-            Duration = 4
+            Title = "⚠️ Thông báo kiểm tra tiền",
+            Text = string.format("Cần: %d | Đọc được: %d", DARK_STEP_PRICE, currentMoney),
+            Duration = 5
         })
         isLearningFighting = false
         return false
     end
 
-    -- Đủ tiền → đi học nhanh
+    -- === ĐỦ TIỀN → THỰC HIỆN MUA ===
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "✅ Đủ tiền! Đang mua Dark Step", Duration = 3
+        Title = "✅ ĐỦ TIỀN! Đang mua Dark Step...",
+        Text = string.format("Số tiền hiện có: %d", currentMoney),
+        Duration = 4
     })
+
+    -- Bay đến thầy võ
     flyLinearTo(BLACK_LEG_POS, FLY_SPEED_LONG)
-    task.wait(1.2)
+    task.wait(1.5) -- chờ đứng đúng vị trí
 
     local buySuccess = false
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            -- === THỬ ĐỔI TÊN LỆNH: "BuySkill" / "LearnFightingStyle" nếu không được ===
+            -- === Lưu ý: Nếu vẫn không mua được → thử đổi tên lệnh dưới đây ===
+            -- Thử: "BuySkill", "LearnFightingStyle", "BuyMelee", "PurchaseFightingStyle"
             commF:InvokeServer("BuyFightingStyle", "Dark Step", DARK_STEP_PRICE)
             task.wait(1)
             buySuccess = true
             hasLearnedDarkStep = true
             game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "✅ Học thành công Dark Step!",
-                Text = "Tiếp tục farm Bone đến 100 điểm", Duration = 4
+                Title = "✅ HỌC THÀNH CÔNG DARK STEP!",
+                Text = "Bắt đầu farm Bone đến 100 điểm",
+                Duration = 5
             })
         else
-            warn("[DEBUG] Không tìm thấy Remote gửi yêu cầu mua!")
+            warn("[DEBUG] ❌ Không tìm thấy Remote gửi yêu cầu mua!")
         end
     end)
 
     if not buySuccess then
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "❌ Mua thất bại",
-            Text = "Kiểm tra tên kỹ năng hoặc vị trí NPC", Duration = 4
+            Text = "Đủ tiền nhưng server không chấp nhận → kiểm tra tên kỹ năng/vị trí NPC",
+            Duration = 5
         })
     end
 
@@ -178,7 +186,8 @@ function updateUIState()
     statusDot.BackgroundColor3 = Color3.fromRGB(0,230,115)
     local islandName = currentIsland==1 and "Bandit" or currentIsland==2 and "Jungle" or "Pirate"
     local boneNow = getStatValue("Bone")
-    subText.Text = string.format("Đảo: %s | Bone: %d/%d | RUNNING", islandName, boneNow, targetBone)
+    local moneyNow = getStatValue("$") -- hiển thị luôn tiền $ trên giao diện
+    subText.Text = string.format("Đảo: %s | $: %d | Bone: %d/%d", islandName, moneyNow, boneNow, targetBone)
     subText.TextColor3 = Color3.fromRGB(0,230,115)
 end
 
