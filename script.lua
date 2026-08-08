@@ -37,6 +37,21 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
+-- Hàm tắt toàn bộ Auto Farm an toàn
+local function stopFarm(reasonText)
+    isFarming = false
+    isTweening = false
+    toggleBtn.Text = reasonText or "FARM: OFF"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
+            if v:IsA("BodyVelocity") then v:Destroy() end
+        end
+    end
+end
+
 -- 2. Hàm Bay Giữ Nguyên (Dùng cho Đảo 1 & 2)
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
@@ -71,7 +86,7 @@ local function ultraSlowTeleport(targetCFrame)
     isTweening = false
 end
 
--- Hàm Bay Vòng Lên Cao Đảo 3 (Chỉ dùng riêng cho Đảo 3 để né thợ rèn / NPC)
+-- Hàm Bay Vòng Lên Cao Đảo 3
 local function safeHighTeleportForPirate(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -95,7 +110,6 @@ local function safeHighTeleportForPirate(targetCFrame)
         end
     end
     
-    -- Bay vút lên cao Y = 450 để né hoàn toàn khu vực thợ rèn và NPC
     local currentPos = hrp.Position
     local highPos = CFrame.new(currentPos.X, 450, currentPos.Z)
     local dist1 = (hrp.Position - highPos.Position).Magnitude
@@ -103,14 +117,12 @@ local function safeHighTeleportForPirate(targetCFrame)
     tween1:Play()
     tween1.Completed:Wait()
     
-    -- Bay ngang trên không tới tọa độ đảo 3 (ở độ cao 450)
     local targetHighPos = CFrame.new(targetCFrame.X, 450, targetCFrame.Z)
     local dist2 = (hrp.Position - targetHighPos.Position).Magnitude
     local tween2 = TweenService:Create(hrp, TweenInfo.new(dist2 / 250, Enum.EasingStyle.Linear), {CFrame = targetHighPos})
     tween2:Play()
     tween2.Completed:Wait()
     
-    -- Hạ thẳng xuống bãi quái sâu bên trong đảo 3
     local dist3 = (hrp.Position - targetCFrame.Position).Magnitude
     local tween3 = TweenService:Create(hrp, TweenInfo.new(dist3 / 200, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
     tween3:Play()
@@ -185,6 +197,7 @@ local function startJungleQuest()
 end
 
 local function startPirateVillageQuest()
+    if isCheckingQuest then return end
     if isCheckingQuest then return end
     isCheckingQuest = true
     pcall(function()
@@ -289,25 +302,47 @@ toggleBtn.MouseButton1Click:Connect(function()
         
         task.spawn(function()
             ultraSlowTeleport(BANDIT_POS)
-            toggleBtn.Text = "BANDIT: (0/10)"
+            if isFarming then
+                toggleBtn.Text = "BANDIT: (0/10)"
+            end
         end)
     else
-        toggleBtn.Text = "FARM: OFF"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        
-        local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
-                if v:IsA("BodyVelocity") then v:Destroy() end
-            end
-        end
+        stopFarm("FARM: OFF")
     end
 end)
 
--- 7. Bộ Đếm Quest Cho 3 Đảo
+-- 7. Bộ Đếm Quest & Tự Động Tắt Khi Mở Bảng Gì Khác (Shop, Menu, Cài Đặt...)
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
+
+-- Theo dõi nếu người chơi bấm mở các Menu/Shop (ví dụ: Shop, SafeZone, hoặc bấm vào các khung giao diện game)
+for _, guiChild in pairs(mainGui:GetChildren()) do
+    if guiChild:IsA("Frame") and guiChild.Name ~= "Quest" then
+        guiChild:GetPropertyChangedSignal("Visible"):Connect(function()
+            if guiChild.Visible and isFarming then
+                stopFarm("ĐÃ TẮT DO BẬT MENU!")
+            end
+        end)
+    end
+end
+
+-- Tự động tắt khi thanh máu tụt về 0 (chết) hoặc bị reset
+local function monitorCharacter(char)
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    if humanoid then
+        humanoid.Died:Connect(function()
+            if isFarming then
+                stopFarm("ĐÃ CHẾT - TẮT FARM")
+            end
+        end)
+    end
+end
+
+if player.Character then
+    monitorCharacter(player.Character)
+end
+player.CharacterAdded:Connect(monitorCharacter)
 
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not questFrame.Visible and isFarming and not isTweening then
@@ -320,7 +355,9 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
                 task.spawn(function()
                     ultraSlowTeleport(JUNGLE_POS)
-                    toggleBtn.Text = "KHỈ: (0/10)"
+                    if isFarming then
+                        toggleBtn.Text = "KHỈ: (0/10)"
+                    end
                 end)
             end
         elseif currentIsland == 2 then
@@ -331,9 +368,10 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 currentIsland = 3
                 toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
                 task.spawn(function()
-                    -- Đảo 3 sử dụng hàm bay né thợ rèn / NPC
                     safeHighTeleportForPirate(PIRATE_POS)
-                    toggleBtn.Text = "PIRATE: (0/10)"
+                    if isFarming then
+                        toggleBtn.Text = "PIRATE: (0/10)"
+                    end
                 end)
             end
         elseif currentIsland == 3 then
@@ -341,9 +379,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             toggleBtn.Text = "PIRATE: (" .. pirateCount .. "/" .. maxQuests .. ")"
             
             if pirateCount >= maxQuests then
-                isFarming = false
-                toggleBtn.Text = "HOÀN THÀNH - OFF"
-                toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+                stopFarm("HOÀN THÀNH - OFF")
             end
         end
     end
