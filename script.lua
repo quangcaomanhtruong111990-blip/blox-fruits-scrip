@@ -4,22 +4,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
 
 -- Trạng thái Script
 local isScriptEnabled = true
 local currentIsland = 1 -- 1: Bandit, 2: Jungle, 3: Hải Tặc Pirate
 local isTweening = false
 local currentTween = nil
-local hasLearnedDarkStep = false -- Đánh dấu đã học để không lặp lại
+local hasLearnedDarkStep = false -- Đã học thì không chạy lại
+local isLearningFighting = false -- Ngăn chồng chéo lúc đang học võ
 
 -- Cấu hình tốc độ bay & thông tin học kỹ năng
 local FLY_SPEED_LONG = 120
 local FLY_SPEED_SHORT = 90
-local DARK_STEP_PRICE = 150000 -- Giá Cước Đen
-local BLACK_LEG_TEACHER_NAME = "Black Leg Teacher" -- Tên NPC dạy võ
--- Tọa độ NPC Black Leg Teacher (điều chỉnh cho đúng vị trí trong game của bạn!)
-local BLACK_LEG_POS = CFrame.new(-1125, 5, 3850)
+local DARK_STEP_PRICE = 150000
+local BLACK_LEG_POS = CFrame.new(-1125, 5, 3850) -- Sửa tọa độ đúng vị trí thầy dạy võ!
 
 -- Tọa độ các đảo
 local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
@@ -30,7 +28,7 @@ local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
 local PIRATE_MOB_POS = CFrame.new(-1050, 6, 3900)
 
 ------------------------------------------------------------------
--- HÀM KIỂM TRA SỐ TIỀN BELI CỦA NHÂN VẬT
+-- Kiểm tra tiền Beli
 ------------------------------------------------------------------
 local function getPlayerBeli()
     local leaderstats = player:FindFirstChild("leaderstats")
@@ -42,59 +40,51 @@ local function getPlayerBeli()
 end
 
 ------------------------------------------------------------------
--- HÀM TỰ ĐỘNG HỌC DARK STEP TỪ BLACK LEG TEACHER
+-- TỰ HỌC DARK STEP - CHẠY NHANH, KHÔNG CHẶN FARM LÂU
 ------------------------------------------------------------------
-local function autoLearnDarkStep()
-    if hasLearnedDarkStep or not isScriptEnabled then return end
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+local function tryLearnDarkStep()
+    if hasLearnedDarkStep or not isScriptEnabled or isLearningFighting then return end
+    isLearningFighting = true -- Khóa tránh lặp
 
-    -- Kiểm tra tiền đủ chưa
-    local currentBeli = getPlayerBeli()
-    if currentBeli < DARK_STEP_PRICE then
+    -- Kiểm tra đủ tiền
+    if getPlayerBeli() < DARK_STEP_PRICE then
         game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "⚠️ Không đủ tiền!",
-            Text = "Cần "..DARK_STEP_PRICE.." Beli để học Dark Step, có "..currentBeli.." Beli",
-            Duration = 5
+            Title = "Không đủ tiền học Dark Step",
+            Text = "Tiếp tục farm kiếm tiền trước", Duration = 3
         })
+        isLearningFighting = false
         return
     end
 
-    -- Bay đến vị trí NPC Black Leg Teacher
+    -- Tạm dừng farm chút bay đến thầy võ
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "🔍 Đang tìm Black Leg Teacher...",
-        Text = "Đang di chuyển đến học Dark Step",
-        Duration = 4
+        Title = "Đi học Dark Step nhanh rồi quay farm!", Duration = 3
     })
     flyLinearTo(BLACK_LEG_POS, FLY_SPEED_LONG)
-    task.wait(1.5) -- chờ ổn định vị trí
+    task.wait(1) -- đủ tương tác thôi không chờ lâu
 
-    -- Gọi tương tác mua học kỹ năng (cần điều chỉnh tên Remote/chuỗi lệnh cho chính xác game)
+    -- Gọi mua học (sửa tên Invoke đúng game nếu cần!)
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            -- Lệnh tương tác mua học từ NPC Black Leg Teacher (thường là BuySkill/LearnFightingStyle)
             commF:InvokeServer("BuyFightingStyle", "Dark Step", DARK_STEP_PRICE)
-            task.wait(1)
-            -- Kiểm tra thành công
+            task.wait(0.8)
             game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "✅ Học thành công!",
-                Text = "Đã học Dark Step (Cước Đen) rồi, tiếp tục farm!",
-                Duration = 5
+                Title = "✅ Học xong Dark Step!",
+                Text = "Quay lại farm quái Hải Tặc ngay!", Duration = 3
             })
-            hasLearnedDarkStep = true -- không chạy lại nữa
+            hasLearnedDarkStep = true
         else
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "❌ Không tương tác được NPC",
-                Text = "Kiểm tra tên Remote hoặc vị trí NPC",
-                Duration = 4
-            })
+            game:GetService("StarterGui"):SetCore("SendNotification", {Title = "Không tương tác được thầy võ", Duration = 2})
         end
     end)
+
+    -- Kết thúc học → đánh dấu xong mở lại farm
+    isLearningFighting = false
 end
 
 ------------------------------------------------------------------
--- HÀM DỌN DẸP / TRẢ LẠI QUYỀN ĐIỀU KHIỂN
+-- Dọn dẹp điều khiển
 ------------------------------------------------------------------
 local function restoreCharacterControl()
     local character = player.Character
@@ -112,108 +102,67 @@ local function restoreCharacterControl()
 end
 
 ------------------------------------------------------------------
--- GIAO DIỆN DECOR HIỆN ĐẠI
+-- Giao diện giữ nguyên
 ------------------------------------------------------------------
 if CoreGui:FindFirstChild("AutoFarmModernGui") then CoreGui.AutoFarmModernGui:Destroy() end
-
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoFarmModernGui"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = CoreGui
 
--- Khung chính
 local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 220, 0, 50)
 mainFrame.Position = UDim2.new(0, 30, 0, 80)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20,22,28)
 mainFrame.BackgroundTransparency = 0.15
 mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.Parent = screenGui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,10)
+local frameStroke = Instance.new("UIStroke", mainFrame)
+frameStroke.Thickness = 1.5; frameStroke.Color = Color3.fromRGB(0,230,150)
 
-local frameCorner = Instance.new("UICorner")
-frameCorner.CornerRadius = UDim.new(0, 10)
-frameCorner.Parent = mainFrame
+local statusDot = Instance.new("Frame", mainFrame)
+statusDot.Size = UDim2.new(0,10,0,10); statusDot.Position = UDim2.new(0,14,0.5,-5)
+statusDot.BackgroundColor3 = Color3.fromRGB(0,230,115)
+Instance.new("UICorner", statusDot).CornerRadius = UDim.new(1,0)
 
-local frameStroke = Instance.new("UIStroke")
-frameStroke.Thickness = 1.5
-frameStroke.Color = Color3.fromRGB(0, 230, 150)
-frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-frameStroke.Parent = mainFrame
+local titleText = Instance.new("TextLabel", mainFrame)
+titleText.Size = UDim2.new(0,120,0,20); titleText.Position = UDim2.new(0,32,0,8)
+titleText.BackgroundTransparency = 1; titleText.Text = "AUTO FARM"; titleText.TextColor3 = Color3.new(1,1,1)
+titleText.TextSize =13; titleText.Font = Enum.Font.GothamBold; titleText.TextXAlignment = Enum.TextXAlignment.Left
 
--- Đèn LED trạng thái
-local statusDot = Instance.new("Frame")
-statusDot.Name = "StatusDot"
-statusDot.Size = UDim2.new(0, 10, 0, 10)
-statusDot.Position = UDim2.new(0, 14, 0.5, -5)
-statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
-statusDot.Parent = mainFrame
-local dotCorner = Instance.new("UICorner")
-dotCorner.CornerRadius = UDim.new(1, 0)
-dotCorner.Parent = statusDot
-
--- Chữ
-local titleText = Instance.new("TextLabel")
-titleText.Name = "TitleText"
-titleText.Size = UDim2.new(0, 120, 0, 20)
-titleText.Position = UDim2.new(0, 32, 0, 8)
-titleText.BackgroundTransparency = 1
-titleText.Text = "AUTO FARM + HỌC VÕ"
-titleText.TextColor3 = Color3.fromRGB(240,240,240)
-titleText.TextSize = 13
-titleText.Font = Enum.Font.GothamBold
-titleText.TextXAlignment = Enum.TextXAlignment.Left
-titleText.Parent = mainFrame
-
-local subText = Instance.new("TextLabel")
-subText.Name = "SubText"
-subText.Size = UDim2.new(0, 180, 0, 14)
-subText.Position = UDim2.new(0, 32, 0, 26)
-subText.BackgroundTransparency = 1
-subText.Text = "Đảo: Bandit | RUNNING [K]"
-subText.TextColor3 = Color3.fromRGB(0,230,115)
-subText.TextSize = 11
-subText.Font = Enum.Font.GothamMedium
+local subText = Instance.new("TextLabel", mainFrame)
+subText.Size = UDim2.new(0,180,0,14); subText.Position = UDim2.new(0,32,0,26)
+subText.BackgroundTransparency =1; subText.TextSize=11; subText.Font=Enum.Font.GothamMedium
 subText.TextXAlignment = Enum.TextXAlignment.Left
-subText.Parent = mainFrame
 
--- Nút bật tắt
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Name = "ToggleBtn"
-toggleBtn.Size = UDim2.new(1,0,1,0)
-toggleBtn.BackgroundTransparency = 1
-toggleBtn.Text = ""
-toggleBtn.Parent = mainFrame
+local toggleBtn = Instance.new("TextButton", mainFrame)
+toggleBtn.Size = UDim2.new(1,0,1,0); toggleBtn.BackgroundTransparency=1; toggleBtn.Text=""
 
 local function updateUIState()
     if isScriptEnabled then
         frameStroke.Color = Color3.fromRGB(0,230,150)
         statusDot.BackgroundColor3 = Color3.fromRGB(0,230,115)
-        local islandName = currentIsland==1 and "Bandit" or currentIsland==2 and "Jungle" or "Pirate"
-        subText.Text = "Đảo: "..islandName.." | RUNNING [K]"
+        local n = currentIsland==1 and "Bandit" or currentIsland==2 and "Jungle" or "Pirate"
+        subText.Text = "Đảo: "..n.." | RUNNING [K]"
         subText.TextColor3 = Color3.fromRGB(0,230,115)
     else
         frameStroke.Color = Color3.fromRGB(235,60,60)
         statusDot.BackgroundColor3 = Color3.fromRGB(235,60,60)
-        subText.Text = "PAUSED [K]"
-        subText.TextColor3 = Color3.fromRGB(235,60,60)
+        subText.Text = "PAUSED [K]"; subText.TextColor3 = Color3.fromRGB(235,60,60)
     end
 end
 
 local function toggleState()
-    isScriptEnabled = not isScriptEnabled
-    updateUIState()
+    isScriptEnabled = not isScriptEnabled; updateUIState()
     if not isScriptEnabled then restoreCharacterControl() end
 end
-
 toggleBtn.MouseButton1Click:Connect(toggleState)
-UserInputService.InputBegan:Connect(function(input,gp)
-    if not gp and input.KeyCode==Enum.KeyCode.K then toggleState() end
-end)
+UserInputService.InputBegan:Connect(function(i,gp) if not gp and i.KeyCode==Enum.KeyCode.K then toggleState() end end)
 
 ------------------------------------------------------------------
--- HÀM BAY ĐƯỜNG THẲNG, BAY NGẮN GIỮ NGUYÊN
+-- Hàm bay giữ nguyên
 ------------------------------------------------------------------
 local function flyLinearTo(targetCFrame, speed)
     if not isScriptEnabled then return end
@@ -232,7 +181,7 @@ local function flyLinearTo(targetCFrame, speed)
     local bv=Instance.new("BodyVelocity") bv.Name="AntiFall" bv.Velocity=Vector3.zero bv.MaxForce=Vector3.new(9e9,9e9,9e9) bv.Parent=hrp
     local ttime=distance/speed
     local tween=TweenService:Create(hrp,TweenInfo.new(ttime,Enum.EasingStyle.Linear),{CFrame=targetStraightCFrame})
-    currentTween=tween tween:Play() tween.Completed:Wait()
+    currentTween=tween; tween:Play(); tween.Completed:Wait()
     if isScriptEnabled then local land=TweenService:Create(hrp,TweenInfo.new(0.6),{CFrame=targetCFrame}) currentTween=land land:Play() land.Completed:Wait() end
     if bv then bv:Destroy() end
     isTweening=false
@@ -252,7 +201,7 @@ local function flyShort(targetCFrame)
 end
 
 ------------------------------------------------------------------
--- TRANG BỊ VŨ KHÍ, NHẬN NHIỆM VỤ, TÌM QUÁI, ĐÁNH
+-- Trang bị vũ khí, nhận nhiệm vụ, tìm quái, đánh
 ------------------------------------------------------------------
 local function equipWeapon()
     local c=player.Character local bp=player:FindFirstChild("Backpack") if not c or not bp then return end
@@ -276,7 +225,7 @@ local function fastAttack()
 end
 
 ------------------------------------------------------------------
--- CHUYỂN ĐẢO & TỰ ĐỘNG HỌC DARK STEP KHI ĐẾN HẢI TẶC
+-- Chuyển đảo + CHỈ BẮT ĐẦU HỌC KHI ĐÃ VÀO FARM HẢI TẶC
 ------------------------------------------------------------------
 local playerGui=player:WaitForChild("PlayerGui")
 local mainGui=playerGui:WaitForChild("Main")
@@ -286,27 +235,23 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not questFrame.Visible and isScriptEnabled and not isTweening then
         if currentIsland==1 then
             currentIsland=2 updateUIState()
-            game:GetService("StarterGui"):SetCore("SendNotification",{Title="✅ Xong Bandit",Text="Đang bay sang Jungle",Duration=3})
+            game:GetService("StarterGui"):SetCore("SendNotification",{Title="✅ Xong Bandit",Text="Đang bay sang Jungle",Duration=2})
             task.spawn(function() flyLinearTo(JUNGLE_NPC_POS,FLY_SPEED_LONG) end)
         elseif currentIsland==2 then
-            -- Xong đảo 2 → sang Hải Tặc + tự động chạy học Dark Step
+            -- Xong đảo 2 → sang hải tặc, bắt đầu farm đảo này trước
             currentIsland=3 updateUIState()
-            game:GetService("StarterGui"):SetCore("SendNotification",{Title="✅ Xong Jungle",Text="Đang bay sang Hải Tặc, sẽ học Dark Step tự động",Duration=4})
-            task.spawn(function()
-                flyLinearTo(PIRATE_NPC_POS,FLY_SPEED_LONG)
-                task.wait(2) -- chờ ổn định ở đảo hải tặc rồi mới học võ
-                autoLearnDarkStep() -- Gọi hàm tự học Cước Đen
-            end)
+            game:GetService("StarterGui"):SetCore("SendNotification",{Title="✅ Đến Hải Tặc!",Text="Farm trước rồi sẽ tự học Dark Step",Duration=3})
+            task.spawn(function() flyLinearTo(PIRATE_NPC_POS,FLY_SPEED_LONG) end)
         end
     end
 end)
 
 ------------------------------------------------------------------
--- VÒNG LẶP CHÍNH FARM
+-- VÒNG LẶP CHÍNH FARM LUÔN CHẠY, HỌC VÕ CHỈ CHẠY MỘT LẦN KHI ỔN ĐỊNH
 ------------------------------------------------------------------
 task.spawn(function()
     while task.wait(0.01) do
-        if isScriptEnabled and not isTweening then
+        if isScriptEnabled and not isTweening and not isLearningFighting then -- Đang học thì tạm dừng chút thôi
             pcall(function()
                 local c=player.Character if not c or not c:FindFirstChild("HumanoidRootPart") then return end
                 equipWeapon()
@@ -314,18 +259,26 @@ task.spawn(function()
                 local qName, mobPat, npcP, mobP
                 if currentIsland==1 then qName="BanditQuest1" mobPat="Bandit" npcP=BANDIT_NPC_POS mobP=BANDIT_MOB_POS
                 elseif currentIsland==2 then qName="JungleQuest" mobPat="Monkey" npcP=JUNGLE_NPC_POS mobP=JUNGLE_MOB_POS
-                elseif currentIsland==3 then qName="BuggyQuest1" mobPat="Pirate" npcP=PIRATE_NPC_POS mobP=PIRATE_MOB_POS end
+                elseif currentIsland==3 then
+                    -- === Ở đảo hải tặc + chưa học → kích hoạt học võ 1 lần sau vài vòng farm ổn định ===
+                    if not hasLearnedDarkStep and not isLearningFighting then
+                        task.spawn(tryLearnDarkStep) -- chạy ngầm không chặn vòng lặp chính lâu
+                    end
+                    qName="BuggyQuest1" mobPat="Pirate" npcP=PIRATE_NPC_POS mobP=PIRATE_MOB_POS
+                end
 
                 if questFrame and not questFrame.Visible then
                     local distNpc=(hrp.Position-npcP.Position).Magnitude
                     if distNpc>15 then flyLinearTo(npcP,FLY_SPEED_LONG) end
-                    if isScriptEnabled then startQuest(qName) task.wait(0.5) end
+                    if isScriptEnabled then startQuest(qName) task.wait(0.3) end -- giảm chờ ngắn hơn
                 else
                     local target=getClosestMob(mobPat)
                     if target and target:FindFirstChild("HumanoidRootPart") then
                         local mh=target.HumanoidRootPart
                         flyShort(mh.CFrame*CFrame.new(0,9,0))
-                        if (hrp.Position-mh.Position).Magnitude<=12 then for i=1,4 do if not isScriptEnabled then break end fastAttack() end end
+                        if (hrp.Position-mh.Position).Magnitude<=12 then
+                            for i=1,4 do if not isScriptEnabled then break end fastAttack() end
+                        end
                     else flyShort(mobP) end
                 end
             end)
