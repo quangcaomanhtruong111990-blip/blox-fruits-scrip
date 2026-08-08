@@ -9,20 +9,21 @@ local maxQuests = 10          -- Số lần làm Q cho mỗi đảo (10 lần)
 local banditCount = 0         -- Đếm Q Bandit
 local jungleCount = 0         -- Đếm Q Khỉ
 local pirateCount = 0         -- Đếm Q Pirate (Đảo 3)
-local currentIsland = 1       -- 1: Bandit, 2: Khỉ, 3: Làng Hải Tặc
+local desertCount = 0         -- Đếm Q Desert Officer (Đảo 4)
+local currentIsland = 1       -- 1: Bandit, 2: Khỉ, 3: Làng Hải Tặc, 4: Đảo Sa Mạc
 local isFarming = false       -- Trạng thái ON/OFF
 local isCheckingQuest = false -- Chống spam nhận Q
 local isTweening = false      -- Đang trong quá trình bay từ từ
 
--- Tọa độ trung tâm/bãi quái cho 3 Đảo (TUYỆT ĐỐI KHÔNG ĐỨNG GẦN NPC)
+-- Tọa độ trung tâm/bãi quái cho các Đảo
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
--- Tọa độ dời sâu vào bãi quái Hải Tặc (cách xa NPC)
 local PIRATE_POS = CFrame.new(-1190, 16, 3950) 
+local DESERT_POS = CFrame.new(1093, 16, 4390)  -- Tọa độ khu vực bãi Desert Officer (phía sau kim tự tháp nhỏ)
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarm3IslandsGui"
+screenGui.Name = "AutoFarm4IslandsGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
@@ -150,6 +151,19 @@ local function startPirateVillageQuest()
     isCheckingQuest = false
 end
 
+local function startDesertQuest()
+    if isCheckingQuest then return end
+    isCheckingQuest = true
+    pcall(function()
+        local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        if commF then
+            commF:InvokeServer("StartQuest", "DesertQuest", 1)
+        end
+    end)
+    task.wait(1.2)
+    isCheckingQuest = false
+end
+
 -- 5. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
@@ -186,6 +200,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         banditCount = 0
         jungleCount = 0
         pirateCount = 0
+        desertCount = 0
         currentIsland = 1
         isCheckingQuest = false
         
@@ -257,7 +272,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 7. Bộ Đếm Quest Cho 3 Đảo
+-- 7. Bộ Đếm Quest Cho 4 Đảo
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
@@ -292,6 +307,18 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             toggleBtn.Text = "PIRATE: (" .. pirateCount .. "/" .. maxQuests .. ")"
             
             if pirateCount >= maxQuests then
+                currentIsland = 4
+                toggleBtn.Text = "BAY SANG ĐẢO SA MẠC..."
+                task.spawn(function()
+                    ultraSlowTeleport(DESERT_POS)
+                    toggleBtn.Text = "DESERT: (0/10)"
+                end)
+            end
+        elseif currentIsland == 4 then
+            desertCount = desertCount + 1
+            toggleBtn.Text = "DESERT: (" .. desertCount .. "/" .. maxQuests .. ")"
+            
+            if desertCount >= maxQuests then
                 isFarming = false
                 toggleBtn.Text = "HOÀN THÀNH - OFF"
                 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
@@ -300,7 +327,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 8. Vòng Lặp Farm Chính (3 Đảo) - Có check khoảng cách đánh quái và ẩn bảng hội thoại
+-- 8. Vòng Lặp Farm Chính (4 Đảo)
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -329,7 +356,6 @@ task.spawn(function()
                         
                         flyToMob(mobHrp.CFrame * CFrame.new(0, 9, 0))
                         
-                        -- CHỈ ĐÁNH KHI ĐÃ BAY ĐẾN SÁT QUÁI (<= 15 đơn vị)
                         if distance <= 15 then
                             local tool = character:FindFirstChildOfClass("Tool")
                             if tool then tool:Activate() end
@@ -368,6 +394,28 @@ task.spawn(function()
                     end
                     
                     local targetMob = getClosestMob("Pirate", 350)
+                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        local mobHrp = targetMob.HumanoidRootPart
+                        local distance = (hrp.Position - mobHrp.Position).Magnitude
+                        
+                        flyToMob(mobHrp.CFrame * CFrame.new(0, 9, 0))
+                        
+                        if distance <= 15 then
+                            local tool = character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                            
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                        end
+                    end
+
+                -- ĐẢO 4: SA MẠC (DESERT OFFICER)
+                elseif currentIsland == 4 then
+                    if questFrame and not questFrame.Visible and not isCheckingQuest then
+                        startDesertQuest()
+                    end
+                    
+                    local targetMob = getClosestMob("Desert Officer", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         local mobHrp = targetMob.HumanoidRootPart
                         local distance = (hrp.Position - mobHrp.Position).Magnitude
