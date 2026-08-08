@@ -2,12 +2,14 @@ local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local questCompleted = false
+local maxQuests = 10         -- Số lần nhiệm vụ muốn làm trước khi dừng
+local completedCount = 0      -- Biến đếm số lần đã xong
+local isScriptActive = true
 
--- Thông báo
+-- Thông báo kích hoạt
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Auto Quest Lvl 1",
-    Text = "Đang nhận Q & Farm 5 quái... Xong sẽ tự tắt!",
+    Text = "Sẽ tự động TẮT sau khi hoàn thành " .. maxQuests .. " lần NV!",
     Duration = 4
 })
 
@@ -66,27 +68,51 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Vòng Lặp Chính (Chạy đúng 1 lần nhiệm vụ rồi ngắt)
+-- 4. Bộ Lắng Nghe Hoàn Thành Nhiệm Vụ (Đếm đủ 10 lần)
+local playerGui = player:WaitForChild("PlayerGui")
+local mainGui = playerGui:WaitForChild("Main")
+local questFrame = mainGui:WaitForChild("Quest")
+
+questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+    -- Mỗi khi khung Quest ẩn đi (nghĩa là vừa làm xong 1 Quest)
+    if not questFrame.Visible and isScriptActive then
+        completedCount = completedCount + 1
+        
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Tiến Độ Farm",
+            Text = "Đã xong: " .. completedCount .. "/" .. maxQuests .. " nhiệm vụ",
+            Duration = 3
+        })
+        
+        -- Nếu đủ 10 lần thì khóa script
+        if completedCount >= maxQuests then
+            isScriptActive = false
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "HOÀN THÀNH!",
+                Text = "Đã hoàn thành đủ " .. maxQuests .. " lần NV. Script dừng hẳn!",
+                Duration = 6
+            })
+        end
+    end
+end)
+
+-- 5. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
-        if questCompleted then break end
+        -- Dừng hẳn vòng lặp khi đủ 10 lần
+        if not isScriptActive then break end
 
         pcall(function()
             local character = player.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then return end
             
-            -- Kiểm tra bảng Quest xem đã nhận chưa / làm xong chưa
-            local playerGui = player:FindFirstChild("PlayerGui")
-            local mainGui = playerGui and playerGui:FindFirstChild("Main")
-            local questFrame = mainGui and mainGui:FindFirstChild("Quest")
-            
-            -- Nếu chưa có nhiệm vụ -> Tự động nhận Q Bandit
+            -- Nếu chưa có nhiệm vụ -> Tự nhận Quest Bandit
             if questFrame and not questFrame.Visible then
                 startBanditQuest()
                 task.wait(0.5)
             end
             
-            -- Đảm bảo cầm vũ khí
+            -- Đảm bảo cầm sẵn vũ khí
             equipWeapon()
             
             -- Tìm quái Bandit
@@ -98,7 +124,7 @@ task.spawn(function()
                 -- Đứng cao trên đầu quái 9 studs
                 character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
                 
-                -- Đánh quái
+                -- Kích hoạt đòn đánh
                 local tool = character:FindFirstChildOfClass("Tool")
                 if tool then
                     tool:Activate()
@@ -107,35 +133,9 @@ task.spawn(function()
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             else
-                -- Nếu không thấy quái, tự teleport về bãi Bandit (Đảo Khởi Đầu)
+                -- Tự quay về bãi Bandit nếu quái chưa spawn
                 character.HumanoidRootPart.CFrame = CFrame.new(1059, 16, 1549)
             end
-            
-            -- Khi khung Quest ẩn đi sau khi đã nhận (nghĩa là đã đánh đủ 5/5 con)
-            -- Hoặc kiểm tra tiến trình Quest để ngắt script
-            if questFrame and questFrame.Visible then
-                local titleContainer = questFrame:FindFirstChild("Container") and questFrame.Container:FindFirstChild("QuestTitle")
-                if titleContainer and titleContainer:FindFirstChild("Title") then
-                    -- Đang trong nhiệm vụ
-                end
-            end
         end)
-    end
-end)
-
--- Lắng nghe sự kiện hoàn thành Quest từ Server để TẮT SCRIPT ngay lập tức
-local playerGui = player:WaitForChild("PlayerGui")
-local mainGui = playerGui:WaitForChild("Main")
-local questFrame = mainGui:WaitForChild("Quest")
-
-questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
-    -- Nếu Quest vừa bị ẩn đi sau khi đã từng bật -> Đã hoàn thành 1 nhiệm vụ
-    if not questFrame.Visible then
-        questCompleted = true
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Auto Quest Lvl 1",
-            Text = "Đã xong 1 nhiệm vụ! Script đã tự động TẮT.",
-            Duration = 5
-        })
     end
 end)
