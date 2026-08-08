@@ -36,7 +36,20 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Mượt
+-- 2. Hàm Tự Động Tắt Bảng Dialogue Khi Hiện Lên
+local function closeDialogueUI()
+    pcall(function()
+        local playerGui = player:FindFirstChild("PlayerGui")
+        if playerGui then
+            local dialogue = playerGui:FindFirstChild("Dialogue")
+            if dialogue then
+                dialogue.Enabled = false
+            end
+        end
+    end)
+end
+
+-- 3. Hàm Bay Mượt
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -69,7 +82,7 @@ local function ultraSlowTeleport(targetCFrame)
     isTweening = false
 end
 
--- 3. Trang Bị Vũ Khí
+-- 4. Trang Bị Vũ Khí
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -85,7 +98,7 @@ local function equipWeapon()
     end
 end
 
--- 4. Hàm Nhận Quest Bandit (Chống nhận chồng)
+-- 5. Hàm Nhận Quest Bandit (Chống Kẹt UI)
 local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -94,8 +107,8 @@ local function startBanditQuest()
     local mainGui = playerGui and playerGui:FindFirstChild("Main")
     local questFrame = mainGui and mainGui:FindFirstChild("Quest")
     
-    -- Nếu đã có Quest hiện lên thì thoát ngay, không nhận nữa
     if questFrame and questFrame.Visible then
+        closeDialogueUI()
         isCheckingQuest = false
         return
     end
@@ -107,12 +120,13 @@ local function startBanditQuest()
         end
     end)
     
-    -- Chờ 3 giây để đảm bảo server xử lý xong và không gọi lệnh trùng
-    task.wait(3)
+    task.wait(0.5)
+    closeDialogueUI() -- Đóng khung hội thoại ngay
+    task.wait(2)
     isCheckingQuest = false
 end
 
--- 5. Hàm Nhận Quest Khỉ (Chống nhận chồng)
+-- 6. Hàm Nhận Quest Khỉ (Chống Kẹt UI)
 local function startJungleQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -121,8 +135,8 @@ local function startJungleQuest()
     local mainGui = playerGui and playerGui:FindFirstChild("Main")
     local questFrame = mainGui and mainGui:FindFirstChild("Quest")
     
-    -- Nếu đã có Quest hiện lên thì thoát ngay
     if questFrame and questFrame.Visible then
+        closeDialogueUI()
         isCheckingQuest = false
         return
     end
@@ -134,11 +148,13 @@ local function startJungleQuest()
         end
     end)
     
-    task.wait(3)
+    task.wait(0.5)
+    closeDialogueUI() -- Đóng khung hội thoại ngay
+    task.wait(2)
     isCheckingQuest = false
 end
 
--- 6. Tìm Quái Gần Nhất
+-- 7. Tìm Quái Gần Nhất
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -167,7 +183,7 @@ local function getClosestMob(mobName, maxDistance)
     return closestMob
 end
 
--- 7. Xử Lý Nút Bấm ON/OFF
+-- 8. Xử Lý Nút Bấm ON/OFF
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -216,7 +232,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 8. Bộ Đếm Quest Tự Động
+-- 9. Bộ Đếm Quest Tự Động
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
@@ -271,11 +287,13 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm Chính
+-- 10. Vòng Lặp Farm Chính (Kèm Auto-Hide Dialogue)
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening and not isCompleted then
             pcall(function()
+                closeDialogueUI() -- Liên tục ép ẩn bảng thoại NPC nếu nó bị hiện lên
+                
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
