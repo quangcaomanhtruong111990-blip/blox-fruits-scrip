@@ -4,13 +4,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 -- Cấu hình
-local maxQuests = 10           -- Số lần làm Q mỗi đảo
-local banditCount = 0          -- Đếm Q Bandit
-local jungleCount = 0          -- Đếm Q Khỉ
-local isFarming = false        -- Trạng thái ON/OFF
-local isAtJungle = false       -- Trạng thái đang ở Đảo Khỉ
-local isTweening = false       -- Đang trong quá trình bay
-local isTakingQuest = false   -- Chống lặp nhận quest
+local maxQuests = 10           
+local banditCount = 0          
+local jungleCount = 0          
+local isFarming = false        
+local isAtJungle = false       
+local isTweening = false       
+local isTakingQuest = false   
 local lastQuestTime = 0 
 
 -- Tọa độ 2 Đảo
@@ -36,7 +36,7 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm dọn dẹp UI đối thoại NPC (Ngăn kẹt thoại)
+-- 2. Hàm dọn dẹp UI đối thoại NPC
 local function clearDialogueUI()
     pcall(function()
         local playerGui = player:FindFirstChild("PlayerGui")
@@ -56,19 +56,17 @@ local function clearDialogueUI()
     end)
 end
 
--- 3. Hàm Bay Mượt (Speed 150 - An toàn Anti-cheat)
+-- 3. HÀM BAY SIÊU MƯỢT (Đã fix lỗi dịch chuyển tức thời)
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 150 
-    local timeToTravel = distance / speed
-    
     isTweening = true
     
+    -- Giữ nhân vật trên không & Tắt va chạm
     local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Name = "TeleportBV"
     bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     bodyVelocity.Parent = hrp
@@ -79,10 +77,15 @@ local function ultraSlowTeleport(targetCFrame)
         end
     end
     
-    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
-    tween:Play()
+    -- Tốc độ hãm cứng 100 (Bay đều, không bị teleport giật)
+    local speed = 100 
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    local duration = distance / speed
     
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    
+    tween:Play()
     tween.Completed:Wait()
     
     if bodyVelocity then bodyVelocity:Destroy() end
@@ -173,8 +176,8 @@ toggleBtn.MouseButton1Click:Connect(function()
             isTakingQuest = false
             lastQuestTime = 0
             
-            -- Đứng ở đâu cũng sẽ bay từ từ về Đảo Bandit trước
-            toggleBtn.Text = "BAY VỀ ĐẢO BANDIT..."
+            -- Đứng bất kỳ đâu cũng sẽ bay từ từ về Đảo Bandit
+            toggleBtn.Text = "BAY CHẬM VỀ ĐẢO 1..."
             pcall(function()
                 local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
                 if commF then commF:InvokeServer("AbandonQuest") end
@@ -191,6 +194,9 @@ toggleBtn.MouseButton1Click:Connect(function()
         if character and character:FindFirstChild("HumanoidRootPart") then
             if character.HumanoidRootPart:FindFirstChild("FarmBV") then
                 character.HumanoidRootPart.FarmBV:Destroy()
+            end
+            if character.HumanoidRootPart:FindFirstChild("TeleportBV") then
+                character.HumanoidRootPart.TeleportBV:Destroy()
             end
         end
     end
@@ -234,7 +240,6 @@ task.spawn(function()
                     local mobHrp = targetMob.HumanoidRootPart
                     local mobHumanoid = targetMob:FindFirstChild("Humanoid")
                     
-                    -- Bay cao 8 studs đứng trên đầu quái
                     character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 8, 0))
                     
                     if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
@@ -253,10 +258,9 @@ task.spawn(function()
                                 banditCount = banditCount + 1
                                 toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
                                 
-                                -- Hoàn thành 10 lần Q Bandit -> Bay sang Đảo Khỉ
                                 if banditCount >= maxQuests then
                                     isAtJungle = true
-                                    toggleBtn.Text = "BAY THẲNG SANG KHỈ..."
+                                    toggleBtn.Text = "BAY CHẬM SANG KHỈ..."
                                     
                                     if character.HumanoidRootPart:FindFirstChild("FarmBV") then
                                         character.HumanoidRootPart.FarmBV:Destroy()
@@ -271,7 +275,6 @@ task.spawn(function()
                                 jungleCount = jungleCount + 1
                                 toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
                                 
-                                -- Hoàn thành 10 lần Q Khỉ -> Đứng yên & Tắt Script
                                 if jungleCount >= maxQuests then
                                     isFarming = false
                                     toggleBtn.Text = "HOÀN THÀNH - TẮT SCRIPT"
@@ -285,7 +288,7 @@ task.spawn(function()
                         end)
                     end
                     
-                    -- Kích hoạt đòn đánh
+                    -- Đánh quái
                     local tool = character:FindFirstChildOfClass("Tool")
                     if tool then 
                         tool:Activate() 
