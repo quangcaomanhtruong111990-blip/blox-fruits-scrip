@@ -106,7 +106,7 @@ local function equipWeapon()
     end
 end
 
--- 4. Hàm Nhận Nhiệm Vụ Bandit (Đảo 1)
+-- 4. Hàm Nhận Nhiệm Vụ Bandit (Đảo 1 - Nhận từ xa không cần lại gần)
 local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -122,7 +122,7 @@ local function startBanditQuest()
     isCheckingQuest = false
 end
 
--- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Đảo 2)
+-- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Đảo 2 - Nhận từ xa không cần lại gần)
 local function startJungleQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -141,7 +141,7 @@ end
 -- 6. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then nil end
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
     local hrp = character.HumanoidRootPart
     local closestMob = nil
@@ -167,7 +167,7 @@ local function getClosestMob(mobName, maxDistance)
     return closestMob
 end
 
--- 7. Xử Lý Bấm Nút ON/OFF (ĐÃ SỬA: BẤT KỲ Ở ĐÂU KHI BẬT ON SẼ BAY TỪ TỪ VỀ ĐẢO 1 TRƯỚC)
+-- 7. Xử Lý Bấm Nút ON/OFF
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -186,7 +186,6 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
-        -- Cho nhân vật bay từ từ về Đảo 1 trước khi bắt đầu chu trình farm
         task.spawn(function()
             ultraSlowTeleport(BANDIT_POS)
             toggleBtn.Text = "BANDIT: (0/10)"
@@ -216,7 +215,6 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             banditCount = banditCount + 1
             toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
             
-            -- Xong 10 lần Bandit -> Bay mượt sang Đảo Khỉ
             if banditCount >= maxQuests then
                 isAtJungle = true
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
@@ -231,7 +229,6 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             jungleCount = jungleCount + 1
             toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
             
-            -- Xong 10 lần Khỉ -> Bay từ từ về Đảo 1 & Tắt Script
             if jungleCount >= maxQuests then
                 isFarming = false
                 toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
@@ -246,7 +243,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm Chính
+-- 9. Vòng Lặp Farm Chính (ĐÃ SỬA: BỎ BAY VỀ ÔNG NPC, GỌI NHIỆM VỤ TRỰC TIẾP TỪ XA)
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -260,7 +257,7 @@ task.spawn(function()
                 if not isAtJungle then
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
                         startBanditQuest()
-                        return
+                        return -- Dừng vòng lặp ngắn để game nhận Q, sau đó tự đánh quái
                     end
                     
                     local targetMob = getClosestMob("Bandit", 350)
@@ -272,15 +269,13 @@ task.spawn(function()
                         
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                    else
-                        character.HumanoidRootPart.CFrame = BANDIT_POS
                     end
                     
                 -- GIAI ĐOẠN 2: ĐẢO KHỈ (ĐẢO 2)
                 else
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
                         startJungleQuest()
-                        return
+                        return -- Dừng vòng lặp ngắn để nhận Q Khỉ từ xa không cần bay về gặp NPC
                     end
                     
                     local targetMob = getClosestMob("Monkey", 350)
@@ -292,8 +287,6 @@ task.spawn(function()
                         
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                    else
-                        character.HumanoidRootPart.CFrame = JUNGLE_POS
                     end
                 end
             end)
