@@ -260,27 +260,46 @@ task.spawn(function()
                         character.HumanoidRootPart.CFrame = BANDIT_POS
                     end
                     
-                -- ĐẢO KHỈ: Farm Monkey
-                else
-                    if questFrame and not questFrame.Visible and not isCheckingQuest then
-                        startJungleQuest()
-                        return
-                    end
-                    
-                    local targetMob = getClosestMob("Monkey", 350)
-                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
-                        
-                        local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then tool:Activate() end
-                        
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                    else
-                        character.HumanoidRootPart.CFrame = JUNGLE_POS
-                    end
-                end
-            end)
-        end
+               -- ĐẢO KHỈ: Farm Monkey (Đã tối ưu mượt, không giật)
+else
+    if questFrame and not questFrame.Visible and not isCheckingQuest then
+        startJungleQuest()
+        return
     end
-end)
+    
+    local targetMob = getClosestMob("Monkey", 350)
+    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+        local mobHrp = targetMob.HumanoidRootPart
+        
+        -- 1. Tắt va chạm với cây cối/vật cản xung quanh quái
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        
+        -- 2. Giữ khoảng cách an toàn 10 stud phía trên đầu quái
+        character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 10, 0)
+        
+        -- 3. Triệt tiêu vận tốc rơi để đứng im mượt mà trên không
+        if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
+            local bv = Instance.new("BodyVelocity")
+            bv.Name = "FarmBV"
+            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            bv.Velocity = Vector3.new(0, 0, 0)
+            bv.Parent = character.HumanoidRootPart
+        end
+        
+        -- Đánh quái
+        local tool = character:FindFirstChildOfClass("Tool")
+        if tool then tool:Activate() end
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    else
+        -- Xóa giữ trọng lực khi không có quái để di chuyển bình thường
+        if character.HumanoidRootPart:FindFirstChild("FarmBV") then
+            character.HumanoidRootPart.FarmBV:Destroy()
+        end
+        character.HumanoidRootPart.CFrame = JUNGLE_POS
+    end
+end
