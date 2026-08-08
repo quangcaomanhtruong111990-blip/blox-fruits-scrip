@@ -36,7 +36,7 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Mượt 2 Chiều
+-- 2. Hàm Bay Mượt
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -85,31 +85,56 @@ local function equipWeapon()
     end
 end
 
--- 4. Hàm Nhận Quest Đảo 1 (Đã thêm Delay tránh spam)
+-- 4. Hàm Nhận Quest Bandit (Chống nhận chồng)
 local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
+    
+    local playerGui = player:FindFirstChild("PlayerGui")
+    local mainGui = playerGui and playerGui:FindFirstChild("Main")
+    local questFrame = mainGui and mainGui:FindFirstChild("Quest")
+    
+    -- Nếu đã có Quest hiện lên thì thoát ngay, không nhận nữa
+    if questFrame and questFrame.Visible then
+        isCheckingQuest = false
+        return
+    end
+    
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then 
             commF:InvokeServer("StartQuest", "BanditQuest1", 1) 
         end
     end)
-    task.wait(2.5) -- Tăng delay lên 2.5s để game xử lý nhận Q thành công
+    
+    -- Chờ 3 giây để đảm bảo server xử lý xong và không gọi lệnh trùng
+    task.wait(3)
     isCheckingQuest = false
 end
 
--- 5. Hàm Nhận Quest Đảo Khỉ (Đã thêm Delay tránh spam)
+-- 5. Hàm Nhận Quest Khỉ (Chống nhận chồng)
 local function startJungleQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
+    
+    local playerGui = player:FindFirstChild("PlayerGui")
+    local mainGui = playerGui and playerGui:FindFirstChild("Main")
+    local questFrame = mainGui and mainGui:FindFirstChild("Quest")
+    
+    -- Nếu đã có Quest hiện lên thì thoát ngay
+    if questFrame and questFrame.Visible then
+        isCheckingQuest = false
+        return
+    end
+    
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then 
             commF:InvokeServer("StartQuest", "JungleQuest", 1) 
         end
     end)
-    task.wait(2.5) -- Tăng delay lên 2.5s để game xử lý nhận Q thành công
+    
+    task.wait(3)
     isCheckingQuest = false
 end
 
@@ -169,6 +194,7 @@ toggleBtn.MouseButton1Click:Connect(function()
             isAtJungle = false
             isCompleted = false
             isTweening = false
+            isCheckingQuest = false
             toggleBtn.Text = "BANDIT: (0/10)"
             
             game:GetService("StarterGui"):SetCore("SendNotification", {
@@ -245,7 +271,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm Chính (Đã tối ưu vị trí đánh & delay nhận Q)
+-- 9. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening and not isCompleted then
@@ -255,7 +281,6 @@ task.spawn(function()
                 
                 equipWeapon()
                 
-                -- Tắt va chạm để tránh kẹt
                 for _, part in pairs(character:GetChildren()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
@@ -266,7 +291,6 @@ task.spawn(function()
                 if not isAtJungle then
                     if questFrame and not questFrame.Visible then
                         if not isCheckingQuest then
-                            -- Nếu chưa nhận Quest thì quay về chỗ NPC nhận Q
                             character.HumanoidRootPart.CFrame = BANDIT_POS
                             startBanditQuest()
                         end
@@ -275,7 +299,6 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Bandit", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        -- Hạ độ cao xuống 4 stud + lùi lại 2 stud để hitbox đòn đánh trúng 100%
                         character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 4, 2)
                         
                         if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
@@ -287,9 +310,7 @@ task.spawn(function()
                         end
                         
                         local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then 
-                            tool:Activate() 
-                        end
+                        if tool then tool:Activate() end
                         
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
@@ -304,7 +325,6 @@ task.spawn(function()
                 else
                     if questFrame and not questFrame.Visible then
                         if not isCheckingQuest then
-                            -- Quay về NPC đảo Khỉ nhận Q
                             character.HumanoidRootPart.CFrame = JUNGLE_POS
                             startJungleQuest()
                         end
@@ -313,7 +333,6 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Monkey", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        -- Hạ độ cao xuống 4 stud + lùi lại 2 stud
                         character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 4, 2)
                         
                         if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
@@ -325,9 +344,7 @@ task.spawn(function()
                         end
                         
                         local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then 
-                            tool:Activate() 
-                        end
+                        if tool then tool:Activate() end
                         
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
