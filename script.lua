@@ -1,17 +1,17 @@
 local player = game.Players.LocalPlayer
-local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 -- Cấu hình
-local maxQuests = 10           
-local banditCount = 0          
-local jungleCount = 0          
-local isFarming = false        
-local isAtJungle = false       
-local isTweening = false       
-local isTakingQuest = false   
-local lastQuestTime = 0 
+local maxBanditQuests = 10     -- Số lần làm Q mỗi đảo
+local banditCount = 0          -- Biến đếm Q Bandit
+local jungleCount = 0          -- Biến đếm Q Khỉ
+local isFarming = false        -- Trạng thái ON/OFF
+local isTakingQuest = false    -- Biến chống spam nhận Q (Đã đồng bộ)
+local lastQuestTime = 0        -- Thời gian nhận Q gần nhất
+local isAtJungle = false       -- Trạng thái đã sang Đảo Khỉ
+local isTweening = false       -- Đang trong quá trình bay
 
 -- Tọa độ 2 Đảo
 local BANDIT_POS = CFrame.new(1059, 16, 1549)
@@ -19,14 +19,14 @@ local JUNGLE_POS = CFrame.new(-1612.8, 36.8, 149.2)
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmTwoIslandsGui"
+screenGui.Name = "AutoFarmBanditToJungleGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 200, 0, 45)
+toggleBtn.Size = UDim2.new(0, 180, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -36,7 +36,7 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm dọn dẹp UI đối thoại NPC
+-- Hàm hỗ trợ dọn dẹp UI đối thoại NPC
 local function clearDialogueUI()
     pcall(function()
         local playerGui = player:FindFirstChild("PlayerGui")
@@ -56,7 +56,7 @@ local function clearDialogueUI()
     end)
 end
 
--- 3. HÀM BAY SIÊU MƯỢT (Đã fix lỗi dịch chuyển tức thời)
+-- 2. Hàm Bay Mượt Chuẩn Chống Anti-Cheat (Speed 100)
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -64,9 +64,8 @@ local function ultraSlowTeleport(targetCFrame)
     local hrp = character.HumanoidRootPart
     isTweening = true
     
-    -- Giữ nhân vật trên không & Tắt va chạm
     local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Name = "TeleportBV"
+    bodyVelocity.Name = "FlyBV"
     bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
     bodyVelocity.Parent = hrp
@@ -77,22 +76,21 @@ local function ultraSlowTeleport(targetCFrame)
         end
     end
     
-    -- Tốc độ hãm cứng 100 (Bay đều, không bị teleport giật)
     local speed = 100 
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local duration = distance / speed
+    local timeToTravel = distance / speed
     
-    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
-    
     tween:Play()
+    
     tween.Completed:Wait()
     
     if bodyVelocity then bodyVelocity:Destroy() end
     isTweening = false
 end
 
--- 4. Hàm Trang Bị Vũ Khí
+-- 3. Hàm Trang Bị Vũ Khí
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -108,7 +106,7 @@ local function equipWeapon()
     end
 end
 
--- 5. Hàm Nhận Quest Gửi Remote Chuẩn
+-- 4. HÀM NHẬN NHIỆM VỤ TỔNG HỢP (ĐÃ GHÉP THEO YÊU CẦU)
 local function takeQuestOnce(questName, targetCFrame)
     if isTakingQuest or (tick() - lastQuestTime < 4) then return end
     isTakingQuest = true
@@ -133,7 +131,7 @@ local function takeQuestOnce(questName, targetCFrame)
     isTakingQuest = false
 end
 
--- 6. Tìm Quái Gần Nhất
+-- 5. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -162,7 +160,7 @@ local function getClosestMob(mobName, maxDistance)
     return closestMob
 end
 
--- 7. Xử Lý Nút Bấm ON/OFF
+-- 6. Xử Lý Bấm Nút ON/OFF
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -176,8 +174,7 @@ toggleBtn.MouseButton1Click:Connect(function()
             isTakingQuest = false
             lastQuestTime = 0
             
-            -- Đứng bất kỳ đâu cũng sẽ bay từ từ về Đảo Bandit
-            toggleBtn.Text = "BAY CHẬM VỀ ĐẢO 1..."
+            toggleBtn.Text = "BAY VỀ ĐẢO 1..."
             pcall(function()
                 local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
                 if commF then commF:InvokeServer("AbandonQuest") end
@@ -192,35 +189,64 @@ toggleBtn.MouseButton1Click:Connect(function()
         
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
-            if character.HumanoidRootPart:FindFirstChild("FarmBV") then
-                character.HumanoidRootPart.FarmBV:Destroy()
+            if character.HumanoidRootPart:FindFirstChild("FlyBV") then
+                character.HumanoidRootPart.FlyBV:Destroy()
             end
-            if character.HumanoidRootPart:FindFirstChild("TeleportBV") then
-                character.HumanoidRootPart.TeleportBV:Destroy()
+        end
+    end
+end)
+
+-- 7. Bộ Đếm Quest Tự Động
+local playerGui = player:WaitForChild("PlayerGui")
+local mainGui = playerGui:WaitForChild("Main")
+local questFrame = mainGui:WaitForChild("Quest")
+
+questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+    if not questFrame.Visible and isFarming and not isTweening then
+        if not isAtJungle then
+            banditCount = banditCount + 1
+            toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxBanditQuests .. ")"
+            
+            if banditCount >= maxBanditQuests then
+                isAtJungle = true
+                toggleBtn.Text = "BAY SANG KHỈ..."
+                
+                task.spawn(function()
+                    ultraSlowTeleport(JUNGLE_POS)
+                    toggleBtn.Text = "KHỈ: (0/10)"
+                end)
+            end
+        else
+            jungleCount = jungleCount + 1
+            toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxBanditQuests .. ")"
+            
+            if jungleCount >= maxBanditQuests then
+                isFarming = false
+                toggleBtn.Text = "HOÀN THÀNH (TẮT)"
+                toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             end
         end
     end
 end)
 
 -- 8. Vòng Lặp Farm Chính
-local currentMobTarget = nil
-
 task.spawn(function()
-    while task.wait(0.05) do
+    while task.wait(0.1) do
         if isFarming and not isTweening then
             pcall(function()
-                clearDialogueUI()
-                
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- BƯỚC 1: KIỂM TRA VÀ NHẬN QUEST NẾU CẦN
-                if tick() - lastQuestTime > 4 then
+                equipWeapon()
+                
+                -- BƯỚC 1: KIỂM TRA VÀ GỌI HÀM takeQuestOnce
+                if questFrame and not questFrame.Visible then
                     if not isAtJungle then
                         takeQuestOnce("BanditQuest1", BANDIT_POS)
                     else
                         takeQuestOnce("JungleQuest", JUNGLE_POS)
                     end
+                    return
                 end
                 
                 -- BƯỚC 2: TẮT VA CHẠM
@@ -230,82 +256,22 @@ task.spawn(function()
                     end
                 end
                 
-                equipWeapon()
-                
+                -- BƯỚC 3: TÌM VÀ ĐÁNH QUÁI
                 local targetMobName = not isAtJungle and "Bandit" or "Monkey"
                 local defaultPos = not isAtJungle and BANDIT_POS or JUNGLE_POS
                 
-                local targetMob = getClosestMob(targetMobName, 500)
+                local targetMob = getClosestMob(targetMobName, 400)
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                    local mobHrp = targetMob.HumanoidRootPart
-                    local mobHumanoid = targetMob:FindFirstChild("Humanoid")
+                    character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0)
                     
-                    character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 8, 0))
-                    
-                    if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
-                        local bv = Instance.new("BodyVelocity")
-                        bv.Name = "FarmBV"
-                        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                        bv.Velocity = Vector3.new(0, 0, 0)
-                        bv.Parent = character.HumanoidRootPart
-                    end
-                    
-                    -- Lắng nghe quái chết để đếm lượt làm Q
-                    if currentMobTarget ~= targetMob and mobHumanoid then
-                        currentMobTarget = targetMob
-                        mobHumanoid.Died:Connect(function()
-                            if not isAtJungle then
-                                banditCount = banditCount + 1
-                                toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
-                                
-                                if banditCount >= maxQuests then
-                                    isAtJungle = true
-                                    toggleBtn.Text = "BAY CHẬM SANG KHỈ..."
-                                    
-                                    if character.HumanoidRootPart:FindFirstChild("FarmBV") then
-                                        character.HumanoidRootPart.FarmBV:Destroy()
-                                    end
-                                    
-                                    task.spawn(function()
-                                        ultraSlowTeleport(JUNGLE_POS)
-                                        toggleBtn.Text = "KHỈ: (0/10)"
-                                    end)
-                                end
-                            else
-                                jungleCount = jungleCount + 1
-                                toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
-                                
-                                if jungleCount >= maxQuests then
-                                    isFarming = false
-                                    toggleBtn.Text = "HOÀN THÀNH - TẮT SCRIPT"
-                                    toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-                                    
-                                    if character.HumanoidRootPart:FindFirstChild("FarmBV") then
-                                        character.HumanoidRootPart.FarmBV:Destroy()
-                                    end
-                                end
-                            end
-                        end)
-                    end
-                    
-                    -- Đánh quái
                     local tool = character:FindFirstChildOfClass("Tool")
-                    if tool then 
-                        tool:Activate() 
+                    if tool then
+                        tool:Activate()
                     end
                     
-                    local netFolder = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
-                    if netFolder and netFolder:FindFirstChild("RegisterAttack") then
-                        netFolder.RegisterAttack:InvokeServer(0.1)
-                    end
-                    
-                    VirtualUser:CaptureController()
-                    VirtualUser:Button1Down(Vector2.new(1, 1))
-                    VirtualUser:Button1Up(Vector2.new(1, 1))
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                 else
-                    if character.HumanoidRootPart:FindFirstChild("FarmBV") then
-                        character.HumanoidRootPart.FarmBV:Destroy()
-                    end
                     character.HumanoidRootPart.CFrame = defaultPos * CFrame.new(0, 8, 0)
                 end
             end)
