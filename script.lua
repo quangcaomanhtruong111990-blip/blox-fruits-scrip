@@ -3,12 +3,12 @@ local TweenService = game:GetService("TweenService")
 local playerGui = player:WaitForChild("PlayerGui")
 
 local isTeleporting = false
--- Tọa độ vị trí chính xác của NPC King Red Head tại Coliseum (Sea 2)
-local KING_RED_HEAD_POS = CFrame.new(-1591, 7, 3058)
+-- Tọa độ chuẩn xác trong hầm Coliseum đứng trước mặt King Red Head
+local KING_RED_HEAD_POS = CFrame.new(-1508, 6, 3010)
 
--- 1. Tạo giao diện nút bấm
+-- 1. Tạo giao diện
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "GetKingRedHeadGui"
+screenGui.Name = "KingRedHeadTeleportGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
@@ -25,7 +25,7 @@ toggleBtn.Text = "ĐẾN GẶP KING RED HEAD"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm bay mượt chống kẹt
+-- 2. Hàm bay mượt noclip
 local function flyToTarget(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -37,7 +37,7 @@ local function flyToTarget(targetCFrame)
         if part:IsA("BasePart") then part.CanCollide = false end
     end
     
-    local speed = 250
+    local speed = 200
     local timeToTravel = distance / speed
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
@@ -66,13 +66,13 @@ end
 toggleBtn.MouseButton1Click:Connect(function()
     if isTeleporting then return end
     isTeleporting = true
-    toggleBtn.Text = "ĐANG BAY TỚI KING RED HEAD..."
+    toggleBtn.Text = "ĐANG BAY VÀO HẦM COLISEUM..."
     toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 50)
     
     task.spawn(function()
         flyToTarget(KING_RED_HEAD_POS)
         task.wait(1.5)
-        toggleBtn.Text = "ĐÃ ĐẾN NƠI (NÓI CHUYỆN)"
+        toggleBtn.Text = "ĐÃ ĐẾN MẶT KING RED HEAD"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
     end)
 end)
