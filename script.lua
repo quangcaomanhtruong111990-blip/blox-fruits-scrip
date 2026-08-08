@@ -2,6 +2,7 @@ local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 -- Cấu hình
 local maxQuests = 10           -- Số lần làm Q cho mỗi đảo (10 lần)
@@ -12,7 +13,7 @@ local isCheckingQuest = false  -- Chống spam nhận Q
 local isAtJungle = false       -- Đã sang Đảo Khỉ chưa
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
--- Tọa độ trung tâm hoặc bãi quái của 2 Đảo (Đã đổi vị trí để không bao giờ đứng gần NPC nhận nhiệm vụ)
+-- Tọa độ trung tâm/bãi quái (Không đứng gần NPC nhận nhiệm vụ)
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
 
@@ -106,7 +107,7 @@ local function equipWeapon()
     end
 end
 
--- 4. Hàm Nhận Nhiệm Vụ Bandit (Đảo 1 - Nhận từ xa qua Remote)
+-- 4. Hàm Nhận Nhiệm Vụ Bandit (Đảo 1 - Từ xa)
 local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -122,7 +123,7 @@ local function startBanditQuest()
     isCheckingQuest = false
 end
 
--- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Đảo 2 - Nhận từ xa qua Remote)
+-- 5. Hàm Nhận Nhiệm Vụ Đảo Khỉ (Đảo 2 - Từ xa)
 local function startJungleQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -167,7 +168,7 @@ local function getClosestMob(mobName, maxDistance)
     return closestMob
 end
 
--- 7. Xử Lý Bấm Nút ON/OFF
+-- 7. Xử Lý Bấm Nút ON/OFF (Kèm tính năng tự quay trái & cất vào rương khi bật)
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -181,7 +182,30 @@ toggleBtn.MouseButton1Click:Connect(function()
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
                 if v:IsA("BodyVelocity") then v:Destroy() end
             end
+            
+            -- Tự động quay trái 90 độ ngay tại chỗ
+            local hrp = character.HumanoidRootPart
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(90), 0)
         end
+        
+        -- Tự động cất trái cây (Blox Fruit) vào rương (StoreFruit)
+        pcall(function()
+            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+            if commF then
+                for _, item in pairs(player.Backpack:GetChildren()) do
+                    if item:IsA("Tool") and item.ToolTip == "Blox Fruit" then
+                        commF:InvokeServer("StoreFruit", item.Name)
+                    end
+                end
+                if character then
+                    for _, item in pairs(character:GetChildren()) do
+                        if item:IsA("Tool") and item.ToolTip == "Blox Fruit" then
+                            commF:InvokeServer("StoreFruit", item.Name)
+                        end
+                    end
+                end
+            end
+        end)
         
         toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
