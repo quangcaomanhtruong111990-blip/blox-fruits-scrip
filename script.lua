@@ -9,10 +9,9 @@ local desertCount = 0
 local isFarming = false
 local isCheckingQuest = false
 
--- Tọa độ nhận nhiệm vụ (gần NPC thay vì bãi quái để nhận Q trước)
-local DESERT_POS = CFrame.new(1093, 16, 4390)
+-- Tọa độ đứng ngay sát NPC nhận nhiệm vụ Desert
+local DESERT_NPC_POS = CFrame.new(903, 16, 4376) 
 
--- Giao diện bật/tắt
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoFarmDesertGui"
 screenGui.ResetOnSpawn = false
@@ -31,41 +30,34 @@ toggleBtn.Text = "DESERT FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- HÀM DI CHUYỂN MỚI (BẢN SỬA LỖI ĐỨNG YÊN)
-local function flyToMob(targetCFrame)
+local function flyToTarget(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
     
-    -- Nếu đã ở rất gần thì giật nhẹ (Teleport) thẳng tới luôn cho lẹ
     if distance < 10 then
         hrp.CFrame = targetCFrame
         return
     end
     
-    -- Tắt va chạm (Noclip) để không bị kẹt vào tường/cát khi bay
     for _, part in pairs(character:GetChildren()) do
         if part:IsA("BasePart") then
             part.CanCollide = false
         end
     end
     
-    local speed = 250 -- Tăng tốc độ bay cho mượt
+    local speed = 250
     local timeToTravel = distance / speed
     
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     
-    -- Xóa các BodyVelocity cũ (nếu có) gây cản trở di chuyển
     for _, v in pairs(hrp:GetChildren()) do
-        if v:IsA("BodyVelocity") or v:IsA("BodyPosition") then
-            v:Destroy()
-        end
+        if v.Name == "AntiFall" then v:Destroy() end
     end
 
-    -- Thêm BodyVelocity để giữ nhân vật bay lơ lửng không bị rơi
     local bv = Instance.new("BodyVelocity")
     bv.Name = "AntiFall"
     bv.Velocity = Vector3.new(0, 0, 0)
@@ -73,8 +65,6 @@ local function flyToMob(targetCFrame)
     bv.Parent = hrp
 
     tween:Play()
-    
-    -- Khi di chuyển xong thì xóa BodyVelocity
     tween.Completed:Connect(function()
         if bv then bv:Destroy() end
     end)
@@ -108,7 +98,6 @@ local function startDesertQuest()
     isCheckingQuest = false
 end
 
--- Hàm tìm kiếm quái Desert
 local function getClosestDesertMob(maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -124,7 +113,6 @@ local function getClosestDesertMob(maxDistance)
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 local mobHumanoid = mob:FindFirstChild("Humanoid")
                 
-                -- Đảm bảo quái còn sống
                 if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
                     local distance = (hrp.Position - mobHrp.Position).Magnitude
                     if distance < shortestDistance then
@@ -144,28 +132,18 @@ toggleBtn.MouseButton1Click:Connect(function()
         desertCount = 0
         isCheckingQuest = false
         
-        local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            -- Dọn dẹp tàn dư di chuyển trước khi bắt đầu
-            for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
-                if v:IsA("BodyVelocity") then v:Destroy() end
-            end
-        end
-        
-        toggleBtn.Text = "ĐANG ĐẾN SA MẠC..."
+        toggleBtn.Text = "ĐANG ĐẾN CHỔ NPC..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         task.spawn(function()
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                character.HumanoidRootPart.CFrame = DESERT_POS
-            end
+            flyToTarget(DESERT_NPC_POS)
+            task.wait(1)
             toggleBtn.Text = "DESERT: (0/10)"
         end)
     else
         toggleBtn.Text = "DESERT FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
-        -- Xóa bay khi tắt
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
@@ -202,28 +180,32 @@ task.spawn(function()
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
                 equipWeapon()
-                
                 local hrp = character.HumanoidRootPart
 
-                -- Chỉ nhận Quest khi bảng Quest không hiện
+                -- Nếu chưa nhận nhiệm vụ, script sẽ tự bay về gần NPC để nhận Q
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
+                    local distToNpc = (hrp.Position - DESERT_NPC_POS.Position).Magnitude
+                    if distToNpc > 15 then
+                        flyToTarget(DESERT_NPC_POS)
+                        task.wait(0.5)
+                    end
                     startDesertQuest()
-                end
-                
-                local targetMob = getClosestDesertMob(1000) -- Tăng phạm vi quét tìm quái
-                if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                    local mobHrp = targetMob.HumanoidRootPart
-                    local distance = (hrp.Position - mobHrp.Position).Magnitude
-                    
-                    -- Bay lên đầu quái
-                    flyToMob(mobHrp.CFrame * CFrame.new(0, 9, 0))
-                    
-                    if distance <= 15 then
-                        local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then tool:Activate() end
+                else
+                    -- Đã có nhiệm vụ -> Tìm quái và bay đến đánh
+                    local targetMob = getClosestDesertMob(1000)
+                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        local mobHrp = targetMob.HumanoidRootPart
+                        local distance = (hrp.Position - mobHrp.Position).Magnitude
                         
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                        flyToTarget(mobHrp.CFrame * CFrame.new(0, 9, 0))
+                        
+                        if distance <= 15 then
+                            local tool = character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                            
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                        end
                     end
                 end
             end)
