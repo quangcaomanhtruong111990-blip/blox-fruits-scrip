@@ -1,23 +1,25 @@
 --[[
-    MỤC ĐÍCH: HỌC LẬP TRÌNH LUA ROBLOX THỰC HÀNH TRONG STUDIO RIÊNG
-    KHÔNG DÙNG TRONG SERVER CHÍNH THỨC BLOX FRUITS / ROBLOX CÔNG KHAI
+    MỤC ĐÍCH: HỌC LẬP TRÌNH - THỬ NGHIỆM TRONG STUDIO RIÊNG
+    Tính năng: Bay cao 12 đơn vị trên quái, bám sát, đánh ổn định có dame
 ]]
 
 local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService") -- Dùng để bám sát mượt
 local playerGui = player:WaitForChild("PlayerGui")
 
--- ===== BIẾN TRẠNG THÁI KIỂM SOÁT CHẶT CHẼ =====
+-- ===== BIẾN TRẠNG THÁI & THAM SỐ =====
 local isFarming = false       
 local isCheckingQuest = false 
 local isTweening = false      
 local isAttacking = false
 local lastAttackTime = 0
-local ATTACK_DELAY = 0.3       -- Thời gian nghỉ giữa đòn đánh (điều chỉnh mượt)
-local MIN_DIST_FLY = 6         -- Khoảng cách dưới này không chạy Tween ngắn gây rung
-local ATTACK_RANGE = 20        -- Đủ gần mới đánh, không bay liên tục
+local ATTACK_DELAY = 0.3       -- Thời gian nghỉ giữa đòn đánh
+local MIN_DIST_FLY = 6         -- Không Tween ngắn gây rung
+local TARGET_HEIGHT = 12       -- === CAO 12 ĐƠN VỊ TRÊN QUÁI ===
+local STICK_DISTANCE = 18      -- Khoảng cách giữ bám sát
 
 -- ===== DỮ LIỆU 5 ĐẢO =====
 local ISLAND_DATA = {
@@ -46,7 +48,7 @@ local function getCurrentIslandByLevel()
 end
 local currentIsland = getCurrentIslandByLevel()
 
--- ===== GIAO DIỆN NÚT BẬT/TẮT =====
+-- ===== GIAO DIỆN =====
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoLevelFarmGui"
 screenGui.ResetOnSpawn = false
@@ -55,46 +57,42 @@ screenGui.Parent = playerGui
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 220, 0, 45)
+toggleBtn.Size = UDim2.new(0, 240, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 toggleBtn.TextColor3 = Color3.new(1,1,1)
 toggleBtn.TextSize = 14
 toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.Text = "FARM LEVEL: OFF"
+toggleBtn.Text = "FARM BÁM TRÊN CAO 12: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- ===== HÀM BAY MƯỢT, KHÔNG CHỒNG CHÉO =====
+-- ===== HÀM BAY MƯỢT =====
 local function flyToTarget(targetCFrame)
-    if isTweening then return end -- Ngăn bay chồng khi đang di chuyển
+    if isTweening then return end
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
     
-    -- Gần đủ thì đặt thẳng vị trí, không Tween ngắn gây rung
     if distance < MIN_DIST_FLY then
         hrp.CFrame = targetCFrame
         return
     end
 
     isTweening = true
-    -- Tắt va chạm 1 lần khi bắt đầu bay
+    -- Tắt va chạm
     for _, part in pairs(character:GetChildren()) do
         if part:IsA("BasePart") then part.CanCollide = false end
     end
 
-    local speed = 220 -- Giảm nhẹ tốc độ bay mượt hơn
+    local speed = 200
     local timeToTravel = distance / speed
-    -- Dùng kiểu chuyển động cong tự nhiên hơn Linear
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-    -- Dọn dẹp chống rơi cũ
-    for _, v in pairs(hrp:GetChildren()) do
-        if v.Name == "AntiFall" then v:Destroy() end
-    end
+    -- Chống rơi
+    for _, v in pairs(hrp:GetChildren()) do if v.Name == "AntiFall" then v:Destroy() end end
     local bv = Instance.new("BodyVelocity")
     bv.Name = "AntiFall"
     bv.Velocity = Vector3.zero
@@ -104,12 +102,12 @@ local function flyToTarget(targetCFrame)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     tween:Play()
 
-    tween.Completed:Wait() -- Chờ xong mới mở trạng thái lại
+    tween.Completed:Wait()
     bv:Destroy()
     isTweening = false
 end
 
--- ===== BAY CHUYỂN ĐẢO DÀI KHOẢNG =====
+-- ===== BAY CHUYỂN ĐẢO =====
 local function ultraSlowTeleport(targetCFrame)
     if isTweening then return end
     local character = player.Character
@@ -199,7 +197,7 @@ local function getClosestMob(mobNamePattern, maxDistance)
     return closestMob
 end
 
--- ===== XỬ LÝ NÚT BẬT/TẮT =====
+-- ===== NÚT BẬT/TẮT =====
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
@@ -208,7 +206,6 @@ toggleBtn.MouseButton1Click:Connect(function()
         isAttacking = false
         currentIsland = getCurrentIslandByLevel()
         
-        -- Dọn dẹp AntiFall cũ
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
@@ -222,12 +219,11 @@ toggleBtn.MouseButton1Click:Connect(function()
         
         task.spawn(function()
             ultraSlowTeleport(data.pos)
-            toggleBtn.Text = data.name .. " | ĐANG FARM"
+            toggleBtn.Text = data.name .. " | BÁM CAO 12 ĐANG FARM"
         end)
     else
-        -- Tắt hoàn toàn, dừng mọi hành động
         isFarming = false
-        toggleBtn.Text = "FARM LEVEL: OFF"
+        toggleBtn.Text = "FARM BÁM TRÊN CAO 12: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
         local character = player.Character
@@ -239,7 +235,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ===== TỰ ĐỘNG CHUYỂN ĐẢO KHI LÊN LEVEL =====
+-- ===== TỰ ĐỘNG CHUYỂN ĐẢO =====
 task.spawn(function()
     while task.wait(1) do
         if isFarming and not isTweening then
@@ -250,19 +246,19 @@ task.spawn(function()
                 toggleBtn.Text = "LÊN LEVEL! ĐẾN " .. data.name
                 task.spawn(function()
                     ultraSlowTeleport(data.pos)
-                    toggleBtn.Text = data.name .. " | ĐANG FARM"
+                    toggleBtn.Text = data.name .. " | BÁM CAO 12 ĐANG FARM"
                 end)
             end
         end
     end
 end)
 
--- ===== VÒNG LẶP FARM CHÍNH ĐƯỢC TINH CHỈNH =====
+-- ===== VÒNG LẶP BÁM SÁT + ĐÁNH =====
 task.spawn(function()
-    while task.wait(0.15) do -- Tăng nhẹ chu kỳ giảm tải liên tục
+    while task.wait(0.03) do -- Lặp nhanh nhẹ để bám sát mượt
         if isFarming and not isTweening and not isAttacking then
             pcall(function()
-                -- Tắt hội thoại chặn hành động
+                -- Tắt hội thoại cản trở
                 local dialogueGui = playerGui:FindFirstChild("Dialogue")
                 if dialogueGui then dialogueGui.Visible = false end
 
@@ -277,7 +273,7 @@ task.spawn(function()
                 local mobPattern = data.mobPattern
                 local npcPos = data.pos
 
-                -- Kiểm tra nhận nhiệm vụ khi chưa có nhiệm vụ
+                -- Nhận nhiệm vụ nếu chưa có
                 local questFrame = playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("Quest")
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
                     local distToNpc = (hrp.Position - npcPos.Position).Magnitude
@@ -287,23 +283,29 @@ task.spawn(function()
                     end
                     startQuestForIsland(questName)
                 else
-                    -- Tìm quái và đánh có kiểm soát
+                    -- Tìm quái mục tiêu
                     local targetMob = getClosestMob(mobPattern, 1000)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         local mobHrp = targetMob.HumanoidRootPart
-                        local distance = (hrp.Position - mobHrp.Position).Magnitude
-                        
-                        -- Chỉ bay khi còn xa, đủ gần thì đứng yên đánh
-                        if distance > ATTACK_RANGE then
-                            flyToTarget(mobHrp.CFrame * CFrame.new(0, 3, 4)) -- Đứng sau quái tự nhiên
+                        -- === VỊ TRÍ BÁM TRÊN CAO CHÍNH XÁC 12 ===
+                        local stickPos = mobHrp.Position + Vector3.new(0, TARGET_HEIGHT, 0)
+                        local targetCFrame = CFrame.new(stickPos, mobHrp.Position) -- Nhìn thẳng xuống quái để đánh trúng có dame
+                        local distance = (hrp.Position - stickPos).Magnitude
+
+                        -- Di chuyển nhanh về vị trí bám nếu quá xa
+                        if distance > STICK_DISTANCE then
+                            flyToTarget(targetCFrame)
                         else
-                            -- Đánh có kiểm soát thời gian, không nhấn liên tục
+                            -- Giữ vị trí bám sát liên tục + hướng xuống quái
+                            hrp.CFrame = targetCFrame
+
+                            -- Đánh có kiểm soát thời gian, đảm bảo có sát thương
                             local now = os.clock()
                             if now - lastAttackTime >= ATTACK_DELAY then
                                 isAttacking = true
                                 local tool = character:FindFirstChildOfClass("Tool")
                                 if tool then
-                                    tool:Activate()
+                                    tool:Activate() -- Kích hoạt vũ khí đúng cách tạo dame
                                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                                     lastAttackTime = now
