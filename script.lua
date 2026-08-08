@@ -1,5 +1,4 @@
 local player = game.Players.LocalPlayer
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -28,13 +27,11 @@ local JUNGLE_MOB_POS = CFrame.new(-1450, 26, 200)
 local function restoreCharacterControl()
     local character = player.Character
     if character then
-        -- Khôi phục lại va chạm thể chất cho nhân vật
         for _, part in pairs(character:GetChildren()) do
             if part:IsA("BasePart") then
                 part.CanCollide = true
             end
         end
-        -- Xóa các BodyVelocity đang giữ nhân vật trên không
         local hrp = character:FindFirstChild("HumanoidRootPart")
         if hrp then
             for _, v in pairs(hrp:GetChildren()) do
@@ -44,7 +41,6 @@ local function restoreCharacterControl()
             end
         end
     end
-    -- Hủy Tween đang chạy dở
     if currentTween then
         currentTween:Cancel()
         currentTween = nil
@@ -53,48 +49,102 @@ local function restoreCharacterControl()
 end
 
 ------------------------------------------------------------------
--- GIAO DIỆN NÚT BẬT / TẮT (ON / OFF)
+-- GIAO DIỆN DECOR HIỆN ĐẠI (DARK GLASS UI)
 ------------------------------------------------------------------
-if CoreGui:FindFirstChild("AutoFarmGuiFix") then
-    CoreGui.AutoFarmGuiFix:Destroy()
+if CoreGui:FindFirstChild("AutoFarmModernGui") then
+    CoreGui.AutoFarmModernGui:Destroy()
 end
 
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmGuiFix"
+screenGui.Name = "AutoFarmModernGui"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = CoreGui
 
+-- Khung chính
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 180, 0, 50)
+mainFrame.Position = UDim2.new(0, 30, 0, 80)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+mainFrame.BackgroundTransparency = 0.15
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 10)
+frameCorner.Parent = mainFrame
+
+local frameStroke = Instance.new("UIStroke")
+frameStroke.Thickness = 1.5
+frameStroke.Color = Color3.fromRGB(0, 230, 150)
+frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+frameStroke.Parent = mainFrame
+
+-- Đèn LED trạng thái
+local statusDot = Instance.new("Frame")
+statusDot.Name = "StatusDot"
+statusDot.Size = UDim2.new(0, 10, 0, 10)
+statusDot.Position = UDim2.new(0, 14, 0.5, -5)
+statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
+statusDot.Parent = mainFrame
+
+local dotCorner = Instance.new("UICorner")
+dotCorner.CornerRadius = UDim.new(1, 0)
+dotCorner.Parent = statusDot
+
+-- Tiêu đề chữ
+local titleText = Instance.new("TextLabel")
+titleText.Name = "TitleText"
+titleText.Size = UDim2.new(0, 100, 0, 20)
+titleText.Position = UDim2.new(0, 32, 0, 8)
+titleText.BackgroundTransparency = 1
+titleText.Text = "AUTO FARM"
+titleText.TextColor3 = Color3.fromRGB(240, 240, 240)
+titleText.TextSize = 13
+titleText.Font = Enum.Font.GothamBold
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = mainFrame
+
+-- Sub Text (Phím tắt)
+local subText = Instance.new("TextLabel")
+subText.Name = "SubText"
+subText.Size = UDim2.new(0, 100, 0, 14)
+subText.Position = UDim2.new(0, 32, 0, 26)
+subText.BackgroundTransparency = 1
+subText.Text = "Status: RUNNING [K]"
+subText.TextColor3 = Color3.fromRGB(0, 230, 115)
+subText.TextSize = 11
+subText.Font = Enum.Font.GothamMedium
+subText.TextXAlignment = Enum.TextXAlignment.Left
+subText.Parent = mainFrame
+
+-- Nút Bật/Tắt
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleBtn"
-toggleBtn.Size = UDim2.new(0, 160, 0, 50)
-toggleBtn.Position = UDim2.new(0, 20, 0, 80)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
-toggleBtn.Text = "AUTO: ON (Phím K)"
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.TextSize = 15
-toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.Active = true
-toggleBtn.Draggable = true
-toggleBtn.Parent = screenGui
+toggleBtn.Size = UDim2.new(1, 0, 1, 0)
+toggleBtn.BackgroundTransparency = 1
+toggleBtn.Text = ""
+toggleBtn.Parent = mainFrame
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = toggleBtn
-
-local stroke = Instance.new("UIStroke")
-stroke.Thickness = 2
-stroke.Color = Color3.fromRGB(255, 255, 255)
-stroke.Parent = toggleBtn
+local function updateUIState()
+    if isScriptEnabled then
+        frameStroke.Color = Color3.fromRGB(0, 230, 150)
+        statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
+        subText.Text = "Status: RUNNING [K]"
+        subText.TextColor3 = Color3.fromRGB(0, 230, 115)
+    else
+        frameStroke.Color = Color3.fromRGB(235, 60, 60)
+        statusDot.BackgroundColor3 = Color3.fromRGB(235, 60, 60)
+        subText.Text = "Status: PAUSED [K]"
+        subText.TextColor3 = Color3.fromRGB(235, 60, 60)
+    end
+end
 
 local function toggleState()
     isScriptEnabled = not isScriptEnabled
-    if isScriptEnabled then
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
-        toggleBtn.Text = "AUTO: ON (Phím K)"
-    else
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-        toggleBtn.Text = "AUTO: OFF (Phím K)"
-        -- Ngắt hoàn toàn kiểm soát khi ấn OFF
+    updateUIState()
+    if not isScriptEnabled then
         restoreCharacterControl()
     end
 end
@@ -159,7 +209,6 @@ local function flyLinearTo(targetCFrame, speed)
     isTweening = false
 end
 
--- Bay khoảng ngắn lại sát quái
 local function flyShort(targetCFrame)
     if not isScriptEnabled then return end
     local character = player.Character
@@ -251,16 +300,16 @@ local function getClosestMob(mobNamePattern)
     return closestMob
 end
 
--- Fast Attack
-local function fastAttack()
+-- Fast Attack Ngầm (Hoàn toàn KHÔNG dùng Click Chuột)
+local function silentFastAttack()
     pcall(function()
         local character = player.Character
         local tool = character and character:FindFirstChildOfClass("Tool")
         if tool then
+            -- Kích hoạt Tool ngầm bằng Lua API
             tool:Activate()
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             
+            -- Tắt Hoạt ảnh vung tay để không bị delay
             local humanoid = character:FindFirstChildOfClass("Humanoid")
             if humanoid and humanoid:FindFirstChild("Animator") then
                 for _, track in pairs(humanoid.Animator:GetPlayingAnimationTracks()) do
@@ -315,7 +364,6 @@ task.spawn(function()
                 local npcPos = (currentIsland == 1) and BANDIT_NPC_POS or JUNGLE_NPC_POS
                 local mobPos = (currentIsland == 1) and BANDIT_MOB_POS or JUNGLE_MOB_POS
 
-                -- Nếu chưa nhận Quest -> Bay đến NPC nhận
                 if questFrame and not questFrame.Visible then
                     local distToNpc = (hrp.Position - npcPos.Position).Magnitude
                     if distToNpc > 15 then
@@ -326,21 +374,18 @@ task.spawn(function()
                         task.wait(0.5)
                     end
                 else
-                    -- Tìm quái
                     local targetMob = getClosestMob(mobPattern)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         local mobHrp = targetMob.HumanoidRootPart
                         local targetCFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
                         
-                        -- Di chuyển tới quái
                         flyShort(targetCFrame)
                         
-                        -- KIỂM TRA: Đã tới sát quái MỚI ĐÁNH
                         local currentDistance = (hrp.Position - mobHrp.Position).Magnitude
                         if currentDistance <= 12 and isScriptEnabled then
                             for i = 1, 4 do
                                 if not isScriptEnabled then break end
-                                fastAttack()
+                                silentFastAttack()
                             end
                         end
                     else
