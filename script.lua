@@ -12,7 +12,7 @@ local isFarming = false
 local isAtJungle = false       
 local isCompleted = false      
 local isTweening = false       
-local isTakingQuest = false   -- Khóa trạng thái đang nhận Q
+local isTakingQuest = false   
 
 -- Tọa độ 2 Đảo
 local BANDIT_POS = CFrame.new(1059, 16, 1549)
@@ -106,18 +106,16 @@ local function equipWeapon()
     end
 end
 
--- 5. Hàm Nhận Quest Chuẩn (Xử lý 1 lần duy nhất)
+-- 5. Hàm Nhận Quest Chuẩn
 local function takeQuestOnce(questName, targetCFrame)
     if isTakingQuest then return end
     isTakingQuest = true
     
     local character = player.Character
     if character and character:FindFirstChild("HumanoidRootPart") then
-        -- Dịch chuyển tới NPC
         character.HumanoidRootPart.CFrame = targetCFrame
         task.wait(0.3)
         
-        -- Gửi Remote lấy Quest đúng 1 lần
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then 
@@ -144,7 +142,8 @@ local function getClosestMob(mobName, maxDistance)
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
-            if mob.Name == mobName then
+            -- Kiểm tra tên quái (bao gồm cả quái clone từ server)
+            if string.find(mob.Name, mobName) then
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 local mobHumanoid = mob:FindFirstChild("Humanoid")
                 
@@ -247,7 +246,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 9. Vòng Lặp Farm & Đánh Quái Chính
+-- 9. Vòng Lặp Farm & Đánh Quái Chính (Đã Sửa Lỗi Đánh Quái)
 task.spawn(function()
     while task.wait(0.05) do
         if isFarming and not isTweening and not isCompleted then
@@ -257,7 +256,7 @@ task.spawn(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- BƯỚC 1: KIỂM TRA & NHẬN QUEST 1 LẦN DUY NHẤT
+                -- BƯỚC 1: NHẬN QUEST NẾU CHƯA CÓ
                 if not questFrame.Visible then
                     if not isTakingQuest then
                         if not isAtJungle then
@@ -266,45 +265,53 @@ task.spawn(function()
                             takeQuestOnce("JungleQuest", JUNGLE_POS)
                         end
                     end
-                    return -- Dừng vòng lặp chờ nhận Q xong
+                    return
                 end
                 
-                -- BƯỚC 2: KHI ĐÃ CÓ BẢNG QUEST -> CHUYỂN SANG ĐÁNH QUÁI
-                equipWeapon()
-                
+                -- BƯỚC 2: TẮT TÍNH NĂNG VA CHẠM ĐỂ KHÔNG BỊ KHỰNG
                 for _, part in pairs(character:GetChildren()) do
                     if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
                 end
                 
+                -- BƯỚC 3: TRANG BỊ VŨ KHÍ
+                equipWeapon()
+                
                 local targetMobName = not isAtJungle and "Bandit" or "Monkey"
                 local defaultPos = not isAtJungle and BANDIT_POS or JUNGLE_POS
                 
-                local targetMob = getClosestMob(targetMobName, 400)
+                local targetMob = getClosestMob(targetMobName, 500)
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                    -- Tọa độ áp sát đầu quái 2 studs
-                    character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+                    local mobHrp = targetMob.HumanoidRootPart
                     
+                    -- Đặt vị trí ngay trên đầu quái 3.5 studs (Đứng thẳng hướng vào quái)
+                    character.HumanoidRootPart.CFrame = CFrame.new(mobHrp.Position + Vector3.new(0, 3.5, 0), mobHrp.Position)
+                    
+                    -- Giữ cố định trên không
                     if not character.HumanoidRootPart:FindFirstChild("FarmBV") then
                         local bv = Instance.new("BodyVelocity")
                         bv.Name = "FarmBV"
-                        bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
                         bv.Velocity = Vector3.new(0, 0, 0)
                         bv.Parent = character.HumanoidRootPart
                     end
                     
-                    -- Đánh quái
+                    -- KÍCH HOẠT ĐÁN
                     local tool = character:FindFirstChildOfClass("Tool")
-                    if tool then tool:Activate() end
+                    if tool then 
+                        tool:Activate() 
+                    end
                     
+                    -- Mô phỏng nhấp chuột chuẩn Roblox
                     VirtualUser:CaptureController()
-                    VirtualUser:Button1Down(Vector2.new(0,0))
+                    VirtualUser:ClickButton1(Vector2.new(850, 520))
                 else
+                    -- Nếu không tìm thấy quái thì đứng chờ ở khu vực NPC
                     if character.HumanoidRootPart:FindFirstChild("FarmBV") then
                         character.HumanoidRootPart.FarmBV:Destroy()
                     end
-                    character.HumanoidRootPart.CFrame = defaultPos * CFrame.new(0, 0, 15)
+                    character.HumanoidRootPart.CFrame = defaultPos * CFrame.new(0, 5, 0)
                 end
             end)
         end
