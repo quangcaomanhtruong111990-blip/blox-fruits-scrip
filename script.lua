@@ -1,193 +1,141 @@
-Config =
-        Config or
-        {
-            Team = "Pirates",
-            Configuration = {
-                HideallPath = false,
-                blackscreen = true,
-                HideGui = false,
-                HopWhenIdle = true,
-                FpsBoost = true,
-                LockFPS = 15,
-                ["IdleCheck"] = 150, -- every (x) seconds if not moving rejoin
-            },
-            Items = {
-                -- Melees
-                AutoFullyMelees = true,
-                -- Swords
-                Saber = true,
-                CursedDualKatana = false,
-                -- Guns
-                SoulGuitar = false,
-                -- Upgrades
+local player = game.Players.LocalPlayer
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-                RaceV2 = false,
-                AutoFarmFruitMastery = false,
-                AutoEatFruit = 1,
-                Eatlist = {"Spider-Spider"}
-            },
-            Settings = {
-                StayInSea2UntilHaveDarkFragments = false, -- bat cai nay se hop tim darkbeard / turn this on to force hop for darkbeard ( for sg )
-                ["Fragments"] = 10000, -- Auto farm fragments until you have 5000 fragments to buy the chip
-                ["Devil Fruit Sniper Name"] = "Kitsune-Kitsune", -- ten fruit muon snipe (vi du "Spider-Spider")
-                ["Devil Fruit Sniper"] = false -- bat/tat auto mua fruit khi co stock
-            }
-}
-repeat
-    task.wait(0.5)
-until game:IsLoaded()
+local questCompleted = false
 
+-- Thông báo
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Auto Quest Lvl 1",
+    Text = "Đang nhận Q & Farm 5 quái... Xong sẽ tự tắt!",
+    Duration = 4
+})
 
+-- 1. Hàm Tự Trang Bị Melee
+local function equipWeapon()
+    local character = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    if not character or not backpack then return end
+    
+    if not character:FindFirstChildOfClass("Tool") then
+        for _, item in pairs(backpack:GetChildren()) do
+            if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
+                character.Humanoid:EquipTool(item)
+                break
+            end
+        end
+    end
+end
+
+-- 2. Hàm Tự Nhận Nhiệm Vụ Bandit (Level 1)
+local function startBanditQuest()
+    pcall(function()
+        local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        if commF then
+            commF:InvokeServer("StartQuest", "BanditQuest1", 1)
+        end
+    end)
+end
+
+-- 3. Hàm Tìm Quái Bandit Gần Nhất
+local function getClosestMob(maxDistance)
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local hrp = character.HumanoidRootPart
+    local closestMob = nil
+    local shortestDistance = maxDistance
+
+    local enemies = workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, mob in pairs(enemies:GetChildren()) do
+            if mob.Name == "Bandit" then
+                local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+                local mobHumanoid = mob:FindFirstChild("Humanoid")
+                
+                if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
+                    local distance = (hrp.Position - mobHrp.Position).Magnitude
+                    if distance < shortestDistance then
+                        shortestDistance = distance
+                        closestMob = mob
+                    end
+                end
+            end
+        end
+    end
+    return closestMob
+end
+
+-- 4. Vòng Lặp Chính (Chạy đúng 1 lần nhiệm vụ rồi ngắt)
 task.spawn(function()
-    while true do
-        setfpscap(Config.Configuration.LockFPS or 10)
-        task.wait(5)
+    while task.wait(0.1) do
+        if questCompleted then break end
+
+        pcall(function()
+            local character = player.Character
+            if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+            
+            -- Kiểm tra bảng Quest xem đã nhận chưa / làm xong chưa
+            local playerGui = player:FindFirstChild("PlayerGui")
+            local mainGui = playerGui and playerGui:FindFirstChild("Main")
+            local questFrame = mainGui and mainGui:FindFirstChild("Quest")
+            
+            -- Nếu chưa có nhiệm vụ -> Tự động nhận Q Bandit
+            if questFrame and not questFrame.Visible then
+                startBanditQuest()
+                task.wait(0.5)
+            end
+            
+            -- Đảm bảo cầm vũ khí
+            equipWeapon()
+            
+            -- Tìm quái Bandit
+            local targetMob = getClosestMob(350)
+            
+            if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                local mobHrp = targetMob.HumanoidRootPart
+                
+                -- Đứng cao trên đầu quái 9 studs
+                character.HumanoidRootPart.CFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
+                
+                -- Đánh quái
+                local tool = character:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
+                end
+                
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+            else
+                -- Nếu không thấy quái, tự teleport về bãi Bandit (Đảo Khởi Đầu)
+                character.HumanoidRootPart.CFrame = CFrame.new(1059, 16, 1549)
+            end
+            
+            -- Khi khung Quest ẩn đi sau khi đã nhận (nghĩa là đã đánh đủ 5/5 con)
+            -- Hoặc kiểm tra tiến trình Quest để ngắt script
+            if questFrame and questFrame.Visible then
+                local titleContainer = questFrame:FindFirstChild("Container") and questFrame.Container:FindFirstChild("QuestTitle")
+                if titleContainer and titleContainer:FindFirstChild("Title") then
+                    -- Đang trong nhiệm vụ
+                end
+            end
+        end)
     end
 end)
 
--- game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', Config.Configuration.SetTeam or 'Pirates')
+-- Lắng nghe sự kiện hoàn thành Quest từ Server để TẮT SCRIPT ngay lập tức
+local playerGui = player:WaitForChild("PlayerGui")
+local mainGui = playerGui:WaitForChild("Main")
+local questFrame = mainGui:WaitForChild("Quest")
 
-cloneref = cloneref or clonereference or function(x) return x end
-Services = setmetatable({}, {__index = function(self, name)
-    local s, c = pcall(function() return cloneref(game:GetService(name)) end)
-    if s then rawset(self, name, c) return c
-    else error("Invalid Roblox Service: " .. tostring(name))
+questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+    -- Nếu Quest vừa bị ẩn đi sau khi đã từng bật -> Đã hoàn thành 1 nhiệm vụ
+    if not questFrame.Visible then
+        questCompleted = true
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Auto Quest Lvl 1",
+            Text = "Đã xong 1 nhiệm vụ! Script đã tự động TẮT.",
+            Duration = 5
+        })
     end
-end})
-TeleportService = Services.TeleportService
-GuiService = Services.GuiService
-
-function GetGuideServerData()
-    local ok, env = pcall(function()
-        return getsenv and getsenv(game.ReplicatedStorage.GuideModule)
-    end)
-    if ok and env and env._G and env._G.ServerData then
-        return env._G.ServerData
-    end
-    return {ExpBoost = 0, InCombat = false}
-end
-function CheckKick()
-    if GuiService.ErrorMessageChanged then
-        GuiService.ErrorMessageChanged:Connect((newcclosure or function(f) return f end)(function()
-            if GuiService:GetErrorType() == Enum.ConnectionError.DisconnectErrors then
-                while true do TeleportService:TeleportReconnect() task.wait(5) end
-            end
-        end))
-    end
-end
-CheckKick()
-print = function() end
-repeat
-    wait()
-    game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
-until game.Players.LocalPlayer.Character
-    if os.time() >= 1756319996 then
-        -- while true do end
-    end
-
-    local checkdone = false
-
-    local LogService = game:GetService("LogService")
-    local GameName = "Blox Fruit"
-
-    pcall(
-        function()
-            GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
-        end
-    )
-    local StartTime = os.time()
-
-    local Traces = {}
-
-function Build(Error)
-        warn("Error\n\n", Error, "\n\n")
-        local Result = {
-            content = "<@12313> " .. tostring(Error) or " " .. tostring(game.Players.LocalPlayer) or "",
-            embeds = {
-                {
-                    title = GameName,
-                    description = game.PlaceId .. " | " .. game.JobId,
-                    color = 15642286,
-                    fields = {
-                        {
-                            name = "Error Details",
-                            value = Error
-                        },
-                        {
-                            name = "Player Info",
-                            value = "Level: " .. ScriptStorage.PlayerData.Level
-                        },
-                        {
-                            name = "Script Details",
-                            value = GetCurrentDateTime() ..
-                                " | " ..
-                                    DispTime(os.time() - StartTime, true) ..
-                                        " after execution\nMain task: " ..
-                                            (ScriptStorage.Task.MainTask or "n/a") ..
-                                                " ( " ..
-                                                    (ScriptStorage.Task["MainTask-d"] and
-                                                        DispTime(os.time() - ScriptStorage.Task["MainTask-d"], true) or
-                                                        "n/a") ..
-                                                        " ) \nSub task: " ..
-                                                            (ScriptStorage.Task.SubTask or "n/a") ..
-                                                                " ( " ..
-                                                                    (ScriptStorage.Task["SubTask-d"] and
-                                                                        DispTime(
-                                                                            os.time() - ScriptStorage.Task["SubTask-d"],
-                                                                            true
-                                                                        ) or
-                                                                        "n/a") ..
-                                                                        " )"
-                        },
-                        {
-                            name = "Traceback",
-                            value = (function()
-                                local Result = ""
-
-                                for Index, Content in ScriptStorage.Tracebacks do
-                                    if #ScriptStorage.Tracebacks > 20 then
-                                        break
-                                    end
-
-                                    Result = Result .. (Content or "null") .. "\n"
-                                end
-
-                                return Result ~= "" and Result or "... ( empty list ) "
-                            end)()
-                        }
-                    },
-                    author = {
-                        name = tostring(game.Players.LocalPlayer)
-                    }
-                }
-            },
-            attachments = {}
-        }
-
-        for Index, Value in Result.embeds[1].fields do
-            Value.value = "```" .. Value.value .. "```"
-        end
-        return Result
-    end
-
-    function Report(Message)
-        if true then
-            if Traces[Message] then
-                return
-            end
-            Traces[Message] = true
-    
-            local Body = game:GetService("HttpService"):JSONEncode(Build(Message))
-    
-            local AffectedIndexes = {0, 0, 0, 0}
-    
-            request({
-                Url = "https://discord.com/api/webhooks/1510909753969213460/e0c9BKmyJmWQhP5nl9diz13QuyJWAU5CFXbb_zrPkoNnjVoK7hUlItNHPAPThH3NDR_w",
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = Body
-            })
-        end
-    end
+end)
