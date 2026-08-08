@@ -2,19 +2,77 @@ local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local playerGui = player:WaitForChild("PlayerGui")
 
-local questCompleted = false
-local hasQuestStarted = false
+local currentIsland = 1 -- 1: Đảo 1 (Bandit), 2: Đảo Khỉ (Jungle)
+local isFarming = true
+local isTweening = false
+local questCompletedCount = 0
 
--- Thông báo khởi chạy
+-- Tọa độ cố định
+local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
+local BANDIT_MOB_POS = CFrame.new(1145, 17, 1630)
+
+local JUNGLE_NPC_POS = CFrame.new(-1600, 36, 153)
+local JUNGLE_MOB_POS = CFrame.new(-1450, 26, 200)
+
+-- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Auto Quest Lvl 1 - Max Speed",
-    Text = "Đã bật Fast Attack Max Tốc Độ!",
+    Title = "Auto Farm 2 Đảo",
+    Text = "Chạy mượt - Bay đường thẳng - Không nhấp nhô!",
     Duration = 4
 })
 
--- Hàm bay mượt
-local function flyToTarget(targetCFrame)
+-- Hàm Bay Đường Thẳng Cố Định Độ Cao (Chống bay lên xuống)
+local function flyLinearTo(targetCFrame, speed)
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local hrp = character.HumanoidRootPart
+    speed = speed or 200
+    
+    -- Giữ nguyên độ cao Y an toàn (30 studs) để bay thẳng tắp
+    local startPos = hrp.Position
+    local endPos = targetCFrame.Position
+    local cruiseHeight = math.max(startPos.Y, endPos.Y) + 30
+    
+    local targetStraightCFrame = CFrame.new(endPos.X, cruiseHeight, endPos.Z)
+    local distance = (hrp.Position - targetStraightCFrame.Position).Magnitude
+    
+    isTweening = true
+    
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") then part.CanCollide = false end
+    end
+    
+    for _, v in pairs(hrp:GetChildren()) do
+        if v.Name == "AntiFall" then v:Destroy() end
+    end
+
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "AntiFall"
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.Parent = hrp
+
+    local timeToTravel = distance / speed
+    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetStraightCFrame})
+    
+    tween:Play()
+    tween.Completed:Wait()
+    
+    -- Đáp nhẹ xuống vị trí đích
+    local landTween = TweenService:Create(hrp, TweenInfo.new(0.5, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+    landTween:Play()
+    landTween.Completed:Wait()
+
+    if bv then bv:Destroy() end
+    isTweening = false
+end
+
+-- Bay khoảng ngắn khi đánh quái
+local function flyShort(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
@@ -27,14 +85,10 @@ local function flyToTarget(targetCFrame)
     end
     
     for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
+        if part:IsA("BasePart") then part.CanCollide = false end
     end
     
-    local speed = 230
-    local timeToTravel = distance / speed
-    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
+    local tweenInfo = TweenInfo.new(distance / 250, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     
     for _, v in pairs(hrp:GetChildren()) do
@@ -53,7 +107,7 @@ local function flyToTarget(targetCFrame)
     end)
 end
 
--- 1. Hàm Tự Trang Bị Vũ Khí
+-- Trang bị vũ khí
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -69,29 +123,29 @@ local function equipWeapon()
     end
 end
 
--- 2. Hàm Nhận Nhiệm Vụ
-local function startBanditQuest()
+-- Nhận Quest
+local function startQuest(questName)
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            commF:InvokeServer("StartQuest", "BanditQuest1", 1)
+            commF:InvokeServer("StartQuest", questName, 1)
         end
     end)
 end
 
--- 3. Hàm Tìm Quái Bandit Gần Nhất
-local function getClosestMob(maxDistance)
+-- Tìm quái
+local function getClosestMob(mobNamePattern)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
     local hrp = character.HumanoidRootPart
     local closestMob = nil
-    local shortestDistance = maxDistance
+    local shortestDistance = 1500
 
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
-            if mob.Name == "Bandit" then
+            if string.find(mob.Name, mobNamePattern) then
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 local mobHumanoid = mob:FindFirstChild("Humanoid")
                 
@@ -108,20 +162,16 @@ local function getClosestMob(maxDistance)
     return closestMob
 end
 
--- 4. Fast Attack Max Tốc Độ (Bỏ qua animation giơ tay)
+-- Super Fast Attack Max Speed
 local function fastAttack()
     pcall(function()
         local character = player.Character
         local tool = character and character:FindFirstChildOfClass("Tool")
         if tool then
-            -- Kích hoạt tool cực nhanh
             tool:Activate()
-            
-            -- Gửi lệnh Click liên tục không độ trễ
             VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
             VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
             
-            -- Bỏ qua Animation đánh để tay giữ nguyên không di chuyển
             local humanoid = character:FindFirstChildOfClass("Humanoid")
             if humanoid and humanoid:FindFirstChild("Animator") then
                 for _, track in pairs(humanoid.Animator:GetPlayingAnimationTracks()) do
@@ -134,70 +184,67 @@ local function fastAttack()
     end)
 end
 
--- 5. Vòng Lặp Chính
-task.spawn(function()
-    while task.wait(0.01) do -- Chạy siêu nhanh 0.01s
-        if questCompleted then break end
-
-        pcall(function()
-            local character = player.Character
-            if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-            
-            local playerGui = player:FindFirstChild("PlayerGui")
-            local mainGui = playerGui and playerGui:FindFirstChild("Main")
-            local questFrame = mainGui and mainGui:FindFirstChild("Quest")
-            
-            -- Nếu chưa có nhiệm vụ -> Bay từ từ về NPC
-            if questFrame and not questFrame.Visible then
-                local npcPos = CFrame.new(1059, 16, 1549)
-                flyToTarget(npcPos)
-                startBanditQuest()
-                task.wait(0.3)
-            else
-                hasQuestStarted = true
-            end
-            
-            equipWeapon()
-            
-            local targetMob = getClosestMob(500)
-            if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                local mobHrp = targetMob.HumanoidRootPart
-                local targetCFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
-                
-                flyToTarget(targetCFrame)
-                
-                -- Đánh siêu tốc độ
-                for i = 1, 5 do
-                    fastAttack()
-                end
-            else
-                local mobArea = CFrame.new(1145, 17, 1630)
-                flyToTarget(mobArea)
-            end
-        end)
-    end
-end)
-
--- Tự động tắt khi xong Quest
-local playerGui = player:WaitForChild("PlayerGui")
+-- Bộ lắng nghe xong Quest để bay chuyển đảo
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
-    if not questFrame.Visible and hasQuestStarted then
-        questCompleted = true
-        
-        local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
-                if v.Name == "AntiFall" then v:Destroy() end
-            end
+    if not questFrame.Visible and isFarming and not isTweening then
+        if currentIsland == 1 then
+            currentIsland = 2
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Hoàn Thành Đảo 1!",
+                Text = "Đang bay thẳng sang Đảo Khỉ...",
+                Duration = 4
+            })
+            
+            -- Bay thẳng tắp sang NPC Đảo Khỉ
+            task.spawn(function()
+                flyLinearTo(JUNGLE_NPC_POS, 180)
+            end)
         end
+    end
+end)
 
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Auto Quest Lvl 1",
-            Text = "Xong Quest! Script đã tự ngắt.",
-            Duration = 5
-        })
+-- Vòng lặp chính
+task.spawn(function()
+    while task.wait(0.01) do
+        if isFarming and not isTweening then
+            pcall(function()
+                local character = player.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                
+                equipWeapon()
+                local hrp = character.HumanoidRootPart
+
+                local questName = (currentIsland == 1) and "BanditQuest1" or "JungleQuest"
+                local mobPattern = (currentIsland == 1) and "Bandit" or "Monkey"
+                local npcPos = (currentIsland == 1) and BANDIT_NPC_POS or JUNGLE_NPC_POS
+                local mobPos = (currentIsland == 1) and BANDIT_MOB_POS or JUNGLE_MOB_POS
+
+                if questFrame and not questFrame.Visible then
+                    local distToNpc = (hrp.Position - npcPos.Position).Magnitude
+                    if distToNpc > 20 then
+                        flyLinearTo(npcPos, 200)
+                    end
+                    startQuest(questName)
+                    task.wait(0.5)
+                else
+                    local targetMob = getClosestMob(mobPattern)
+                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        local mobHrp = targetMob.HumanoidRootPart
+                        local targetCFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
+                        
+                        flyShort(targetCFrame)
+                        
+                        for i = 1, 4 do
+                            fastAttack()
+                        end
+                    else
+                        flyShort(mobPos)
+                    end
+                end
+            end)
+        end
     end
 end)
