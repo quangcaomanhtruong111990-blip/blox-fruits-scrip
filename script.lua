@@ -3,19 +3,18 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Cấu hình
-local maxQuestEachIsland = 10  -- Mãi đảo 10 lần Quest
-local currentIsland = "Bandit"  -- Trạng thái bắt đầu: "Bandit" hoặc "Jungle"
-local questCount = 0           -- Biến đếm số lần hoàn thành Quest
+local maxBanditQuests = 10     -- Làm đủ 10 lần Q Bandit
+local banditCount = 0          -- Biến đếm số lần hoàn thành Q
 local isFarming = false        -- Trạng thái ON/OFF
-local isCheckingQuest = false  -- Biến khóa chống spam nhận Quest
+local isCheckingQuest = false  -- Chống spam nhận Q
 
--- Tọa độ 2 đảo
+-- Tọa độ Đảo Khởi Đầu và Đảo Khỉ
 local BANDIT_POS = CFrame.new(1059, 16, 1549)
 local JUNGLE_POS = CFrame.new(-1612.8, 36.8, 149.2)
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoFarmComboGui"
+screenGui.Name = "AutoFarmBanditToJungleGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
@@ -48,19 +47,15 @@ local function equipWeapon()
     end
 end
 
--- 3. Hàm Nhận Nhiệm Vụ Theo Đảo
-local function startQuest()
+-- 3. Hàm Nhận Nhiệm Vụ Bandit
+local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
     
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            if currentIsland == "Bandit" then
-                commF:InvokeServer("StartQuest", "BanditQuest1", 1)
-            elseif currentIsland == "Jungle" then
-                commF:InvokeServer("StartQuest", "JungleQuest", 1)
-            end
+            commF:InvokeServer("StartQuest", "BanditQuest1", 1)
         end
     end)
     
@@ -68,8 +63,8 @@ local function startQuest()
     isCheckingQuest = false
 end
 
--- 4. Hàm Tìm Quái Tương Ứng Đảo Gần Nhất
-local function getClosestMob(maxDistance)
+-- 4. Hàm Tìm Quái Bandit Gần Nhất
+local function getClosestBandit(maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
@@ -80,14 +75,7 @@ local function getClosestMob(maxDistance)
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
-            local isTargetMob = false
-            if currentIsland == "Bandit" and mob.Name == "Bandit" then
-                isTargetMob = true
-            elseif currentIsland == "Jungle" and (mob.Name == "Monkey" or mob.Name == "Gorilla") then
-                isTargetMob = true
-            end
-
-            if isTargetMob then
+            if mob.Name == "Bandit" then
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 local mobHumanoid = mob:FindFirstChild("Humanoid")
                 
@@ -108,14 +96,13 @@ end
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
-        currentIsland = "Bandit"
-        questCount = 0
+        banditCount = 0
         toggleBtn.Text = "BANDIT: (0/10)"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Auto Farm Combo",
-            Text = "Đã BẬT! Bắt đầu farm 10 lần Bandit...",
+            Title = "BẮT ĐẦU",
+            Text = "Farm 10 lần Bandit -> Tele Đảo Khỉ -> Dừng",
             Duration = 3
         })
     else
@@ -124,56 +111,38 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 6. Bộ Đếm 10 Lần Mãi Đảo & Tự Chuyển Đảo / Tắt Script
+-- 6. Bộ Đếm 10 Lần Quest Bandit -> Bay Sang Đảo Khỉ -> TẮT SCRIPT
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not questFrame.Visible and isFarming then
-        questCount = questCount + 1
+        banditCount = banditCount + 1
+        toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxBanditQuests .. ")"
         
-        if currentIsland == "Bandit" then
-            toggleBtn.Text = "BANDIT: (" .. questCount .. "/" .. maxQuestEachIsland .. ")"
+        -- Khi đủ 10 lần Bandit
+        if banditCount >= maxBanditQuests then
+            isFarming = false -- Tắt trạng thái farm ngay lập tức
+            toggleBtn.Text = "FARM: OFF (ĐÃ TỚI ĐẢO KHỈ)"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             
-            -- Xong 10 lần Bandit -> Bay sang Đảo Khỉ
-            if questCount >= maxQuestEachIsland then
-                currentIsland = "Jungle"
-                questCount = 0
-                toggleBtn.Text = "KHỈ: (0/10)"
-                
-                local character = player.Character
-                if character and character:FindFirstChild("HumanoidRootPart") then
-                    character.HumanoidRootPart.CFrame = JUNGLE_POS
-                end
-                
-                game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "CHUYỂN ĐẢO",
-                    Text = "Xong 10 Bandit! Đang chuyển sang Đảo Khỉ...",
-                    Duration = 4
-                })
+            -- Teleport nhân vật sang Đảo Khỉ
+            local character = player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.CFrame = JUNGLE_POS
             end
             
-        elseif currentIsland == "Jungle" then
-            toggleBtn.Text = "KHỈ: (" .. questCount .. "/" .. maxQuestEachIsland .. ")"
-            
-            -- Xong 10 lần Khỉ -> TẮT SCRIPT HOÀN TOÀN
-            if questCount >= maxQuestEachIsland then
-                isFarming = false
-                toggleBtn.Text = "FARM: OFF (HOÀN THÀNH)"
-                toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-                
-                game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "HOÀN THÀNH!",
-                    Text = "Đã xong 10 Q Bandit + 10 Q Khỉ. Script đã TẮT!",
-                    Duration = 6
-                })
-            end
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "HOÀN THÀNH!",
+                Text = "Đã hoàn thành 10 Q Bandit và bay sang Đảo Khỉ. Script đã DỪNG!",
+                Duration = 6
+            })
         end
     end
 end)
 
--- 7. Vòng Lặp Farm Chính
+-- 7. Vòng Lặp Farm Bandit
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming then
@@ -183,14 +152,14 @@ task.spawn(function()
                 
                 equipWeapon()
                 
-                -- Tự nhận Quest nếu bảng Q đang ẩn
+                -- Nhận Quest nếu chưa có
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
-                    startQuest()
+                    startBanditQuest()
                     return
                 end
                 
-                -- Tìm quái đánh
-                local targetMob = getClosestMob(350)
+                -- Tìm và đánh Bandit
+                local targetMob = getClosestBandit(350)
                 if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                     character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
                     
@@ -202,12 +171,7 @@ task.spawn(function()
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                 else
-                    -- Giữ vị trí tại Đảo tương ứng nếu quái chưa kịp spawn
-                    if currentIsland == "Bandit" then
-                        character.HumanoidRootPart.CFrame = BANDIT_POS
-                    elseif currentIsland == "Jungle" then
-                        character.HumanoidRootPart.CFrame = JUNGLE_POS
-                    end
+                    character.HumanoidRootPart.CFrame = BANDIT_POS
                 end
             end)
         end
