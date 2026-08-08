@@ -8,53 +8,42 @@ local isFarming = false
 local isCheckingQuest = false 
 local isTweening = false      
 
--- Danh sách đảo từ Sea 1 đến Sea 3 (Tự động quét theo cấp độ)
+-- Bảng cấu hình cấp độ và tọa độ các đảo chuẩn xác
 local ISLAND_DATA = {
-    {minLevel = 1,    maxLevel = 9,    name = "BANDIT",     questName = "BanditQuest1",     mobPattern = "Bandit",       pos = CFrame.new(1038, 16, 1575)},
-    {minLevel = 10,   maxLevel = 29,   name = "JUNGLE",     questName = "JungleQuest",      mobPattern = "Monkey",       pos = CFrame.new(-1485, 36, 68)},
-    {minLevel = 30,   maxLevel = 59,   name = "PIRATE",     questName = "BuggyQuest1",      mobPattern = "Pirate",       pos = CFrame.new(-1140, 4, 3825)},
-    {minLevel = 60,   maxLevel = 89,   name = "DESERT",     questName = "DesertQuest",      mobPattern = "Desert",       pos = CFrame.new(903, 16, 4376)},
-    {minLevel = 90,   maxLevel = 119,  name = "SNOW",       questName = "SnowQuest",        mobPattern = "Snow Bandit",  pos = CFrame.new(1389, 88, -1298)},
-    {minLevel = 120,  maxLevel = 149,  name = "MARINE",     questName = "MarineQuest",      mobPattern = "Chief Petty Officer", pos = CFrame.new(-2466, 17, 3792)},
-    {minLevel = 150,  maxLevel = 174,  name = "UNDERWATER", questName = "DeepForestQuest",  mobPattern = "Fishman",      pos = CFrame.new(61123, 18, 1569)}, -- Ví dụ trạm trung chuyển/đảo tiếp theo
-    -- Bạn đang ở Level 1513 (Sea 3), script dưới đây sẽ tự động nhận diện cấp > 700 để nhảy cóc đến các đảo phù hợp nếu cần, hoặc bạn có thể bổ sung thêm mốc quái tương ứng:
-    {minLevel = 700,  maxLevel = 9999, name = "SEA 3 / CAO", questName = "PiratePortQuest", mobPattern = "Pirate Millionaire", pos = CFrame.new(-290, 43, 5580)}
+    {min = 1,   max = 9,    name = "BANDIT",     quest = "BanditQuest1",     mob = "Bandit",       pos = CFrame.new(1038, 16, 1575)},
+    {min = 10,  max = 29,   name = "JUNGLE",     quest = "JungleQuest",      mob = "Monkey",       pos = CFrame.new(-1485, 36, 68)},
+    {min = 30,  max = 59,   name = "PIRATE",     quest = "BuggyQuest1",      mob = "Pirate",       pos = CFrame.new(-1140, 4, 3825)},
+    {min = 60,  max = 89,   name = "DESERT",     quest = "DesertQuest",      mob = "Desert",       pos = CFrame.new(903, 16, 4376)},
+    {min = 90,  max = 119,  name = "SNOW",       quest = "SnowQuest",        mob = "Snow Bandit",  pos = CFrame.new(1389, 88, -1298)},
+    {min = 120, max = 9999, name = "MARINE",     quest = "MarineQuest",      mob = "Chief Petty Officer", pos = CFrame.new(-2466, 17, 3792)}
 }
 
--- Hàm quét trực tiếp số Cấp trên màn hình game (Lấy từ Text hiển thị của bạn)
-local function getRealPlayerLevel()
+-- Hàm quét số Cấp chính xác từ màn hình game
+local function getPlayerLevel()
     local success, level = pcall(function()
-        -- Quét toàn bộ TextLabel trong PlayerGui để tìm chữ bắt đầu bằng "Cấp"
-        for _, descendant in ipairs(playerGui:GetDescendants()) do
-            if descendant:IsA("TextLabel") and string.find(descendant.Text, "Cấp") then
-                local num = tonumber(string.match(descendant.Text, "%d+"))
-                if num and num > 0 then
-                    return num
-                end
+        for _, v in ipairs(playerGui:GetDescendants()) do
+            if v:IsA("TextLabel") and string.find(v.Text, "Cấp") then
+                local num = tonumber(string.match(v.Text, "%d+"))
+                if num and num > 0 then return num end
             end
         end
         return nil
     end)
-    
-    if success and level then
-        return level
-    end
-    
-    -- Fallback phòng hờ nếu không quét được chữ
-    return 1513 
+    if success and level then return level end
+    return 1513 -- Mặc định phòng hờ level hiện tại của bạn
 end
 
-local function getCurrentIslandByLevel()
-    local lvl = getRealPlayerLevel()
+-- Hàm tìm đúng đảo dựa theo level hiện tại
+local function getIslandIndexByLevel(lvl)
     for i, data in ipairs(ISLAND_DATA) do
-        if lvl >= data.minLevel and lvl <= data.maxLevel then
+        if lvl >= data.min and lvl <= data.max then
             return i
         end
     end
-    return #ISLAND_DATA -- Mặc định lấy mốc cao nhất nếu vượt bảng
+    return #ISLAND_DATA
 end
 
-local currentIsland = getCurrentIslandByLevel()
+local currentIsland = getIslandIndexByLevel(getPlayerLevel())
 
 -- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
@@ -159,7 +148,7 @@ local function equipWeapon()
 end
 
 -- 4. Hàm Nhận Nhiệm Vụ
-local function startQuestForIsland(questName)
+local function startQuest(questName)
     if isCheckingQuest then return end
     isCheckingQuest = true
     pcall(function()
@@ -206,7 +195,8 @@ toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
         isCheckingQuest = false
-        currentIsland = getCurrentIslandByLevel()
+        local currentLvl = getPlayerLevel()
+        currentIsland = getIslandIndexByLevel(currentLvl)
         
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
@@ -216,7 +206,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         end
         
         local data = ISLAND_DATA[currentIsland]
-        toggleBtn.Text = "LV " .. getRealPlayerLevel() .. " -> " .. data.name
+        toggleBtn.Text = "LV " .. currentLvl .. " -> ĐẢO " .. data.name
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         task.spawn(function()
@@ -235,28 +225,22 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 7. Tự động kiểm tra cấp độ thực tế liên tục
-task.spawn(function()
-    while task.wait(2) do
-        if isFarming and not isTweening then
-            local realIsland = getCurrentIslandByLevel()
-            if realIsland ~= currentIsland then
-                currentIsland = realIsland
-                local data = ISLAND_DATA[currentIsland]
-                toggleBtn.Text = "LÊN CẤP! ĐẾN " .. data.name
-                task.spawn(function()
-                    ultraSlowTeleport(data.pos)
-                end)
-            end
-        end
-    end
-end)
-
--- 8. Vòng Lặp Farm Chính
+-- 7. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
             pcall(function()
+                -- Cập nhật liên tục level theo thời gian thực để nhảy đảo nếu đạt mốc
+                local realLvl = getPlayerLevel()
+                local correctIsland = getIslandIndexByLevel(realLvl)
+                if correctIsland ~= currentIsland then
+                    currentIsland = correctIsland
+                    local newData = ISLAND_DATA[currentIsland]
+                    toggleBtn.Text = "LÊN CẤP! -> " .. newData.name
+                    ultraSlowTeleport(newData.pos)
+                    return
+                end
+
                 local dialogueGui = playerGui:FindFirstChild("Dialogue")
                 if dialogueGui then dialogueGui.Visible = false end
 
@@ -267,21 +251,17 @@ task.spawn(function()
                 local hrp = character.HumanoidRootPart
 
                 local data = ISLAND_DATA[currentIsland]
-                local questName = data.questName
-                local mobPattern = data.mobPattern
-                local npcPos = data.pos
-
                 local questFrame = playerGui:WaitForChild("Main"):WaitForChild("Quest")
 
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
-                    local distToNpc = (hrp.Position - npcPos.Position).Magnitude
+                    local distToNpc = (hrp.Position - data.pos.Position).Magnitude
                     if distToNpc > 15 then
-                        flyToTarget(npcPos)
+                        flyToTarget(data.pos)
                         task.wait(0.5)
                     end
-                    startQuestForIsland(questName)
+                    startQuest(data.quest)
                 else
-                    local targetMob = getClosestMob(mobPattern, 1000)
+                    local targetMob = getClosestMob(data.mob, 1000)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         local mobHrp = targetMob.HumanoidRootPart
                         local distance = (hrp.Position - mobHrp.Position).Magnitude
