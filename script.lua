@@ -1,144 +1,120 @@
---[[
-    MỤC ĐÍCH: HỌC LẬP TRÌNH - THỬ NGHIỆM TRONG STUDIO RIÊNG
-    Tính năng: Bay cao 12 đơn vị trên quái, bám sát, đánh ổn định có dame
-]]
-
 local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService") -- Dùng để bám sát mượt
 local playerGui = player:WaitForChild("PlayerGui")
 
--- ===== BIẾN TRẠNG THÁI & THAM SỐ =====
+-- Cấu hình: Đặt số lượng nhiệm vụ mỗi đảo là 1 để test nhanh
+local maxQuests = 1           
+local banditCount = 0         
+local jungleCount = 0         
+local pirateCount = 0         
+local desertCount = 0         
+local currentIsland = 1       -- 1: Bandit, 2: Khỉ, 3: Hải Tặc, 4: Sa Mạc
 local isFarming = false       
 local isCheckingQuest = false 
 local isTweening = false      
-local isAttacking = false
-local lastAttackTime = 0
-local ATTACK_DELAY = 0.3       -- Thời gian nghỉ giữa đòn đánh
-local MIN_DIST_FLY = 6         -- Không Tween ngắn gây rung
-local TARGET_HEIGHT = 12       -- === CAO 12 ĐƠN VỊ TRÊN QUÁI ===
-local STICK_DISTANCE = 18      -- Khoảng cách giữ bám sát
 
--- ===== DỮ LIỆU 5 ĐẢO =====
-local ISLAND_DATA = {
-    {minLevel = 1,  maxLevel = 9,   name = "BANDIT",  questName = "BanditQuest1", mobPattern = "Bandit",  pos = CFrame.new(1038, 16, 1575)},
-    {minLevel = 10, maxLevel = 29,  name = "JUNGLE",  questName = "JungleQuest",  mobPattern = "Monkey",  pos = CFrame.new(-1485, 36, 68)},
-    {minLevel = 30, maxLevel = 59,  name = "PIRATE",  questName = "BuggyQuest1",  mobPattern = "Pirate",  pos = CFrame.new(-1140, 4, 3825)},
-    {minLevel = 60, maxLevel = 89,  name = "DESERT",  questName = "DesertQuest",  mobPattern = "Desert",  pos = CFrame.new(903, 16, 4376)},
-    {minLevel = 90, maxLevel = 9999,name = "SNOW",    questName = "SnowQuest",    mobPattern = "Snow Bandit", pos = CFrame.new(1389, 88, -1298)}
-}
+-- Tọa độ vị trí gần NPC nhận nhiệm vụ của 4 Đảo
+local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
+local JUNGLE_NPC_POS = CFrame.new(-1485, 36, 68)
+local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
+local DESERT_NPC_POS = CFrame.new(903, 16, 4376)
 
--- ===== LẤY CHỈ SỐ ĐẢO THEO LEVEL =====
-local function getCurrentIslandByLevel()
-    local leaderstats = player:FindFirstChild("leaderstats")
-    if leaderstats then
-        local levelVal = leaderstats:FindFirstChild("Level")
-        if levelVal then
-            local lvl = levelVal.Value
-            for i, data in ipairs(ISLAND_DATA) do
-                if lvl >= data.minLevel and lvl <= data.maxLevel then
-                    return i
-                end
-            end
-        end
-    end
-    return 1
-end
-local currentIsland = getCurrentIslandByLevel()
-
--- ===== GIAO DIỆN =====
+-- 1. Giao diện nút bấm ON/OFF
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoLevelFarmGui"
+screenGui.Name = "AutoFarm4IslandsGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
 toggleBtn.Parent = screenGui
-toggleBtn.Size = UDim2.new(0, 240, 0, 45)
+toggleBtn.Size = UDim2.new(0, 180, 0, 45)
 toggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleBtn.TextSize = 14
 toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.Text = "FARM BÁM TRÊN CAO 12: OFF"
+toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- ===== HÀM BAY MƯỢT =====
+-- 2. Hàm Bay Mượt Chống Kẹt (Noclip & AntiFall)
 local function flyToTarget(targetCFrame)
-    if isTweening then return end
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
     
-    if distance < MIN_DIST_FLY then
+    if distance < 8 then
         hrp.CFrame = targetCFrame
         return
     end
-
-    isTweening = true
-    -- Tắt va chạm
+    
     for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then part.CanCollide = false end
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+    
+    local speed = 250
+    local timeToTravel = distance / speed
+    
+    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    
+    for _, v in pairs(hrp:GetChildren()) do
+        if v.Name == "AntiFall" then v:Destroy() end
     end
 
-    local speed = 200
-    local timeToTravel = distance / speed
-    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-    -- Chống rơi
-    for _, v in pairs(hrp:GetChildren()) do if v.Name == "AntiFall" then v:Destroy() end end
     local bv = Instance.new("BodyVelocity")
     bv.Name = "AntiFall"
-    bv.Velocity = Vector3.zero
-    bv.MaxForce = Vector3.new(9e9,9e9,9e9)
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
     bv.Parent = hrp
 
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     tween:Play()
-
-    tween.Completed:Wait()
-    bv:Destroy()
-    isTweening = false
+    tween.Completed:Connect(function()
+        if bv then bv:Destroy() end
+    end)
 end
 
--- ===== BAY CHUYỂN ĐẢO =====
+-- Hàm bay chuyển đảo
 local function ultraSlowTeleport(targetCFrame)
-    if isTweening then return end
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
     local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 150
+    local speed = 150 
     local timeToTravel = distance / speed
-
+    
     isTweening = true
+    
     for _, part in pairs(character:GetChildren()) do
-        if part:IsA("BasePart") then part.CanCollide = false end
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
     end
-
+    
     local bv = Instance.new("BodyVelocity")
     bv.Name = "AntiFall"
-    bv.Velocity = Vector3.zero
-    bv.MaxForce = Vector3.new(9e9,9e9,9e9)
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
     bv.Parent = hrp
 
-    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
     tween:Play()
-
+    
     tween.Completed:Wait()
-    bv:Destroy()
+    if bv then bv:Destroy() end
     isTweening = false
 end
 
--- ===== TRANG BỊ VŨ KHÍ =====
+-- 3. Hàm Trang Bị Vũ Khí
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -154,7 +130,7 @@ local function equipWeapon()
     end
 end
 
--- ===== NHẬN NHIỆM VỤ =====
+-- 4. Hàm Nhận Nhiệm Vụ
 local function startQuestForIsland(questName)
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -168,7 +144,7 @@ local function startQuestForIsland(questName)
     isCheckingQuest = false
 end
 
--- ===== TÌM QUÁI GẦN NHẤT =====
+-- 5. Hàm Tìm Quái Linh Hoạt
 local function getClosestMob(mobNamePattern, maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -197,14 +173,16 @@ local function getClosestMob(mobNamePattern, maxDistance)
     return closestMob
 end
 
--- ===== NÚT BẬT/TẮT =====
+-- 6. Xử Lý Bấm Nút ON/OFF
 toggleBtn.MouseButton1Click:Connect(function()
     isFarming = not isFarming
     if isFarming then
+        banditCount = 0
+        jungleCount = 0
+        pirateCount = 0
+        desertCount = 0
+        currentIsland = 1
         isCheckingQuest = false
-        isTweening = false
-        isAttacking = false
-        currentIsland = getCurrentIslandByLevel()
         
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
@@ -213,17 +191,15 @@ toggleBtn.MouseButton1Click:Connect(function()
             end
         end
         
-        local data = ISLAND_DATA[currentIsland]
-        toggleBtn.Text = "ĐANG ĐẾN ĐẢO " .. data.name .. "..."
+        toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         task.spawn(function()
-            ultraSlowTeleport(data.pos)
-            toggleBtn.Text = data.name .. " | BÁM CAO 12 ĐANG FARM"
+            ultraSlowTeleport(BANDIT_NPC_POS)
+            toggleBtn.Text = "BANDIT: (0/1)"
         end)
     else
-        isFarming = false
-        toggleBtn.Text = "FARM BÁM TRÊN CAO 12: OFF"
+        toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
         local character = player.Character
@@ -235,30 +211,62 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ===== TỰ ĐỘNG CHUYỂN ĐẢO =====
-task.spawn(function()
-    while task.wait(1) do
-        if isFarming and not isTweening then
-            local realIsland = getCurrentIslandByLevel()
-            if realIsland ~= currentIsland then
-                currentIsland = realIsland
-                local data = ISLAND_DATA[currentIsland]
-                toggleBtn.Text = "LÊN LEVEL! ĐẾN " .. data.name
+-- 7. Bộ Đếm Quest Tự Động Chuyển Đảo
+local mainGui = playerGui:WaitForChild("Main")
+local questFrame = mainGui:WaitForChild("Quest")
+
+questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+    if not questFrame.Visible and isFarming and not isTweening then
+        if currentIsland == 1 then
+            banditCount = banditCount + 1
+            toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
+            if banditCount >= maxQuests then
+                currentIsland = 2
+                toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
                 task.spawn(function()
-                    ultraSlowTeleport(data.pos)
-                    toggleBtn.Text = data.name .. " | BÁM CAO 12 ĐANG FARM"
+                    ultraSlowTeleport(JUNGLE_NPC_POS)
+                    toggleBtn.Text = "KHỈ: (0/1)"
                 end)
+            end
+        elseif currentIsland == 2 then
+            jungleCount = jungleCount + 1
+            toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
+            if jungleCount >= maxQuests then
+                currentIsland = 3
+                toggleBtn.Text = "BAY SANG HẢI TẶC..."
+                task.spawn(function()
+                    ultraSlowTeleport(PIRATE_NPC_POS)
+                    toggleBtn.Text = "PIRATE: (0/1)"
+                end)
+            end
+        elseif currentIsland == 3 then
+            pirateCount = pirateCount + 1
+            toggleBtn.Text = "PIRATE: (" .. pirateCount .. "/" .. maxQuests .. ")"
+            if pirateCount >= maxQuests then
+                currentIsland = 4
+                toggleBtn.Text = "BAY SANG SA MẠC..."
+                task.spawn(function()
+                    ultraSlowTeleport(DESERT_NPC_POS)
+                    toggleBtn.Text = "DESERT: (0/1)"
+                end)
+            end
+        elseif currentIsland == 4 then
+            desertCount = desertCount + 1
+            toggleBtn.Text = "DESERT: (" .. desertCount .. "/" .. maxQuests .. ")"
+            if desertCount >= maxQuests then
+                isFarming = false
+                toggleBtn.Text = "HOÀN THÀNH 4 ĐẢO - OFF"
+                toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             end
         end
     end
 end)
 
--- ===== VÒNG LẶP BÁM SÁT + ĐÁNH =====
+-- 8. Vòng Lặp Farm Chính 4 Đảo
 task.spawn(function()
-    while task.wait(0.03) do -- Lặp nhanh nhẹ để bám sát mượt
-        if isFarming and not isTweening and not isAttacking then
+    while task.wait(0.1) do
+        if isFarming and not isTweening then
             pcall(function()
-                -- Tắt hội thoại cản trở
                 local dialogueGui = playerGui:FindFirstChild("Dialogue")
                 if dialogueGui then dialogueGui.Visible = false end
 
@@ -268,13 +276,25 @@ task.spawn(function()
                 equipWeapon()
                 local hrp = character.HumanoidRootPart
 
-                local data = ISLAND_DATA[currentIsland]
-                local questName = data.questName
-                local mobPattern = data.mobPattern
-                local npcPos = data.pos
+                local questName, mobPattern, npcPos
+                if currentIsland == 1 then
+                    questName = "BanditQuest1"
+                    mobPattern = "Bandit"
+                    npcPos = BANDIT_NPC_POS
+                elseif currentIsland == 2 then
+                    questName = "JungleQuest"
+                    mobPattern = "Monkey"
+                    npcPos = JUNGLE_NPC_POS
+                elseif currentIsland == 3 then
+                    questName = "BuggyQuest1"
+                    mobPattern = "Pirate"
+                    npcPos = PIRATE_NPC_POS
+                elseif currentIsland == 4 then
+                    questName = "DesertQuest"
+                    mobPattern = "Desert"
+                    npcPos = DESERT_NPC_POS
+                end
 
-                -- Nhận nhiệm vụ nếu chưa có
-                local questFrame = playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("Quest")
                 if questFrame and not questFrame.Visible and not isCheckingQuest then
                     local distToNpc = (hrp.Position - npcPos.Position).Magnitude
                     if distToNpc > 15 then
@@ -283,36 +303,19 @@ task.spawn(function()
                     end
                     startQuestForIsland(questName)
                 else
-                    -- Tìm quái mục tiêu
                     local targetMob = getClosestMob(mobPattern, 1000)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         local mobHrp = targetMob.HumanoidRootPart
-                        -- === VỊ TRÍ BÁM TRÊN CAO CHÍNH XÁC 12 ===
-                        local stickPos = mobHrp.Position + Vector3.new(0, TARGET_HEIGHT, 0)
-                        local targetCFrame = CFrame.new(stickPos, mobHrp.Position) -- Nhìn thẳng xuống quái để đánh trúng có dame
-                        local distance = (hrp.Position - stickPos).Magnitude
-
-                        -- Di chuyển nhanh về vị trí bám nếu quá xa
-                        if distance > STICK_DISTANCE then
-                            flyToTarget(targetCFrame)
-                        else
-                            -- Giữ vị trí bám sát liên tục + hướng xuống quái
-                            hrp.CFrame = targetCFrame
-
-                            -- Đánh có kiểm soát thời gian, đảm bảo có sát thương
-                            local now = os.clock()
-                            if now - lastAttackTime >= ATTACK_DELAY then
-                                isAttacking = true
-                                local tool = character:FindFirstChildOfClass("Tool")
-                                if tool then
-                                    tool:Activate() -- Kích hoạt vũ khí đúng cách tạo dame
-                                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                                    lastAttackTime = now
-                                end
-                                task.wait(ATTACK_DELAY)
-                                isAttacking = false
-                            end
+                        local distance = (hrp.Position - mobHrp.Position).Magnitude
+                        
+                        flyToTarget(mobHrp.CFrame * CFrame.new(0, 9, 0))
+                        
+                        if distance <= 15 then
+                            local tool = character:FindFirstChildOfClass("Tool")
+                            if tool then tool:Activate() end
+                            
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                         end
                     end
                 end
