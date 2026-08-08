@@ -37,8 +37,42 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Vòng Lên Cao Tuyệt Đối Tránh Thợ Rèn / NPC (Áp dụng cho mọi lần đổi đảo)
-local function safeHighTeleport(targetCFrame)
+-- 2. Hàm Bay Giữ Nguyên (Dùng cho Đảo 1 & 2)
+local function ultraSlowTeleport(targetCFrame)
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local hrp = character.HumanoidRootPart
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    local speed = 150 
+    local timeToTravel = distance / speed
+    
+    isTweening = true
+    
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Name = "FlyBV"
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Parent = hrp
+    
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+    
+    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    tween:Play()
+    
+    tween.Completed:Wait()
+    
+    if bodyVelocity then bodyVelocity:Destroy() end
+    isTweening = false
+end
+
+-- Hàm Bay Vòng Lên Cao Đảo 3 (Chỉ dùng riêng cho Đảo 3 để né thợ rèn / NPC)
+local function safeHighTeleportForPirate(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
@@ -61,7 +95,7 @@ local function safeHighTeleport(targetCFrame)
         end
     end
     
-    -- Bước 1: Bay vút lên độ cao Y = 450 (Cao hơn mọi tòa nhà, thợ rèn, NPC trên đảo)
+    -- Bay vút lên cao Y = 450 để né hoàn toàn khu vực thợ rèn và NPC
     local currentPos = hrp.Position
     local highPos = CFrame.new(currentPos.X, 450, currentPos.Z)
     local dist1 = (hrp.Position - highPos.Position).Magnitude
@@ -69,14 +103,14 @@ local function safeHighTeleport(targetCFrame)
     tween1:Play()
     tween1.Completed:Wait()
     
-    -- Bước 2: Bay ngang trên không đến thẳng tọa độ đích (ở độ cao 450)
+    -- Bay ngang trên không tới tọa độ đảo 3 (ở độ cao 450)
     local targetHighPos = CFrame.new(targetCFrame.X, 450, targetCFrame.Z)
     local dist2 = (hrp.Position - targetHighPos.Position).Magnitude
     local tween2 = TweenService:Create(hrp, TweenInfo.new(dist2 / 250, Enum.EasingStyle.Linear), {CFrame = targetHighPos})
     tween2:Play()
     tween2.Completed:Wait()
     
-    -- Bước 3: Hạ thẳng xuống bãi quái mục tiêu
+    -- Hạ thẳng xuống bãi quái sâu bên trong đảo 3
     local dist3 = (hrp.Position - targetCFrame.Position).Magnitude
     local tween3 = TweenService:Create(hrp, TweenInfo.new(dist3 / 200, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
     tween3:Play()
@@ -143,7 +177,7 @@ local function startJungleQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            commF:InvokeServer("StartQuest", "JungleQuest1", 1)
+            commF:InvokeServer("StartQuest", "JungleQuest", 1)
         end
     end)
     task.wait(1.2)
@@ -254,7 +288,7 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
         task.spawn(function()
-            safeHighTeleport(BANDIT_POS)
+            ultraSlowTeleport(BANDIT_POS)
             toggleBtn.Text = "BANDIT: (0/10)"
         end)
     else
@@ -285,7 +319,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 currentIsland = 2
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
                 task.spawn(function()
-                    safeHighTeleport(JUNGLE_POS)
+                    ultraSlowTeleport(JUNGLE_POS)
                     toggleBtn.Text = "KHỈ: (0/10)"
                 end)
             end
@@ -297,7 +331,8 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
                 currentIsland = 3
                 toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
                 task.spawn(function()
-                    safeHighTeleport(PIRATE_POS)
+                    -- Đảo 3 sử dụng hàm bay né thợ rèn / NPC
+                    safeHighTeleportForPirate(PIRATE_POS)
                     toggleBtn.Text = "PIRATE: (0/10)"
                 end)
             end
