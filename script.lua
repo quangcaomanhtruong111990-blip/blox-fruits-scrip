@@ -13,7 +13,7 @@ local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam nhận Q
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
--- Tọa độ trung tâm/bãi quái cho 3 Đảo (TUYỆT ĐỐI XA KHỎI NPC & THỢ RÈN)
+-- Tọa độ trung tâm/bãi quái cho 3 Đảo
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
 local PIRATE_POS = CFrame.new(-1190, 16, 3950) 
@@ -22,7 +22,14 @@ local PIRATE_POS = CFrame.new(-1190, 16, 3950)
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AutoFarm3IslandsGui"
 screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Đưa vào CoreGui nếu được (chống bị xóa khi reset), nếu không thì vào PlayerGui
+local success, err = pcall(function()
+    screenGui.Parent = game:GetService("CoreGui")
+end)
+if not success then
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+end
 
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Name = "ToggleButton"
@@ -37,7 +44,7 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Siêu Chậm An Toàn (Dành cho bay giữa các Đảo)
+-- 2. Hàm Bay Siêu Chậm An Toàn
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -71,7 +78,7 @@ local function ultraSlowTeleport(targetCFrame)
     isTweening = false
 end
 
--- Hàm bay mượt ngắn áp sát quái (Chỉ nhắm vào quái, không dính dáng đến NPC/Thợ Rèn)
+-- Hàm bay mượt ngắn áp sát quái
 local function flyToMob(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -154,10 +161,10 @@ local function startPirateVillageQuest()
     isCheckingQuest = false
 end
 
--- 5. Hàm Tìm Quái Gần Nhất (ĐÃ LỌC BỎ HOÀN TOÀN NPC VÀ THỢ RÈN)
+-- 5. Hàm Tìm Quái Gần Nhất (Đã sửa lỗi cú pháp dòng trả về nil)
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then nil end
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
     local hrp = character.HumanoidRootPart
     local closestMob = nil
@@ -166,12 +173,10 @@ local function getClosestMob(mobName, maxDistance)
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
-            -- Kiểm tra chắc chắn đúng tên quái VÀ phải thuộc thư mục/đối tượng Enemies (không phải NPC đứng ngoài)
             if mob.Name == mobName then
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 local mobHumanoid = mob:FindFirstChild("Humanoid")
                 
-                -- Phải có thanh máu và máu lớn hơn 0 (Loại trừ các đối tượng không phải quái)
                 if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
                     local distance = (hrp.Position - mobHrp.Position).Magnitude
                     if distance < shortestDistance then
@@ -201,13 +206,11 @@ toggleBtn.MouseButton1Click:Connect(function()
                 if v:IsA("BodyVelocity") then v:Destroy() end
             end
             
-            -- Quay trái chuẩn góc Y
             local hrp = character.HumanoidRootPart
             local x, y, z = hrp.CFrame:ToOrientation()
             hrp.CFrame = CFrame.new(hrp.Position) * CFrame.fromOrientation(x, y + math.rad(90), z)
         end
         
-        -- Cất trái cây vào rương trước
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
@@ -226,7 +229,6 @@ toggleBtn.MouseButton1Click:Connect(function()
             end
         end)
 
-        -- Random trái cây (Cousin)
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
@@ -267,46 +269,58 @@ toggleBtn.MouseButton1Click:Connect(function()
 end)
 
 -- 7. Bộ Đếm Quest Cho 3 Đảo
-local playerGui = player:WaitForChild("PlayerGui")
-local mainGui = playerGui:WaitForChild("Main")
-local questFrame = mainGui:WaitForChild("Quest")
-
-questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
-    if not questFrame.Visible and isFarming and not isTweening then
-        if currentIsland == 1 then
-            banditCount = banditCount + 1
-            toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
-            
-            if banditCount >= maxQuests then
-                currentIsland = 2
-                toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
-                task.spawn(function()
-                    ultraSlowTeleport(JUNGLE_POS)
-                    toggleBtn.Text = "KHỈ: (0/10)"
-                end)
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        pcall(function()
+            local playerGui = player:FindFirstChild("PlayerGui")
+            if playerGui then
+                local mainGui = playerGui:FindFirstChild("Main")
+                if mainGui then
+                    local questFrame = mainGui:FindFirstChild("Quest")
+                    if questFrame then
+                        -- Kiểm tra nếu khung nhiệm vụ ẩn (nghĩa là vừa hoàn thành Q) và đang bật farm
+                        if not questFrame.Visible and isFarming and not isTweening then
+                            if currentIsland == 1 then
+                                banditCount = banditCount + 1
+                                toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
+                                
+                                if banditCount >= maxQuests then
+                                    currentIsland = 2
+                                    toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
+                                    task.spawn(function()
+                                        ultraSlowTeleport(JUNGLE_POS)
+                                        toggleBtn.Text = "KHỈ: (0/10)"
+                                    end)
+                                end
+                            elseif currentIsland == 2 then
+                                jungleCount = jungleCount + 1
+                                toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
+                                
+                                if jungleCount >= maxQuests then
+                                    currentIsland = 3
+                                    toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
+                                    task.spawn(function()
+                                        ultraSlowTeleport(PIRATE_POS)
+                                        toggleBtn.Text = "PIRATE: (0/10)"
+                                    end)
+                                end
+                            elseif currentIsland == 3 then
+                                pirateCount = pirateCount + 1
+                                toggleBtn.Text = "PIRATE: (" .. pirateCount .. "/" .. maxQuests .. ")"
+                                
+                                if pirateCount >= maxQuests then
+                                    isFarming = false
+                                    toggleBtn.Text = "HOÀN THÀNH - OFF"
+                                    toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+                                end
+                            end
+                            task.wait(1.5) -- Tránh đếm trùng liên tục
+                        end
+                    end
+                end
             end
-        elseif currentIsland == 2 then
-            jungleCount = jungleCount + 1
-            toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
-            
-            if jungleCount >= maxQuests then
-                currentIsland = 3
-                toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
-                task.spawn(function()
-                    ultraSlowTeleport(PIRATE_POS)
-                    toggleBtn.Text = "PIRATE: (0/10)"
-                end)
-            end
-        elseif currentIsland == 3 then
-            pirateCount = pirateCount + 1
-            toggleBtn.Text = "PIRATE: (" .. pirateCount .. "/" .. maxQuests .. ")"
-            
-            if pirateCount >= maxQuests then
-                isFarming = false
-                toggleBtn.Text = "HOÀN THÀNH - OFF"
-                toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-            end
-        end
+        end)
     end
 end)
 
@@ -320,9 +334,15 @@ task.spawn(function()
                 
                 equipWeapon()
                 
+                local playerGui = player:FindFirstChild("PlayerGui")
+                local questVisible = false
+                if playerGui and playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("Quest") then
+                    questVisible = playerGui.Main.Quest.Visible
+                end
+                
                 -- ĐẢO 1: BANDIT
                 if currentIsland == 1 then
-                    if questFrame and not questFrame.Visible and not isCheckingQuest then
+                    if not questVisible and not isCheckingQuest then
                         startBanditQuest()
                     end
                     
@@ -339,7 +359,7 @@ task.spawn(function()
                     
                 -- ĐẢO 2: KHỈ (MONKEY)
                 elseif currentIsland == 2 then
-                    if questFrame and not questFrame.Visible and not isCheckingQuest then
+                    if not questVisible and not isCheckingQuest then
                         startJungleQuest()
                     end
                     
@@ -356,7 +376,7 @@ task.spawn(function()
                     
                 -- ĐẢO 3: LÀNG HẢI TẶC (PIRATE)
                 elseif currentIsland == 3 then
-                    if questFrame and not questFrame.Visible and not isCheckingQuest then
+                    if not questVisible and not isCheckingQuest then
                         startPirateVillageQuest()
                     end
                     
