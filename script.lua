@@ -4,16 +4,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 -- Cấu hình
-local maxQuests = 10           -- Số lần làm Q cho mỗi đảo (10 lần)
-local banditCount = 0          -- Đếm Q Bandit
-local jungleCount = 0          -- Đếm Q Khỉ
-local pirateCount = 0          -- Đếm Q Pirate (Đảo 3)
-local currentIsland = 1        -- 1: Bandit, 2: Khỉ, 3: Làng Hải Tặc
-local isFarming = false        -- Trạng thái ON/OFF
-local isCheckingQuest = false  -- Chống spam nhận Q
-local isTweening = false       -- Đang trong quá trình bay từ từ
+local maxQuests = 10           
+local banditCount = 0          
+local jungleCount = 0          
+local pirateCount = 0          
+local currentIsland = 1        
+local isFarming = false        
+local isCheckingQuest = false  
+local isTweening = false       
 
--- Tọa độ trung tâm/bãi quái cho 3 Đảo (TUYỆT ĐỐI XA KHỎI NPC & THỢ RÈN)
+-- Tọa độ trung tâm/bãi quái cho 3 Đảo
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
 local PIRATE_POS = CFrame.new(-1190, 16, 3950) 
@@ -43,7 +43,7 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Giữa Các Đảo An Toàn (Bay Vòng Lên Cao Tránh Mọi NPC, Thợ Rèn, Cửa Hàng)
+-- 2. Hàm Bay Giữa Các Đảo An Toàn
 local function safeTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -61,7 +61,6 @@ local function safeTeleport(targetCFrame)
         end
     end
     
-    -- Bước 1: Bay vút lên cao (Y = 350) để né sạch sẽ các NPC, Thợ Rèn, đảo phía dưới
     local currentPos = hrp.Position
     local highPos = CFrame.new(currentPos.X, 350, currentPos.Z)
     
@@ -70,14 +69,12 @@ local function safeTeleport(targetCFrame)
     tween1:Play()
     tween1.Completed:Wait()
     
-    -- Bước 2: Bay ngang trên không đến tọa độ trên đầu đích đến
     local targetHighPos = CFrame.new(targetCFrame.X, 350, targetCFrame.Z)
     local dist2 = (hrp.Position - targetHighPos.Position).Magnitude
     local tween2 = TweenService:Create(hrp, TweenInfo.new(dist2 / 250, Enum.EasingStyle.Linear), {CFrame = targetHighPos})
     tween2:Play()
     tween2.Completed:Wait()
     
-    -- Bước 3: Hạ xuống đúng bãi quái
     local dist3 = (hrp.Position - targetCFrame.Position).Magnitude
     local tween3 = TweenService:Create(hrp, TweenInfo.new(dist3 / 200, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
     tween3:Play()
@@ -87,7 +84,7 @@ local function safeTeleport(targetCFrame)
     isTweening = false
 end
 
--- Hàm bay mượt ngắn áp sát quái (Chỉ nhắm vào quái trong Enemies, không đụng NPC)
+-- Hàm bay mượt ngắn áp sát quái
 local function flyToMob(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -124,7 +121,7 @@ local function equipWeapon()
     end
 end
 
--- 4. Các Hàm Nhận Nhiệm Vụ Từ Xa
+-- 4. Các Hàm Nhận Nhiệm Vụ (Đã sửa lại tên đúng chuẩn hệ thống Blox Fruits cho Đảo Khỉ và Đảo Hải Tặc)
 local function startBanditQuest()
     if isCheckingQuest then return end
     isCheckingQuest = true
@@ -144,7 +141,8 @@ local function startJungleQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            commF:InvokeServer("StartQuest", "JungleQuest", 1)
+            -- Tên ID nhiệm vụ chuẩn của Đảo Khỉ là JungleQuest1 thay vì JungleQuest
+            commF:InvokeServer("StartQuest", "JungleQuest1", 1)
         end
     end)
     task.wait(1.2)
@@ -164,7 +162,7 @@ local function startPirateVillageQuest()
     isCheckingQuest = false
 end
 
--- 5. Hàm Tìm Quái Gần Nhất (Chỉ quét trong thư mục Enemies, hoàn toàn miễn nhiễm bấm nhầm NPC/Thợ Rèn)
+-- 5. Hàm Tìm Quái Gần Nhất
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -367,14 +365,14 @@ task.spawn(function()
                         startJungleQuest()
                     end
                     
-                    val targetMob = getClosestMob("Monkey", 350)
+                    local targetMob = getClosestMob("Monkey", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         flyToMob(targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0))
                         
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
                         
-                        VirtualInputManager:SendMouseButton`Event(0, 0, 0, true, game, 1)
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
                     end
                     
