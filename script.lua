@@ -13,10 +13,9 @@ local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam nhận Q
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
--- Tọa độ trung tâm/bãi quái cho 3 Đảo (TUYỆT ĐỐI KHÔNG ĐỨNG GẦN NPC)
+-- Tọa độ trung tâm/bãi quái cho 3 Đảo (TUYỆT ĐỐI XA KHỎI NPC & THỢ RÈN)
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
--- Tọa độ dời sâu vào bãi quái Hải Tặc (cách xa NPC)
 local PIRATE_POS = CFrame.new(-1190, 16, 3950) 
 
 -- 1. Giao diện nút bấm ON/OFF
@@ -72,7 +71,7 @@ local function ultraSlowTeleport(targetCFrame)
     isTweening = false
 end
 
--- Hàm bay mượt ngắn áp sát quái
+-- Hàm bay mượt ngắn áp sát quái (Chỉ nhắm vào quái, không dính dáng đến NPC/Thợ Rèn)
 local function flyToMob(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -116,6 +115,8 @@ local function startBanditQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
+            commF:InvokeServer("AbandonQuest")
+            task.wait(0.2)
             commF:InvokeServer("StartQuest", "BanditQuest1", 1)
         end
     end)
@@ -129,6 +130,8 @@ local function startJungleQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
+            commF:InvokeServer("AbandonQuest")
+            task.wait(0.2)
             commF:InvokeServer("StartQuest", "JungleQuest", 1)
         end
     end)
@@ -142,7 +145,8 @@ local function startPirateVillageQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            -- MÃ CHUẨN CỦA ĐẢO HẢI TẶC LÀ "BuggyQuest1"
+            commF:InvokeServer("AbandonQuest")
+            task.wait(0.2)
             commF:InvokeServer("StartQuest", "BuggyQuest1", 1)
         end
     end)
@@ -150,10 +154,10 @@ local function startPirateVillageQuest()
     isCheckingQuest = false
 end
 
--- 5. Hàm Tìm Quái Gần Nhất
+-- 5. Hàm Tìm Quái Gần Nhất (ĐÃ LỌC BỎ HOÀN TOÀN NPC VÀ THỢ RÈN)
 local function getClosestMob(mobName, maxDistance)
     local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    if not character or not character:FindFirstChild("HumanoidRootPart") then nil end
     
     local hrp = character.HumanoidRootPart
     local closestMob = nil
@@ -162,10 +166,12 @@ local function getClosestMob(mobName, maxDistance)
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
+            -- Kiểm tra chắc chắn đúng tên quái VÀ phải thuộc thư mục/đối tượng Enemies (không phải NPC đứng ngoài)
             if mob.Name == mobName then
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 local mobHumanoid = mob:FindFirstChild("Humanoid")
                 
+                -- Phải có thanh máu và máu lớn hơn 0 (Loại trừ các đối tượng không phải quái)
                 if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
                     local distance = (hrp.Position - mobHrp.Position).Magnitude
                     if distance < shortestDistance then
