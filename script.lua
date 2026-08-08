@@ -2,21 +2,21 @@ local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local maxBanditQuests = 10     -- Làm 10 lần Q Bandit trước
+local maxBanditQuests = 10     -- Làm 10 lần Q Bandit
 local banditCount = 0         -- Biến đếm Q Bandit
-local currentStage = "Bandit"  -- Trạng thái: "Bandit" hoặc "Jungle"
+local isScriptActive = true
 
--- Tọa độ cố định của Đảo Khỉ
+-- Tọa độ Đảo Khỉ (Tự bay sang khi xong 10 Q)
 local JUNGLE_POS = CFrame.new(-1612, 37, 149)
 
 -- Thông báo
 game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Auto Farm Chuyển Đảo",
-    Text = "Farm 10 Q Bandit -> Tự sang Đảo Khỉ!",
+    Title = "Auto Farm Bandit",
+    Text = "Xong 10 Q -> Bay sang Đảo Khỉ rồi TẮT script!",
     Duration = 4
 })
 
--- 1. Hàm Tự Trang Bị Melee
+-- 1. Hàm Trang Bị Melee
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
@@ -32,22 +32,18 @@ local function equipWeapon()
     end
 end
 
--- 2. Hàm Nhận Nhiệm Vụ Theo Trạng Thái
-local function startQuest()
+-- 2. Hàm Nhận Nhiệm Vụ Bandit
+local function startBanditQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            if currentStage == "Bandit" then
-                commF:InvokeServer("StartQuest", "BanditQuest1", 1)
-            elseif currentStage == "Jungle" then
-                commF:InvokeServer("StartQuest", "JungleQuest", 1) -- Q đánh Monkey (Khỉ)
-            end
+            commF:InvokeServer("StartQuest", "BanditQuest1", 1)
         end
     end)
 end
 
--- 3. Hàm Tìm Quái Gần Nhất Theo Loại
-local function getClosestMob(mobName, maxDistance)
+-- 3. Hàm Tìm Quái Bandit
+local function getClosestMob(maxDistance)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
     
@@ -58,7 +54,7 @@ local function getClosestMob(mobName, maxDistance)
     local enemies = workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
-            if mob.Name == mobName then
+            if mob.Name == "Bandit" then
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 local mobHumanoid = mob:FindFirstChild("Humanoid")
                 
@@ -75,13 +71,13 @@ local function getClosestMob(mobName, maxDistance)
     return closestMob
 end
 
--- 4. Đếm Số Lần Hoàn Thành Nhiệm Vụ Bandit
+-- 4. Đếm 10 Lần Hoàn Thành Nhiệm Vụ Bandit
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
 local questFrame = mainGui:WaitForChild("Quest")
 
 questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
-    if not questFrame.Visible and currentStage == "Bandit" then
+    if not questFrame.Visible and isScriptActive then
         banditCount = banditCount + 1
         
         game:GetService("StarterGui"):SetCore("SendNotification", {
@@ -90,60 +86,57 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             Duration = 3
         })
         
-        -- Khi xong 10 lần Bandit -> Chuyển sang Đảo Khỉ
+        -- Khi đủ 10 lần -> Bay sang Đảo Khỉ rồi TẮT SCRIPT
         if banditCount >= maxBanditQuests then
-            currentStage = "Jungle"
+            isScriptActive = false
+            
+            -- Teleport nhân vật tới Đảo Khỉ
+            local character = player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.CFrame = JUNGLE_POS
+            end
+            
             game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "CHUYỂN ĐẢO!",
-                Text = "Đã xong 10 Q Bandit! Đang bay sang Đảo Khỉ...",
-                Duration = 5
+                Title = "HOÀN THÀNH!",
+                Text = "Đã tới Đảo Khỉ. Script đã TẮT HOÀN TOÀN!",
+                Duration = 6
             })
         end
     end
 end)
 
--- 5. Vòng Lặp Farm Chính
+-- 5. Vòng Lặp Farm
 task.spawn(function()
     while task.wait(0.1) do
+        -- Ngắt vòng lặp khi đã dừng script
+        if not isScriptActive then break end
+
         pcall(function()
             local character = player.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then return end
             
-            -- Đảm bảo luôn cầm vũ khí
             equipWeapon()
             
-            -- Nếu chưa có Q -> Nhận Q tương ứng
+            -- Tự động nhận Q Bandit nếu chưa nhận
             if questFrame and not questFrame.Visible then
-                startQuest()
+                startBanditQuest()
                 task.wait(0.5)
             end
             
-            -- Xử lý theo từng Đảo
-            if currentStage == "Bandit" then
-                local targetMob = getClosestMob("Bandit", 350)
-                if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                    character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
-                else
-                    character.HumanoidRootPart.CFrame = CFrame.new(1059, 16, 1549)
+            local targetMob = getClosestMob(350)
+            if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
+                
+                local tool = character:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
                 end
-            elseif currentStage == "Jungle" then
-                local targetMob = getClosestMob("Monkey", 350)
-                if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                    character.HumanoidRootPart.CFrame = targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0)
-                else
-                    -- Teleport sang Đảo Khỉ nếu chưa có quái gần đó
-                    character.HumanoidRootPart.CFrame = JUNGLE_POS
-                end
+                
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+            else
+                character.HumanoidRootPart.CFrame = CFrame.new(1059, 16, 1549)
             end
-            
-            -- Đánh quái
-            local tool = character:FindFirstChildOfClass("Tool")
-            if tool then
-                tool:Activate()
-            end
-            
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
         end)
     end
 end)
