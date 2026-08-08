@@ -32,37 +32,48 @@ local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)
 local PIRATE_MOB_POS = CFrame.new(-1050, 6, 3900)
 
 ------------------------------------------------------------------
--- === HÀM LẤY TIỀN SỬA CHÍNH XÁC: ƯU TIÊN TÌM "$" TRƯỚC ===
+-- === HÀM LẤY TIỀN: IN RA TẤT CẢ TÊN + THỬ TỰ ĐỘNG CÁC TÊN PHỔ BIẾN ===
 ------------------------------------------------------------------
-local function getStatValue(statName)
+local function getStatValue(tryNameList)
     local leaderstats = player:WaitForChild("leaderstats", 5)
     if not leaderstats then
         warn("[DEBUG] ❌ Không tìm thấy leaderstats!")
         return 0
     end
-    -- Tìm chính xác tên trước, bỏ qua hoa/thường
+
+    -- === IN RA TẤT CẢ CÁC CHỈ SỐ ĐANG CÓ ĐỂ XEM TÊN CHÍNH XÁC ===
+    print("===== [DEBUG] DANH SÁCH TẤT CẢ CHỈ SỐ TRONG LEADERSTATS =====")
     for _, stat in pairs(leaderstats:GetChildren()) do
-        if string.lower(stat.Name) == string.lower(statName) then
-            print(string.format("[DEBUG] ✅ %s = %d", statName, stat.Value)) -- IN RA SỐ TIỀN ĐỂ KIỂM TRA
-            return tonumber(stat.Value) or 0
+        print(string.format("→ Tên: '%s' | Giá trị: %s", stat.Name, tostring(stat.Value)))
+    end
+    print("===========================================================")
+
+    -- Thử lần lượt các tên trong danh sách
+    if type(tryNameList) == "string" then tryNameList = {tryNameList} end
+    for _, tryName in ipairs(tryNameList) do
+        for _, stat in pairs(leaderstats:GetChildren()) do
+            if string.lower(stat.Name) == string.lower(tryName) then
+                print(string.format("[DEBUG] ✅ Tìm thấy tiền: '%s' = %d", stat.Name, stat.Value))
+                return tonumber(stat.Value) or 0
+            end
         end
     end
-    warn(string.format("[DEBUG] ❌ Không có chỉ số tên: %s", statName))
+
+    warn("[DEBUG] ❌ Không tìm thấy tiền với các tên đã thử!")
     return 0
 end
 
 ------------------------------------------------------------------
--- === HÀM KIỂM TRA & MUA ĐÃ SỬA ƯU TIÊN KIỂM TRA "$" ===
+-- === HÀM KIỂM TRA & MUA ===
 ------------------------------------------------------------------
 local function tryBuyLearnDarkStep()
     if hasLearnedDarkStep or not isScriptEnabled or isLearningFighting then return true end
     isLearningFighting = true
 
-    -- === SỬA CHÍNH: ĐỌC THẲNG TÊN "$" NHƯ TRONG HÌNH ===
-    local currentMoney = getStatValue("$") -- CHÍNH LÀ ĐÂY! Đổi từ Money → "$"
+    -- === THỰC HIỆN THỬ TỰ ĐỘNG CÁC TÊN THƯỜNG GẶP ===
+    local currentMoney = getStatValue({"$", "Money", "Beli", "Cash", "Coins"})
     print(string.format("[DEBUG] === Kiểm tra mua Dark Step: Cần %d | Có %d ===", DARK_STEP_PRICE, currentMoney))
 
-    -- === Kiểm tra rõ ràng ===
     if currentMoney < DARK_STEP_PRICE then
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "⚠️ Thông báo kiểm tra tiền",
@@ -80,16 +91,14 @@ local function tryBuyLearnDarkStep()
         Duration = 4
     })
 
-    -- Bay đến thầy võ
     flyLinearTo(BLACK_LEG_POS, FLY_SPEED_LONG)
-    task.wait(1.5) -- chờ đứng đúng vị trí
+    task.wait(1.5)
 
     local buySuccess = false
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            -- === Lưu ý: Nếu vẫn không mua được → thử đổi tên lệnh dưới đây ===
-            -- Thử: "BuySkill", "LearnFightingStyle", "BuyMelee", "PurchaseFightingStyle"
+            -- Thử đổi tên lệnh nếu cần: BuySkill / LearnFightingStyle / BuyMelee
             commF:InvokeServer("BuyFightingStyle", "Dark Step", DARK_STEP_PRICE)
             task.wait(1)
             buySuccess = true
@@ -107,7 +116,7 @@ local function tryBuyLearnDarkStep()
     if not buySuccess then
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "❌ Mua thất bại",
-            Text = "Đủ tiền nhưng server không chấp nhận → kiểm tra tên kỹ năng/vị trí NPC",
+            Text = "Kiểm tra tên kỹ năng/vị trí NPC",
             Duration = 5
         })
     end
@@ -145,7 +154,7 @@ screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = CoreGui
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0,260,0,55)
+mainFrame.Size = UDim2.new(0,300,0,55)
 mainFrame.Position = UDim2.new(0,30,0,80)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20,22,28)
 mainFrame.BackgroundTransparency = 0.15
@@ -161,13 +170,13 @@ statusDot.BackgroundColor3 = Color3.fromRGB(0,230,115)
 Instance.new("UICorner", statusDot).CornerRadius = UDim.new(1,0)
 
 local titleText = Instance.new("TextLabel", mainFrame)
-titleText.Size = UDim2.new(0,220,0,20); titleText.Position = UDim2.new(0,32,0,5)
+titleText.Size = UDim2.new(0,280,0,20); titleText.Position = UDim2.new(0,32,0,5)
 titleText.BackgroundTransparency = 1; titleText.Text = "AUTO FARM → HỌC → FARM BONE"
 titleText.TextColor3 = Color3.new(1,1,1); titleText.TextSize =12; titleText.Font = Enum.Font.GothamBold
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 
 local subText = Instance.new("TextLabel", mainFrame)
-subText.Size = UDim2.new(0,220,0,16); subText.Position = UDim2.new(0,32,0,28)
+subText.Size = UDim2.new(0,280,0,16); subText.Position = UDim2.new(0,32,0,28)
 subText.BackgroundTransparency =1; subText.TextSize=11; subText.Font=Enum.Font.GothamMedium
 subText.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -186,8 +195,8 @@ function updateUIState()
     statusDot.BackgroundColor3 = Color3.fromRGB(0,230,115)
     local islandName = currentIsland==1 and "Bandit" or currentIsland==2 and "Jungle" or "Pirate"
     local boneNow = getStatValue("Bone")
-    local moneyNow = getStatValue("$") -- hiển thị luôn tiền $ trên giao diện
-    subText.Text = string.format("Đảo: %s | $: %d | Bone: %d/%d", islandName, moneyNow, boneNow, targetBone)
+    local moneyNow = getStatValue({"$", "Money", "Beli", "Cash", "Coins"})
+    subText.Text = string.format("Đảo: %s | Tiền: %d | Bone: %d/%d", islandName, moneyNow, boneNow, targetBone)
     subText.TextColor3 = Color3.fromRGB(0,230,115)
 end
 
