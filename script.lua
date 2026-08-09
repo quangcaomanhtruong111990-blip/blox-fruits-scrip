@@ -1,89 +1,407 @@
 local player = game.Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui", 15)
-local VirtualInput = game:GetService("VirtualInputManager")
-local StarterGui = game:GetService("StarterGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
--- === HÀM BẤM CHUỘT THẬT VÀO VỊ TRÍ ĐỐI TƯỢNG ===
-local function clickOnObject(obj)
-    if not obj then return false end
-    -- Lấy vị trí trung tâm trên màn hình
-    local pos, onScreen = obj:IsDescendantOf(workspace) and 
-        workspace.CurrentCamera:WorldToViewportPoint(obj.Position) or 
-        obj.AbsolutePosition + obj.AbsoluteSize/2
-    
-    if not onScreen or pos.Z < 0 then return false end
+-- Trạng thái Script
+local isScriptEnabled = true
+local currentIsland = 1 -- 1: Đảo Bandit, 2: Đảo Khỉ (Jungle)
+local isTweening = false
+local currentTween = nil
 
-    -- Di chuyển chuột + bấm trái + nhả ra
-    VirtualInput:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 1)  -- Nhấn xuống
-    task.wait(0.05)
-    VirtualInput:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 1) -- Nhả ra
-    return true
-end
+-- Cấu hình tốc độ bay
+local FLY_SPEED_LONG = 120  -- Bay giữa các đảo
+local FLY_SPEED_SHORT = 90   -- Bay lại gần quái
 
--- === CHỜ GIAO DIỆN HIỆN RÕ RÀNG RỒI CHỌN PHE ===
-local function waitAndChooseFaction()
-    StarterGui:SetCore("SendNotification", {Title="⏳ Đang chờ giao diện chọn phe...", Duration=3})
-    
-    -- Chờ đến khi thấy cả 2 phe xuất hiện, không chỉ chờ cố định 10s
-    local pirateObj, marineObj = nil, nil
-    repeat
-        pirateObj, marineObj = nil, nil
-        for _, obj in pairs(PlayerGui:GetDescendants()) do
-            if obj:IsA("GuiObject") and obj.Visible and obj.Enabled then
-                local ten = string.lower(obj.Name.." "..tostring(obj.Text or ""))
-                if string.find(ten, "hải tặc") then pirateObj = obj end
-                if string.find(ten, "hải quân") then marineObj = obj end
+-- Tọa độ cố định
+local BANDIT_NPC_POS = CFrame.new(1038, 16, 1575)
+local BANDIT_MOB_POS = CFrame.new(1145, 17, 1630)
+
+local JUNGLE_NPC_POS = CFrame.new(-1600, 36, 153)
+local JUNGLE_MOB_POS = CFrame.new(-1450, 26, 200)
+
+------------------------------------------------------------------
+-- HÀM DỌN DẸP / TRẢ LẠI QUYỀN ĐIỀU KHIỂN
+------------------------------------------------------------------
+local function restoreCharacterControl()
+    local character = player.Character
+    if character then
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
             end
         end
-        task.wait(0.3)
-    until pirateObj and marineObj
-
-    -- Chờ thêm chút cho tương tác hoạt động
-    task.wait(1.5)
-
-    -- Chọn ngẫu nhiên 1 bên
-    local chonPirate = math.random() > 0.5
-    local chon = chonPirate and pirateObj or marineObj
-    local tenPhe = chonPirate and "HẢI TẮC" or "HẢI QUÂN"
-
-    -- Bấm bằng tọa độ chuột thật
-    local ok = clickOnObject(chon)
-    if ok then
-        StarterGui:SetCore("SendNotification", {Title="✅ Đã chọn phe", Text=tenPhe, Duration=3})
-    else
-        StarterGui:SetCore("SendNotification", {Title="⚠️ Thử cách bấm phụ", Text="Đang cố gắng bấm lại...", Duration=2})
-        -- Cách dự phòng: kích hoạt trực tiếp
-        pcall(function() if chon:IsA("Button") then chon:Activate() end end)
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _, v in pairs(hrp:GetChildren()) do
+                if v.Name == "AntiFall" then 
+                    v:Destroy() 
+                end
+            end
+        end
     end
-
-    -- Dừng hoàn toàn
-    task.wait(1)
-    if script then script:Destroy() end
+    if currentTween then
+        currentTween:Cancel()
+        currentTween = nil
+    end
+    isTweening = false
 end
 
--- === TÌM & BẤM CHẾ ĐỘ NHANH ===
-task.spawn(function()
-    repeat task.wait() until PlayerGui
-    local quickBtn = nil
+------------------------------------------------------------------
+-- GIAO DIỆN DECOR HIỆN ĐẠI (DARK GLASS UI)
+------------------------------------------------------------------
+if CoreGui:FindFirstChild("AutoFarmModernGui") then
+    CoreGui.AutoFarmModernGui:Destroy()
+end
 
-    -- Tìm nút chế độ nhanh cho đến khi thấy
-    repeat
-        quickBtn = nil
-        for _, obj in pairs(PlayerGui:GetDescendants()) do
-            if obj:IsA("TextButton") and obj.Visible and obj.Enabled and 
-               string.find(string.lower(obj.Text), "chế độ nhanh") then
-                quickBtn = obj
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoFarmModernGui"
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = CoreGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 180, 0, 50)
+mainFrame.Position = UDim2.new(0, 30, 0, 80)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+mainFrame.BackgroundTransparency = 0.15
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 10)
+frameCorner.Parent = mainFrame
+
+local frameStroke = Instance.new("UIStroke")
+frameStroke.Thickness = 1.5
+frameStroke.Color = Color3.fromRGB(0, 230, 150)
+frameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+frameStroke.Parent = mainFrame
+
+local statusDot = Instance.new("Frame")
+statusDot.Name = "StatusDot"
+statusDot.Size = UDim2.new(0, 10, 0, 10)
+statusDot.Position = UDim2.new(0, 14, 0.5, -5)
+statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
+statusDot.Parent = mainFrame
+
+local dotCorner = Instance.new("UICorner")
+dotCorner.CornerRadius = UDim.new(1, 0)
+dotCorner.Parent = statusDot
+
+local titleText = Instance.new("TextLabel")
+titleText.Name = "TitleText"
+titleText.Size = UDim2.new(0, 100, 0, 20)
+titleText.Position = UDim2.new(0, 32, 0, 8)
+titleText.BackgroundTransparency = 1
+titleText.Text = "AUTO FARM"
+titleText.TextColor3 = Color3.fromRGB(240, 240, 240)
+titleText.TextSize = 13
+titleText.Font = Enum.Font.GothamBold
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = mainFrame
+
+local subText = Instance.new("TextLabel")
+subText.Name = "SubText"
+subText.Size = UDim2.new(0, 100, 0, 14)
+subText.Position = UDim2.new(0, 32, 0, 26)
+subText.BackgroundTransparency = 1
+subText.Text = "Status: RUNNING [K]"
+subText.TextColor3 = Color3.fromRGB(0, 230, 115)
+subText.TextSize = 11
+subText.Font = Enum.Font.GothamMedium
+subText.TextXAlignment = Enum.TextXAlignment.Left
+subText.Parent = mainFrame
+
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "ToggleBtn"
+toggleBtn.Size = UDim2.new(1, 0, 1, 0)
+toggleBtn.BackgroundTransparency = 1
+toggleBtn.Text = ""
+toggleBtn.Parent = mainFrame
+
+local function updateUIState()
+    if isScriptEnabled then
+        frameStroke.Color = Color3.fromRGB(0, 230, 150)
+        statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
+        subText.Text = "Status: RUNNING [K]"
+        subText.TextColor3 = Color3.fromRGB(0, 230, 115)
+    else
+        frameStroke.Color = Color3.fromRGB(235, 60, 60)
+        statusDot.BackgroundColor3 = Color3.fromRGB(235, 60, 60)
+        subText.Text = "Status: PAUSED [K]"
+        subText.TextColor3 = Color3.fromRGB(235, 60, 60)
+    end
+end
+
+local function toggleState()
+    isScriptEnabled = not isScriptEnabled
+    updateUIState()
+    if not isScriptEnabled then
+        restoreCharacterControl()
+    end
+end
+
+toggleBtn.MouseButton1Click:Connect(toggleState)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.K then
+        toggleState()
+    end
+end)
+
+------------------------------------------------------------------
+-- HÀM BAY ĐƯỜNG THẲNG
+------------------------------------------------------------------
+local function flyLinearTo(targetCFrame, speed)
+    if not isScriptEnabled then return end
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local hrp = character.HumanoidRootPart
+    speed = speed or FLY_SPEED_LONG
+    
+    local startPos = hrp.Position
+    local endPos = targetCFrame.Position
+    local cruiseHeight = math.max(startPos.Y, endPos.Y) + 25
+    
+    local targetStraightCFrame = CFrame.new(endPos.X, cruiseHeight, endPos.Z)
+    local distance = (hrp.Position - targetStraightCFrame.Position).Magnitude
+    
+    isTweening = true
+    
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") then part.CanCollide = false end
+    end
+    
+    for _, v in pairs(hrp:GetChildren()) do
+        if v.Name == "AntiFall" then v:Destroy() end
+    end
+
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "AntiFall"
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.Parent = hrp
+
+    local timeToTravel = distance / speed
+    local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
+    currentTween = TweenService:Create(hrp, tweenInfo, {CFrame = targetStraightCFrame})
+    
+    currentTween:Play()
+    currentTween.Completed:Wait()
+    
+    if isScriptEnabled then
+        local landTween = TweenService:Create(hrp, TweenInfo.new(0.6, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+        currentTween = landTween
+        landTween:Play()
+        landTween.Completed:Wait()
+    end
+
+    if bv then bv:Destroy() end
+    isTweening = false
+end
+
+local function flyShort(targetCFrame)
+    if not isScriptEnabled then return end
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local hrp = character.HumanoidRootPart
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    
+    if distance < 3 then
+        hrp.CFrame = targetCFrame
+        return
+    end
+    
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") then part.CanCollide = false end
+    end
+    
+    local tweenInfo = TweenInfo.new(distance / FLY_SPEED_SHORT, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    
+    for _, v in pairs(hrp:GetChildren()) do
+        if v.Name == "AntiFall" then v:Destroy() end
+    end
+
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "AntiFall"
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.Parent = hrp
+
+    tween:Play()
+    tween.Completed:Connect(function()
+        if bv then bv:Destroy() end
+    end)
+end
+
+------------------------------------------------------------------
+-- CÁC HÀM XỬ LÝ GAME
+------------------------------------------------------------------
+local function equipWeapon()
+    local character = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    if not character or not backpack then return end
+    
+    if not character:FindFirstChildOfClass("Tool") then
+        for _, item in pairs(backpack:GetChildren()) do
+            if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
+                character.Humanoid:EquipTool(item)
                 break
             end
         end
-        task.wait(0.3)
-    until quickBtn
+    end
+end
 
-    -- Bấm chế độ nhanh bằng chuột thật
-    clickOnObject(quickBtn)
-    StarterGui:SetCore("SendNotification", {Title="✅ Đã bấm Chế Độ Nhanh", Text="Đang chờ vào giao diện chọn phe", Duration=2})
+local function startQuest(questName)
+    pcall(function()
+        local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        if commF then
+            commF:InvokeServer("StartQuest", questName, 1)
+        end
+    end)
+end
 
-    -- Bắt đầu luồng chờ chọn phe
-    task.spawn(waitAndChooseFaction)
+local function getClosestMob(mobNamePattern)
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local hrp = character.HumanoidRootPart
+    local closestMob = nil
+    local shortestDistance = 1500
+
+    local enemies = workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, mob in pairs(enemies:GetChildren()) do
+            if string.find(mob.Name, mobNamePattern) then
+                local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+                local mobHumanoid = mob:FindFirstChild("Humanoid")
+                
+                if mobHrp and mobHumanoid and mobHumanoid.Health > 0 then
+                    local distance = (hrp.Position - mobHrp.Position).Magnitude
+                    if distance < shortestDistance then
+                        shortestDistance = distance
+                        closestMob = mob
+                    end
+                end
+            end
+        end
+    end
+    return closestMob
+end
+
+-- ĐÁNH NGẦM CHUẨN (KHÔNG DÙNG CLICK CHUỘT BÊN NGOÀI)
+local function silentFastAttack(targetMob)
+    pcall(function()
+        local character = player.Character
+        local tool = character and character:FindFirstChildOfClass("Tool")
+        if tool then
+            -- 1. Kích hoạt vũ khí ngầm
+            tool:Activate()
+            
+            -- 2. Gửi sát thương trực tiếp lên Server thông qua Net Remote
+            local registerAttack = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net") and ReplicatedStorage.Modules.Net:FindFirstChild("RegisterAttack")
+            if registerAttack then
+                registerAttack:FireServer()
+            end
+
+            -- 3. Truyền sát thương vào quái gần nhất
+            if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                local registerHit = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net") and ReplicatedStorage.Modules.Net:FindFirstChild("RegisterHit")
+                if registerHit then
+                    registerHit:FireServer(targetMob.HumanoidRootPart, {targetMob})
+                end
+            end
+            
+            -- 4. Tắt hoạt ảnh vung tay gây giật
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid:FindFirstChild("Animator") then
+                for _, track in pairs(humanoid.Animator:GetPlayingAnimationTracks()) do
+                    if track.Name:lower():find("attack") or track.Name:lower():find("slash") or track.Name:lower():find("punch") then
+                        track:Stop()
+                    end
+                end
+            end
+        end
+    end)
+end
+
+------------------------------------------------------------------
+-- CHUYỂN ĐẢO KHI XONG QUEST
+------------------------------------------------------------------
+local playerGui = player:WaitForChild("PlayerGui")
+local mainGui = playerGui:WaitForChild("Main")
+local questFrame = mainGui:WaitForChild("Quest")
+
+questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+    if not questFrame.Visible and isScriptEnabled and not isTweening then
+        if currentIsland == 1 then
+            currentIsland = 2
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Xong Đảo 1!",
+                Text = "Đang bay từ từ sang Đảo Khỉ...",
+                Duration = 4
+            })
+            
+            task.spawn(function()
+                flyLinearTo(JUNGLE_NPC_POS, FLY_SPEED_LONG)
+            end)
+        end
+    end
+end)
+
+------------------------------------------------------------------
+-- VÒNG LẮP CHÍNH
+------------------------------------------------------------------
+task.spawn(function()
+    while task.wait(0.01) do
+        if isScriptEnabled and not isTweening then
+            pcall(function()
+                local character = player.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                
+                equipWeapon()
+                local hrp = character.HumanoidRootPart
+
+                local questName = (currentIsland == 1) and "BanditQuest1" or "JungleQuest"
+                local mobPattern = (currentIsland == 1) and "Bandit" or "Monkey"
+                local npcPos = (currentIsland == 1) and BANDIT_NPC_POS or JUNGLE_NPC_POS
+                local mobPos = (currentIsland == 1) and BANDIT_MOB_POS or JUNGLE_MOB_POS
+
+                if questFrame and not questFrame.Visible then
+                    local distToNpc = (hrp.Position - npcPos.Position).Magnitude
+                    if distToNpc > 15 then
+                        flyLinearTo(npcPos, FLY_SPEED_LONG)
+                    end
+                    if isScriptEnabled then
+                        startQuest(questName)
+                        task.wait(0.5)
+                    end
+                else
+                    local targetMob = getClosestMob(mobPattern)
+                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        local mobHrp = targetMob.HumanoidRootPart
+                        local targetCFrame = mobHrp.CFrame * CFrame.new(0, 9, 0)
+                        
+                        flyShort(targetCFrame)
+                        
+                        local currentDistance = (hrp.Position - mobHrp.Position).Magnitude
+                        if currentDistance <= 15 and isScriptEnabled then
+                            for i = 1, 3 do
+                                if not isScriptEnabled then break end
+                                silentFastAttack(targetMob)
+                            end
+                        end
+                    else
+                        flyShort(mobPos)
+                    end
+                end
+            end)
+        end
+    end
 end)
