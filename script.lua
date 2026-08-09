@@ -1,59 +1,80 @@
--- Chờ giao diện tải xong
-local PlayerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+local player = game.Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui", 10)
+local StarterGui = game:GetService("StarterGui")
 
--- Tìm nút "Chế Độ Nhanh"
-local function findQuickModeButton()
-    for _, gui in pairs(PlayerGui:GetDescendants()) do
-        if gui:IsA("TextButton") and string.find(string.lower(gui.Text), "chế độ nhanh") then
-            return gui
+-- === HÀM BẤM NÚT CHẮC CHẮN ===
+local function clickButton(btn)
+    if not btn then return false end
+    pcall(function()
+        -- Cách 1: Kích hoạt trực tiếp
+        if btn:IsA("TextButton") or btn:IsA("ImageButton") then
+            btn:Activate()
+            -- Cách 2: Bấm ClickDetector nếu có
+            local cd = btn:FindFirstChildOfClass("ClickDetector")
+            if cd then fireclickdetector(cd) end
         end
-    end
-    return nil
+    end)
+    return true
 end
 
--- Chọn phe ngẫu nhiên rồi dừng
-local function chooseRandomFactionAndStop()
-    task.wait(10) -- chờ load xong 10 giây
+-- === TÌM & BẤM CHỌN PHE NGẪU NHIÊN ===
+local function pickRandomFaction()
+    task.wait(10) -- chờ đủ 10s load xong
 
-    -- Tìm 2 nút phe: HẢI TẮC & HẢI QUÂN
-    local btnPirate, btnMarine = nil, nil
-    for _, gui in pairs(PlayerGui:GetDescendants()) do
-        if gui:IsA("TextButton") or gui:IsA("ImageButton") then
-            local txt = string.lower(gui.Text)
-            if string.find(txt, "hải tặc") then btnPirate = gui end
-            if string.find(txt, "hải quân") then btnMarine = gui end
+    local pirateBtn, marineBtn = nil, nil
+
+    -- Duyệt toàn bộ giao diện tìm nút phe
+    for _, obj in pairs(PlayerGui:GetDescendants()) do
+        if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+            local ten = string.lower(obj.Name .. " " .. obj.Text)
+            if string.find(ten, "hải tặc") or string.find(ten, "pirate") then
+                pirateBtn = obj
+            elseif string.find(ten, "hải quân") or string.find(ten, "marine") then
+                marineBtn = obj
+            end
         end
     end
 
-    -- Chọn ngẫu nhiên 1 trong 2
-    local chosen = math.random(1, 2) == 1 and btnPirate or btnMarine
-    if chosen then
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "✅ Đã chọn phe",
-            Text = string.find(string.lower(chosen.Text), "hải tặc") and "HẢI TẮC" or "HẢI QUÂN",
-            Duration = 3
-        })
-        -- Bấm nút
-        fireclickdetector(chosen:IsA("TextButton") and chosen or chosen:FindFirstChildOfClass("ClickDetector"))
+    -- Kiểm tra tìm thấy chưa
+    if not pirateBtn or not marineBtn then
+        StarterGui:SetCore("SendNotification", {Title="❌ Không tìm thấy nút phe", Text="Thử chờ lâu hơn chút", Duration=3})
+        return
     end
+
+    -- Chọn ngẫu nhiên
+    local chonHaiTac = math.random(1,2) == 1
+    local btnChon = chonHaiTac and pirateBtn or marineBtn
+    local tenPhe = chonHaiTac and "HẢI TẮC" or "HẢI QUÂN"
+
+    -- Bấm & thông báo
+    clickButton(btnChon)
+    StarterGui:SetCore("SendNotification", {Title="✅ Đã chọn phe", Text=tenPhe, Duration=3})
 
     -- Dừng script
-    script:Destroy()
+    task.wait(1)
+    if script then script:Destroy() end
 end
 
--- Bắt đầu: bấm nút chế độ nhanh
+-- === BẮM NÚT CHẾ ĐỘ NHANH ===
 task.spawn(function()
     repeat task.wait() until PlayerGui
-    local btnQuick = nil
+    local quickBtn = nil
+
+    -- Tìm nút Chế Độ Nhanh
     repeat
-        btnQuick = findQuickModeButton()
-        task.wait(0.2)
-    until btnQuick
+        for _, obj in pairs(PlayerGui:GetDescendants()) do
+            if obj:IsA("TextButton") and string.find(string.lower(obj.Text), "chế độ nhanh") then
+                quickBtn = obj
+                break
+            end
+        end
+        task.wait(0.3)
+    until quickBtn
 
-    -- Bấm nút
-    fireclickdetector(btnQuick:IsA("TextButton") and btnQuick or btnQuick:FindFirstChildOfClass("ClickDetector"))
-    game:GetService("StarterGui"):SetCore("SendNotification", {Title = "⏳ Đang chờ load...", Duration = 2})
+    -- Bấm nút chế độ nhanh
+    clickButton(quickBtn)
+    StarterGui:SetCore("SendNotification", {Title="⏳ Đã bấm Chế Độ Nhanh", Text="Đang chờ 10s...", Duration=2})
 
-    -- Chạy luồng chờ rồi chọn phe
-    task.spawn(chooseRandomFactionAndStop)
+    -- Bắt đầu chờ rồi chọn phe
+    task.spawn(pickRandomFaction)
 end)
