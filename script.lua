@@ -7,7 +7,7 @@ local CoreGui = game:GetService("CoreGui")
 
 -- Trạng thái Script
 local isScriptEnabled = true
-local currentIsland = 1 -- 1: Đảo Bandit, 2: Đảo Khỉ (Jungle)
+local currentIsland = 1 -- 1: Bandit, 2: Jungle, 3: Pirate (Làng Hải Tặc)
 local isTweening = false
 local currentTween = nil
 
@@ -21,6 +21,10 @@ local BANDIT_MOB_POS = CFrame.new(1145, 17, 1630)
 
 local JUNGLE_NPC_POS = CFrame.new(-1600, 36, 153)
 local JUNGLE_MOB_POS = CFrame.new(-1450, 26, 200)
+
+-- === THÊM MỚI: TỌA ĐỘ LÀNG HẢI TẶC ===
+local PIRATE_NPC_POS = CFrame.new(-1140, 4, 3825)   -- NPC nhận nhiệm vụ hải tặc
+local PIRATE_MOB_POS = CFrame.new(-1050, 6, 3900)   -- Vùng quái hải tặc
 
 ------------------------------------------------------------------
 -- HÀM DỌN DẸP / TRẢ LẠI QUYỀN ĐIỀU KHIỂN
@@ -64,7 +68,7 @@ screenGui.Parent = CoreGui
 -- Khung chính
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 180, 0, 50)
+mainFrame.Size = UDim2.new(0, 220, 0, 50) -- Rộng thêm chút hiển thị tên đảo
 mainFrame.Position = UDim2.new(0, 30, 0, 80)
 mainFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
 mainFrame.BackgroundTransparency = 0.15
@@ -97,7 +101,7 @@ dotCorner.Parent = statusDot
 -- Tiêu đề chữ
 local titleText = Instance.new("TextLabel")
 titleText.Name = "TitleText"
-titleText.Size = UDim2.new(0, 100, 0, 20)
+titleText.Size = UDim2.new(0, 180, 0, 20)
 titleText.Position = UDim2.new(0, 32, 0, 8)
 titleText.BackgroundTransparency = 1
 titleText.Text = "AUTO FARM"
@@ -107,13 +111,13 @@ titleText.Font = Enum.Font.GothamBold
 titleText.TextXAlignment = Enum.TextXAlignment.Left
 titleText.Parent = mainFrame
 
--- Sub Text (Phím tắt)
+-- Sub Text (Phím tắt + Tên đảo hiện tại)
 local subText = Instance.new("TextLabel")
 subText.Name = "SubText"
-subText.Size = UDim2.new(0, 100, 0, 14)
+subText.Size = UDim2.new(0, 180, 0, 14)
 subText.Position = UDim2.new(0, 32, 0, 26)
 subText.BackgroundTransparency = 1
-subText.Text = "Status: RUNNING [K]"
+subText.Text = "Status: RUNNING | Đảo: Bandit [K]"
 subText.TextColor3 = Color3.fromRGB(0, 230, 115)
 subText.TextSize = 11
 subText.Font = Enum.Font.GothamMedium
@@ -128,16 +132,18 @@ toggleBtn.BackgroundTransparency = 1
 toggleBtn.Text = ""
 toggleBtn.Parent = mainFrame
 
+-- === CẬP NHẬT UI CÓ THÊM TÊN ĐẢO ===
 local function updateUIState()
+    local tenDao = currentIsland == 1 and "Bandit" or currentIsland == 2 and "Jungle" or "Làng Hải Tặc"
     if isScriptEnabled then
         frameStroke.Color = Color3.fromRGB(0, 230, 150)
         statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
-        subText.Text = "Status: RUNNING [K]"
+        subText.Text = string.format("Status: RUNNING | Đảo: %s [K]", tenDao)
         subText.TextColor3 = Color3.fromRGB(0, 230, 115)
     else
         frameStroke.Color = Color3.fromRGB(235, 60, 60)
         statusDot.BackgroundColor3 = Color3.fromRGB(235, 60, 60)
-        subText.Text = "Status: PAUSED [K]"
+        subText.Text = string.format("Status: PAUSED | Đảo: %s [K]", tenDao)
         subText.TextColor3 = Color3.fromRGB(235, 60, 60)
     end
 end
@@ -324,7 +330,7 @@ local function fastAttack()
 end
 
 ------------------------------------------------------------------
--- CHUYỂN ĐẢO KHI XONG QUEST
+-- CHUYỂN ĐẢO KHI XONG QUEST → THÊM CHUYỂN SANG HẢI TẶC
 ------------------------------------------------------------------
 local playerGui = player:WaitForChild("PlayerGui")
 local mainGui = playerGui:WaitForChild("Main")
@@ -334,21 +340,30 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     if not questFrame.Visible and isScriptEnabled and not isTweening then
         if currentIsland == 1 then
             currentIsland = 2
+            updateUIState()
             game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "Xong Đảo 1!",
-                Text = "Đang bay từ từ sang Đảo Khỉ...",
+                Title = "✅ Xong Đảo Bandit!",
+                Text = "Đang bay sang Đảo Jungle...",
+                Duration = 3
+            })
+            task.spawn(function() flyLinearTo(JUNGLE_NPC_POS, FLY_SPEED_LONG) end)
+
+        elseif currentIsland == 2 then
+            -- === Xong Jungle → chuyển thẳng sang Làng Hải Tặc ===
+            currentIsland = 3
+            updateUIState()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "✅ Xong Đảo Jungle!",
+                Text = "Đang bay sang Làng Hải Tặc...",
                 Duration = 4
             })
-            
-            task.spawn(function()
-                flyLinearTo(JUNGLE_NPC_POS, FLY_SPEED_LONG)
-            end)
+            task.spawn(function() flyLinearTo(PIRATE_NPC_POS, FLY_SPEED_LONG) end)
         end
     end
 end)
 
 ------------------------------------------------------------------
--- VÒNG LẮP CHÍNH
+-- VÒNG LẶP CHÍNH: CẬP NHẬT LẤY THÔNG TIN CHO ĐẢO HẢI TẶC
 ------------------------------------------------------------------
 task.spawn(function()
     while task.wait(0.01) do
@@ -360,10 +375,24 @@ task.spawn(function()
                 equipWeapon()
                 local hrp = character.HumanoidRootPart
 
-                local questName = (currentIsland == 1) and "BanditQuest1" or "JungleQuest"
-                local mobPattern = (currentIsland == 1) and "Bandit" or "Monkey"
-                local npcPos = (currentIsland == 1) and BANDIT_NPC_POS or JUNGLE_NPC_POS
-                local mobPos = (currentIsland == 1) and BANDIT_MOB_POS or JUNGLE_MOB_POS
+                -- === Lấy tên nhiệm vụ, quái, tọa độ theo đúng đảo hiện tại ===
+                local questName, mobPattern, npcPos, mobPos
+                if currentIsland == 1 then
+                    questName = "BanditQuest1"
+                    mobPattern = "Bandit"
+                    npcPos = BANDIT_NPC_POS
+                    mobPos = BANDIT_MOB_POS
+                elseif currentIsland == 2 then
+                    questName = "JungleQuest"
+                    mobPattern = "Monkey"
+                    npcPos = JUNGLE_NPC_POS
+                    mobPos = JUNGLE_MOB_POS
+                else -- currentIsland == 3: Làng Hải Tặc
+                    questName = "PirateQuest" -- Đổi đúng tên nhiệm vụ trong game nếu cần
+                    mobPattern = "Pirate"    -- Đổi đúng tên quái hải tặc nếu khác
+                    npcPos = PIRATE_NPC_POS
+                    mobPos = PIRATE_MOB_POS
+                end
 
                 if questFrame and not questFrame.Visible then
                     local distToNpc = (hrp.Position - npcPos.Position).Magnitude
