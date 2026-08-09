@@ -45,7 +45,6 @@ local function ultraSlowTeleport(targetCFrame)
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
-    -- Cộng độ cao 18 studs cho điểm đến
     local adjustedTarget = targetCFrame * CFrame.new(0, 18, 0)
     local distance = (hrp.Position - adjustedTarget.Position).Magnitude
     local speed = 150 
@@ -81,7 +80,6 @@ local function flyToMob(targetCFrame)
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
-    -- Cộng độ cao 2 studs từ bãi quái
     local adjustedTarget = targetCFrame * CFrame.new(0, 2, 0)
     local distance = (hrp.Position - adjustedTarget.Position).Magnitude
     
@@ -96,6 +94,9 @@ local function flyToMob(targetCFrame)
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = adjustedTarget})
     tween:Play()
+    
+    -- Đợi cho đến khi tween bay tới quái hoàn tất
+    tween.Completed:Wait()
 end
 
 -- 3. Hàm Trang Bị Vũ Khí
@@ -334,8 +335,6 @@ task.spawn(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                equipWeapon()
-                
                 -- ĐẢO 1: BANDIT
                 if currentIsland == 1 then
                     if questFrame and not questFrame.Visible and not isCheckingQuest then
@@ -346,6 +345,10 @@ task.spawn(function()
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
+                        -- ĐỢI 1 GIÂY TRƯỚC KHI ĐÁNH
+                        task.wait(1)
+                        
+                        equipWeapon()
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
                         
@@ -363,6 +366,10 @@ task.spawn(function()
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
+                        -- ĐỢI 1 GIÂY TRƯỚC KHI ĐÁNH
+                        task.wait(1)
+                        
+                        equipWeapon()
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
                         
@@ -380,6 +387,10 @@ task.spawn(function()
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
                         flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
+                        -- ĐỢI 1 GIÂY TRƯỚC KHI ĐÁNH
+                        task.wait(1)
+                        
+                        equipWeapon()
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
                         
