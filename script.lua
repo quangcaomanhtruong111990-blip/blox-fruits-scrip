@@ -2,6 +2,8 @@ local player = game.Players.LocalPlayer
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 
 -- Cấu hình
 local maxQuests = 1           -- Số lần làm Q cho mỗi đảo (1 lần)
@@ -13,10 +15,9 @@ local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam nhận Q
 local isTweening = false       -- Đang trong quá trình bay từ từ
 
--- Tọa độ trung tâm/bãi quái cho 3 Đảo (TUYỆT ĐỐI KHÔNG ĐỨNG GẦN NPC)
+-- Tọa độ trung tâm/bãi quái cho 3 Đảo
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
 local JUNGLE_POS = CFrame.new(-1485, 36, 68)
--- Tọa độ dời sâu vào bãi quái Hải Tặc (cách xa NPC)
 local PIRATE_POS = CFrame.new(-1190, 16, 3950) 
 
 -- 1. Giao diện nút bấm ON/OFF
@@ -38,13 +39,15 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Siêu Chậm An Toàn (Dành cho bay giữa các Đảo)
+-- 2. Hàm Bay Qua Đảo (Cố định độ cao Y +18)
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    -- Cộng độ cao 18 studs cho điểm đến
+    local adjustedTarget = targetCFrame * CFrame.new(0, 18, 0)
+    local distance = (hrp.Position - adjustedTarget.Position).Magnitude
     local speed = 150 
     local timeToTravel = distance / speed
     
@@ -63,7 +66,7 @@ local function ultraSlowTeleport(targetCFrame)
     end
     
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = adjustedTarget})
     tween:Play()
     
     tween.Completed:Wait()
@@ -72,16 +75,18 @@ local function ultraSlowTeleport(targetCFrame)
     isTweening = false
 end
 
--- Hàm bay mượt ngắn áp sát quái
+-- Hàm bay mượt áp sát quái (Cố định độ cao Y +2 từ mặt đất)
 local function flyToMob(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    -- Cộng độ cao 2 studs từ bãi quái
+    local adjustedTarget = targetCFrame * CFrame.new(0, 2, 0)
+    local distance = (hrp.Position - adjustedTarget.Position).Magnitude
     
     if distance < 4 then
-        hrp.CFrame = targetCFrame
+        hrp.CFrame = adjustedTarget
         return
     end
     
@@ -89,7 +94,7 @@ local function flyToMob(targetCFrame)
     local timeToTravel = distance / speed
     
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = adjustedTarget})
     tween:Play()
 end
 
@@ -142,7 +147,6 @@ local function startPirateVillageQuest()
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
         if commF then
-            -- MÃ CHUẨN CỦA ĐẢO HẢI TẶC LÀ "BuggyQuest1"
             commF:InvokeServer("StartQuest", "BuggyQuest1", 1)
         end
     end)
@@ -195,13 +199,11 @@ toggleBtn.MouseButton1Click:Connect(function()
                 if v:IsA("BodyVelocity") then v:Destroy() end
             end
             
-            -- Quay trái chuẩn góc Y
             local hrp = character.HumanoidRootPart
             local x, y, z = hrp.CFrame:ToOrientation()
             hrp.CFrame = CFrame.new(hrp.Position) * CFrame.fromOrientation(x, y + math.rad(90), z)
         end
         
-        -- Cất trái cây vào rương trước
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
@@ -220,7 +222,6 @@ toggleBtn.MouseButton1Click:Connect(function()
             end
         end)
 
-        -- Random trái cây (Cousin)
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
@@ -304,7 +305,28 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
     end
 end)
 
--- 8. Vòng Lặp Farm Chính (3 Đảo)
+-- 8. Anti-AFK
+player.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+end)
+
+-- 9. Noclip
+RunService.Stepped:Connect(function()
+    if isFarming then
+        local character = player.Character
+        if character then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+-- 10. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -322,7 +344,7 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Bandit", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        flyToMob(targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0))
+                        flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
@@ -339,7 +361,7 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Monkey", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        flyToMob(targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0))
+                        flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
@@ -356,34 +378,13 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Pirate", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        flyToMob(targetMob.HumanoidRootPart.CFrame * CFrame.new(0, 9, 0))
+                        flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
                         local tool = character:FindFirstChildOfClass("Tool")
                         if tool then tool:Activate() end
                         
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
- ---- 9. Anti-AFK (Chống bị kick khi ngâm máy 20 phút)
-local VirtualUser = game:GetService("VirtualUser")
-player.Idled:Connect(function()
-    VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-    task.wait(1)
-    VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-end)
-
--- 10. Noclip (Xuyên vật thể liên tục khi đang farm/bay)
-game:GetService("RunService").Stepped:Connect(function()
-    if isFarming then
-        local character = player.Character
-        if character then
-            for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") and part.CanCollide then
-                    part.CanCollide = false
-                end
-            end
-        end
-    end
-end)
                     end
                 end
             end)
