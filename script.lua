@@ -95,7 +95,7 @@ local function flyToMob(targetCFrame)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = adjustedTarget})
     tween:Play()
     
-    -- Đợi cho đến khi tween bay tới quái hoàn tất
+    -- Đợi bay xong hẳn mới trả về
     tween.Completed:Wait()
 end
 
@@ -112,6 +112,14 @@ local function equipWeapon()
                 break
             end
         end
+    end
+end
+
+-- Hàm Cất Vũ Khí (Mới thêm: Để không quơ kiếm lúc đang di chuyển)
+local function unequipWeapon()
+    local character = player.Character
+    if character and character:FindFirstChildOfClass("Tool") then
+        character.Humanoid:UnequipTools()
     end
 end
 
@@ -253,10 +261,18 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
+        -- Cất kiếm ngay khi bấm OFF
+        unequipWeapon()
+        
         local character = player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
-                if v:IsA("BodyVelocity") then v:Destroy() end
+        if character then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true -- Mở lại va chạm vật lý
+                    for _, v in pairs(part:GetChildren()) do
+                        if v:IsA("BodyVelocity") then v:Destroy() end
+                    end
+                end
             end
         end
     end
@@ -275,6 +291,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             
             if banditCount >= maxQuests then
                 currentIsland = 2
+                unequipWeapon()
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
                 task.spawn(function()
                     ultraSlowTeleport(JUNGLE_POS)
@@ -287,6 +304,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             
             if jungleCount >= maxQuests then
                 currentIsland = 3
+                unequipWeapon()
                 toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
                 task.spawn(function()
                     ultraSlowTeleport(PIRATE_POS)
@@ -299,6 +317,7 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
             
             if pirateCount >= maxQuests then
                 isFarming = false
+                unequipWeapon()
                 toggleBtn.Text = "HOÀN THÀNH - OFF"
                 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
             end
@@ -343,10 +362,16 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Bandit", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        -- Cất kiếm trước khi bay
+                        unequipWeapon()
                         flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
-                        -- ĐỢI 1 GIÂY TRƯỚC KHI ĐÁNH
+                        -- Kiểm tra lại xem có còn đang farm không
+                        if not isFarming then return end
+                        
+                        -- Dừng hẳn 1s ở vị trí quái rồi mới trang bị kiếm đánh
                         task.wait(1)
+                        if not isFarming then return end
                         
                         equipWeapon()
                         local tool = character:FindFirstChildOfClass("Tool")
@@ -364,10 +389,16 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Monkey", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        -- Cất kiếm trước khi bay
+                        unequipWeapon()
                         flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
-                        -- ĐỢI 1 GIÂY TRƯỚC KHI ĐÁNH
+                        -- Kiểm tra lại xem có còn đang farm không
+                        if not isFarming then return end
+                        
+                        -- Dừng hẳn 1s ở vị trí quái rồi mới trang bị kiếm đánh
                         task.wait(1)
+                        if not isFarming then return end
                         
                         equipWeapon()
                         local tool = character:FindFirstChildOfClass("Tool")
@@ -385,10 +416,16 @@ task.spawn(function()
                     
                     local targetMob = getClosestMob("Pirate", 350)
                     if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        -- Cất kiếm trước khi bay
+                        unequipWeapon()
                         flyToMob(targetMob.HumanoidRootPart.CFrame)
                         
-                        -- ĐỢI 1 GIÂY TRƯỚC KHI ĐÁNH
+                        -- Kiểm tra lại xem có còn đang farm không
+                        if not isFarming then return end
+                        
+                        -- Dừng hẳn 1s ở vị trí quái rồi mới trang bị kiếm đánh
                         task.wait(1)
+                        if not isFarming then return end
                         
                         equipWeapon()
                         local tool = character:FindFirstChildOfClass("Tool")
