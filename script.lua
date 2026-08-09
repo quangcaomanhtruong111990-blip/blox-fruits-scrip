@@ -1,9 +1,12 @@
 local player = game.Players.LocalPlayer
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
+
+-- RemoteEvent gửi sát thương Blox Fruits
+local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
+local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
 
 -- Cấu hình
 local maxQuests = 1           -- Số lần làm Q cho mỗi đảo (1 lần)
@@ -14,6 +17,7 @@ local currentIsland = 1        -- 1: Bandit, 2: Khỉ, 3: Làng Hải Tặc
 local isFarming = false        -- Trạng thái ON/OFF
 local isCheckingQuest = false  -- Chống spam nhận Q
 local isTweening = false       -- Đang trong quá trình bay từ từ
+local isAttacking = false      -- Trạng thái đang đánh Fast Attack
 
 -- Tọa độ trung tâm/bãi quái cho 3 Đảo
 local BANDIT_POS = CFrame.new(1038, 16, 1575)
@@ -39,7 +43,7 @@ toggleBtn.Text = "FARM: OFF"
 toggleBtn.Active = true
 toggleBtn.Draggable = true
 
--- 2. Hàm Bay Qua Đảo (Cố định độ cao Y +18)
+-- 2. Hàm Bay Qua Đảo (Độ cao Y +18)
 local function ultraSlowTeleport(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -74,13 +78,13 @@ local function ultraSlowTeleport(targetCFrame)
     isTweening = false
 end
 
--- Hàm bay mượt áp sát quái (Cố định độ cao Y +2 từ mặt đất)
+-- Hàm bay giữ khoảng cách an toàn phía trên quái (Y + 25)
 local function flyToMob(targetCFrame)
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     
     local hrp = character.HumanoidRootPart
-    local adjustedTarget = targetCFrame * CFrame.new(0, 2, 0)
+    local adjustedTarget = targetCFrame * CFrame.new(0, 25, 0)
     local distance = (hrp.Position - adjustedTarget.Position).Magnitude
     
     if distance < 4 then
@@ -88,38 +92,48 @@ local function flyToMob(targetCFrame)
         return
     end
     
-    local speed = 120
+    local speed = 150
     local timeToTravel = distance / speed
     
     local tweenInfo = TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(hrp, tweenInfo, {CFrame = adjustedTarget})
     tween:Play()
     
-    -- Đợi bay xong hẳn mới trả về
     tween.Completed:Wait()
 end
 
--- 3. Hàm Trang Bị Vũ Khí
+-- 3. Trang Bị Vũ Khí & Tắt Chuyển Động (Animation)
 local function equipWeapon()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
     if not character or not backpack then return end
     
-    if not character:FindFirstChildOfClass("Tool") then
+    local toolInChar = character:FindFirstChildOfClass("Tool")
+    if not toolInChar then
         for _, item in pairs(backpack:GetChildren()) do
             if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
                 character.Humanoid:EquipTool(item)
+                task.wait(0.1)
                 break
             end
         end
     end
 end
 
--- Hàm Cất Vũ Khí (Mới thêm: Để không quơ kiếm lúc đang di chuyển)
 local function unequipWeapon()
     local character = player.Character
     if character and character:FindFirstChildOfClass("Tool") then
         character.Humanoid:UnequipTools()
+    end
+end
+
+-- Tắt Animation vung tay/chân để đứng yên hoàn toàn
+local function stopAnimations()
+    local character = player.Character
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        for _, track in pairs(character.Humanoid:GetPlayingAnimationTracks()) do
+            track:Stop()
+        end
     end
 end
 
@@ -129,9 +143,7 @@ local function startBanditQuest()
     isCheckingQuest = true
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-        if commF then
-            commF:InvokeServer("StartQuest", "BanditQuest1", 1)
-        end
+        if commF then commF:InvokeServer("StartQuest", "BanditQuest1", 1) end
     end)
     task.wait(1.2)
     isCheckingQuest = false
@@ -142,9 +154,7 @@ local function startJungleQuest()
     isCheckingQuest = true
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-        if commF then
-            commF:InvokeServer("StartQuest", "JungleQuest", 1)
-        end
+        if commF then commF:InvokeServer("StartQuest", "JungleQuest", 1) end
     end)
     task.wait(1.2)
     isCheckingQuest = false
@@ -155,9 +165,7 @@ local function startPirateVillageQuest()
     isCheckingQuest = true
     pcall(function()
         local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-        if commF then
-            commF:InvokeServer("StartQuest", "BuggyQuest1", 1)
-        end
+        if commF then commF:InvokeServer("StartQuest", "BuggyQuest1", 1) end
     end)
     task.wait(1.2)
     isCheckingQuest = false
@@ -207,48 +215,7 @@ toggleBtn.MouseButton1Click:Connect(function()
             for _, v in pairs(character.HumanoidRootPart:GetChildren()) do
                 if v:IsA("BodyVelocity") then v:Destroy() end
             end
-            
-            local hrp = character.HumanoidRootPart
-            local x, y, z = hrp.CFrame:ToOrientation()
-            hrp.CFrame = CFrame.new(hrp.Position) * CFrame.fromOrientation(x, y + math.rad(90), z)
         end
-        
-        pcall(function()
-            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-            if commF then
-                for _, item in pairs(player.Backpack:GetChildren()) do
-                    if item:IsA("Tool") and item.ToolTip == "Blox Fruit" then
-                        commF:InvokeServer("StoreFruit", item.Name)
-                    end
-                end
-                if character then
-                    for _, item in pairs(character:GetChildren()) do
-                        if item:IsA("Tool") and item.ToolTip == "Blox Fruit" then
-                            commF:InvokeServer("StoreFruit", item.Name)
-                        end
-                    end
-                end
-            end
-        end)
-
-        pcall(function()
-            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-            if commF then
-                commF:InvokeServer("Cousin", "Buy")
-            end
-        end)
-
-        task.wait(1)
-        pcall(function()
-            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-            if commF then
-                for _, item in pairs(player.Backpack:GetChildren()) do
-                    if item:IsA("Tool") and item.ToolTip == "Blox Fruit" then
-                        commF:InvokeServer("StoreFruit", item.Name)
-                    end
-                end
-            end
-        end)
         
         toggleBtn.Text = "ĐANG BAY VỀ ĐẢO 1..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
@@ -258,17 +225,17 @@ toggleBtn.MouseButton1Click:Connect(function()
             toggleBtn.Text = "BANDIT: (0/10)"
         end)
     else
+        isAttacking = false
         toggleBtn.Text = "FARM: OFF"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         
-        -- Cất kiếm ngay khi bấm OFF
         unequipWeapon()
         
         local character = player.Character
         if character then
             for _, part in pairs(character:GetChildren()) do
                 if part:IsA("BasePart") then
-                    part.CanCollide = true -- Mở lại va chạm vật lý
+                    part.CanCollide = true
                     for _, v in pairs(part:GetChildren()) do
                         if v:IsA("BodyVelocity") then v:Destroy() end
                     end
@@ -288,9 +255,9 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
         if currentIsland == 1 then
             banditCount = banditCount + 1
             toggleBtn.Text = "BANDIT: (" .. banditCount .. "/" .. maxQuests .. ")"
-            
             if banditCount >= maxQuests then
                 currentIsland = 2
+                isAttacking = false
                 unequipWeapon()
                 toggleBtn.Text = "BAY SANG ĐẢO KHỈ..."
                 task.spawn(function()
@@ -301,9 +268,9 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
         elseif currentIsland == 2 then
             jungleCount = jungleCount + 1
             toggleBtn.Text = "KHỈ: (" .. jungleCount .. "/" .. maxQuests .. ")"
-            
             if jungleCount >= maxQuests then
                 currentIsland = 3
+                isAttacking = false
                 unequipWeapon()
                 toggleBtn.Text = "BAY SANG LÀNG HẢI TẶC..."
                 task.spawn(function()
@@ -314,9 +281,9 @@ questFrame:GetPropertyChangedSignal("Visible"):Connect(function()
         elseif currentIsland == 3 then
             pirateCount = pirateCount + 1
             toggleBtn.Text = "PIRATE: (" .. pirateCount .. "/" .. maxQuests .. ")"
-            
             if pirateCount >= maxQuests then
                 isFarming = false
+                isAttacking = false
                 unequipWeapon()
                 toggleBtn.Text = "HOÀN THÀNH - OFF"
                 toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
@@ -332,7 +299,7 @@ player.Idled:Connect(function()
     VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 end)
 
--- 9. Noclip
+-- 9. Noclip (Xóa va chạm)
 RunService.Stepped:Connect(function()
     if isFarming then
         local character = player.Character
@@ -346,7 +313,21 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- 10. Vòng Lặp Farm Chính
+-- 10. Vòng lặp Fast Attack (Đánh siêu tốc + Đứng yên)
+task.spawn(function()
+    while task.wait(0.01) do
+        if isFarming and isAttacking then
+            pcall(function()
+                stopAnimations() -- Tắt hoạt ảnh vung tay
+                
+                -- Gửi RemoteEvent gây sát thương trực tiếp siêu tốc
+                RegisterAttack:FireServer(0.01)
+            end)
+        end
+    end
+end)
+
+-- 11. Vòng Lặp Farm Chính
 task.spawn(function()
     while task.wait(0.1) do
         if isFarming and not isTweening then
@@ -354,86 +335,42 @@ task.spawn(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- ĐẢO 1: BANDIT
+                local mobName = ""
                 if currentIsland == 1 then
-                    if questFrame and not questFrame.Visible and not isCheckingQuest then
-                        startBanditQuest()
-                    end
-                    
-                    local targetMob = getClosestMob("Bandit", 350)
-                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        -- Cất kiếm trước khi bay
-                        unequipWeapon()
-                        flyToMob(targetMob.HumanoidRootPart.CFrame)
-                        
-                        -- Kiểm tra lại xem có còn đang farm không
-                        if not isFarming then return end
-                        
-                        -- Dừng hẳn 1s ở vị trí quái rồi mới trang bị kiếm đánh
-                        task.wait(1)
-                        if not isFarming then return end
-                        
-                        equipWeapon()
-                        local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then tool:Activate() end
-                        
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                    end
-                    
-                -- ĐẢO 2: KHỈ (MONKEY)
+                    mobName = "Bandit"
+                    if questFrame and not questFrame.Visible and not isCheckingQuest then startBanditQuest() end
                 elseif currentIsland == 2 then
-                    if questFrame and not questFrame.Visible and not isCheckingQuest then
-                        startJungleQuest()
-                    end
-                    
-                    local targetMob = getClosestMob("Monkey", 350)
-                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        -- Cất kiếm trước khi bay
-                        unequipWeapon()
-                        flyToMob(targetMob.HumanoidRootPart.CFrame)
-                        
-                        -- Kiểm tra lại xem có còn đang farm không
-                        if not isFarming then return end
-                        
-                        -- Dừng hẳn 1s ở vị trí quái rồi mới trang bị kiếm đánh
-                        task.wait(1)
-                        if not isFarming then return end
-                        
-                        equipWeapon()
-                        local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then tool:Activate() end
-                        
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                    end
-                    
-                -- ĐẢO 3: LÀNG HẢI TẶC (PIRATE)
+                    mobName = "Monkey"
+                    if questFrame and not questFrame.Visible and not isCheckingQuest then startJungleQuest() end
                 elseif currentIsland == 3 then
-                    if questFrame and not questFrame.Visible and not isCheckingQuest then
-                        startPirateVillageQuest()	
+                    mobName = "Pirate"
+                    if questFrame and not questFrame.Visible and not isCheckingQuest then startPirateVillageQuest() end
+                end
+
+                local targetMob = getClosestMob(mobName, 350)
+                if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                    isAttacking = false
+                    unequipWeapon()
+                    
+                    -- Bay đến phía trên quái
+                    flyToMob(targetMob.HumanoidRootPart.CFrame)
+                    
+                    if not isFarming then return end
+                    
+                    -- Dừng hẳn 1 giây ở trên cao
+                    task.wait(1)
+                    if not isFarming then return end
+                    
+                    equipWeapon()
+                    isAttacking = true -- Bật Fast Attack
+                    
+                    -- Đánh cho đến khi quái chết
+                    local targetHumanoid = targetMob:FindFirstChild("Humanoid")
+                    while isFarming and targetHumanoid and targetHumanoid.Health > 0 do
+                        task.wait(0.1)
                     end
                     
-                    local targetMob = getClosestMob("Pirate", 350)
-                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
-                        -- Cất kiếm trước khi bay
-                        unequipWeapon()
-                        flyToMob(targetMob.HumanoidRootPart.CFrame)
-                        
-                        -- Kiểm tra lại xem có còn đang farm không
-                        if not isFarming then return end
-                        
-                        -- Dừng hẳn 1s ở vị trí quái rồi mới trang bị kiếm đánh
-                        task.wait(1)
-                        if not isFarming then return end
-                        
-                        equipWeapon()
-                        local tool = character:FindFirstChildOfClass("Tool")
-                        if tool then tool:Activate() end
-                        
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-                    end
+                    isAttacking = false
                 end
             end)
         end
