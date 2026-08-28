@@ -108,17 +108,16 @@ repeat task.wait(1) autoSelectTeam() until player.Character and player.Character
 -- CẤU HÌNH GACHA & MELEE SEA 1
 ------------------------------------------------------------------
 local gachaTargetPos = Vector3.new(-1441.9, 61.9, 3.1)
-local TARGET_MASTERY = 1
+local TARGET_MASTERY = 400
 
 local MeleeList = {
-    { Name = "Black Leg", AltName = "Dark Step", RemoteName = "BuyBlackLeg", CFrame = CFrame.new(-983.1, 13.8, 3992.2), MinLevel = 85 },
-    { Name = "Electro", AltName = "Electric", RemoteName = "BuyElectro", CFrame = CFrame.new(-5384.1, 14.0, -2151.8), MinLevel = 150 },
-    { Name = "Fishman Karate", AltName = "Water Kung Fu", RemoteName = "BuyFishmanKarate", CFrame = CFrame.new(61587.2, 18.9, 986.9), MinLevel = 400 }
+    { Name = "Black Leg", AltName = "Dark Step", RemoteName = "BuyBlackLeg", CFrame = CFrame.new(-983.1, 13.8, 3992.2), MinLevel = 100, Price = 150000 },
+    { Name = "Electro", AltName = "Electric", RemoteName = "BuyElectro", CFrame = CFrame.new(-5384.1, 14.0, -2151.8), MinLevel = 300, Price = 500000 },
+    { Name = "Fishman Karate", AltName = "Water Kung Fu", RemoteName = "BuyFishmanKarate", CFrame = CFrame.new(61587.2, 18.9, 986.9), MinLevel = 400, Price = 750000 }
 }
 
 local currentMeleeTarget = nil
 local failedBuyList = {}
-local completedMelee = {}
 
 ------------------------------------------------------------------
 -- TỌA ĐỘ & TRẠNG THÁI SEA 2 QUEST
@@ -565,42 +564,51 @@ end
 local function autoManageMelee()
     pcall(function()
         local myLevel = player.Data.Level.Value
+        local myMoney = (player:FindFirstChild("Data") and player.Data:FindFirstChild("Beli") and player.Data.Beli.Value) or 0
         if not CommF then return end
 
-        for _, melee in ipairs(MeleeList) do
+        -- 1. Tìm võ cao nhất đã sở hữu
+        local highestOwnedIndex = 0
+        for i, melee in ipairs(MeleeList) do
             if hasTool(melee.Name, melee.AltName) then
-                local currentMas = getToolMastery(melee.Name, melee.AltName)
-                if currentMas >= TARGET_MASTERY then
-                    completedMelee[melee.Name] = true
-                else
-                    currentMeleeTarget = melee
+                highestOwnedIndex = i
+            end
+        end
+
+        -- 2. Kiểm tra xem có thể mua võ cấp cao hơn không (Ưu tiên mua võ mới)
+        for i = highestOwnedIndex + 1, #MeleeList do
+            local melee = MeleeList[i]
+            if myLevel >= melee.MinLevel and myMoney >= melee.Price and not failedBuyList[melee.Name] then
+                currentMeleeTarget = melee
+                updateTracker("🥊 Đang di chuyển mua võ mới: " .. melee.Name)
+                local character = player.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    if (hrp.Position - melee.CFrame.Position).Magnitude > 15 then
+                        flyLinearTo(melee.CFrame, FLY_SPEED_LONG)
+                    end
+                    CommF:InvokeServer(melee.RemoteName)
+                    task.wait(0.5)
+
+                    if not hasTool(melee.Name, melee.AltName) then
+                        failedBuyList[melee.Name] = true
+                    else
+                        updateTracker("✅ Đã mua thành công: " .. melee.Name)
+                    end
                     return
                 end
             end
         end
 
-        for _, melee in ipairs(MeleeList) do
-            if myLevel >= melee.MinLevel and not completedMelee[melee.Name] then
-                currentMeleeTarget = melee
-
-                if not hasTool(melee.Name, melee.AltName) and not failedBuyList[melee.Name] then
-                    updateTracker("🥊 Đang di chuyển mua võ: " .. melee.Name)
-                    local character = player.Character
-                    if character and character:FindFirstChild("HumanoidRootPart") then
-                        local hrp = character.HumanoidRootPart
-                        if (hrp.Position - melee.CFrame.Position).Magnitude > 15 then
-                            flyLinearTo(melee.CFrame, FLY_SPEED_LONG)
-                        end
-                        CommF:InvokeServer(melee.RemoteName)
-                        task.wait(0.5)
-
-                        if not hasTool(melee.Name, melee.AltName) then
-                            failedBuyList[melee.Name] = true
-                        end
-                        return
-                    end
+        -- 3. Nếu không mua được võ mới, chọn võ cao nhất đang có để cày thông thạo (Mastery)
+        for i = #MeleeList, 1, -1 do
+            local melee = MeleeList[i]
+            if hasTool(melee.Name, melee.AltName) then
+                local currentMas = getToolMastery(melee.Name, melee.AltName)
+                if currentMas < TARGET_MASTERY then
+                    currentMeleeTarget = melee
+                    return
                 end
-                return
             end
         end
     end)
@@ -619,7 +627,11 @@ local function autoAddStats()
 end
 
 local function hasAllMeleesMaxed()
-    return completedMelee["Black Leg"] and completedMelee["Electro"] and completedMelee["Fishman Karate"]
+    for _, melee in ipairs(MeleeList) do
+        if not hasTool(melee.Name, melee.AltName) then return false end
+        if getToolMastery(melee.Name, melee.AltName) < TARGET_MASTERY then return false end
+    end
+    return true
 end
 
 ------------------------------------------------------------------
@@ -1982,4 +1994,4 @@ else
 end
 
 
--- Version: 1.2.2
+-- Version: 1.2.3 (Fix Sea 1 Auto Melee)
