@@ -1,32 +1,22 @@
-local currentSea = 1
 local placeId = game.PlaceId
 
-if placeId == 2753915549 then
-    currentSea = 1
-elseif placeId == 4442274612 or placeId == 508273428 then
-    currentSea = 2
-elseif placeId == 7449423635 then
-    currentSea = 3
-else
-    local map = workspace:FindFirstChild("Map") or workspace:FindFirstChild("_WorldOrigin")
-    if map then
-        if map:FindFirstChild("Desert") or map:FindFirstChild("Jungle") then
-            currentSea = 1
-        elseif map:FindFirstChild("Cafe") or map:FindFirstChild("Mansion") or map:FindFirstChild("Colosseum") or map:FindFirstChild("SnowMountain") then
-            currentSea = 2
-        elseif map:FindFirstChild("PortTown") or map:FindFirstChild("Mansion") then
-            currentSea = 3
-        end
-    end
+-- HÀM NHẬN DIỆN SEA LINH HOẠT (CHỐNG LỖI PRIVATE SERVER)
+local function getSea()
+    if placeId == 2753915549 then return 1 end
+    if placeId == 4442274612 then return 2 end
     
-    local p = game:GetService("Players").LocalPlayer
-    local data = p and p:FindFirstChild("Data")
-    if data and data:FindFirstChild("Level") then
-        if currentSea == 1 and data.Level.Value >= 700 and data.Level.Value < 1500 then
-            currentSea = 2
+    local map = workspace:FindFirstChild("Map")
+    if map then
+        if map:FindFirstChild("Kingdom of Rose") or map:FindFirstChild("Cafe") or map:FindFirstChild("Green Zone") or map:FindFirstChild("Ice Castle") then
+            return 2
+        elseif map:FindFirstChild("Jungle") or map:FindFirstChild("Pirate Starter") or map:FindFirstChild("Marine Starter") then
+            return 1
         end
     end
+    return 0
 end
+
+local currentSea = getSea()
 
 if currentSea == 1 then
 ------------------------------------------------------------------
@@ -208,7 +198,7 @@ local function ensureHoverBodyVelocity()
             bv = Instance.new("BodyVelocity")
             bv.Name = "AntiFallHover"
             bv.Velocity = Vector3.new(0, 0, 0)
-            bv.MaxForce = Vector3.new(400000, 400000, 400000) -- Đã chỉnh từ 9e9 về lực hợp lệ chống cờ gian lận
+            bv.MaxForce = Vector3.new(400000, 400000, 400000)
             bv.Parent = hrp
         end
     end
@@ -502,7 +492,6 @@ local function equipWeapon()
     end
 end
 
--- TỐI ƯU NHỊP ĐÁNH (DELAY 0.18S + BẬT VA CHẠM THỰC THẾ)
 local function attackAboveHead(mobHrp)
     pcall(function()
         local character = player.Character
@@ -629,24 +618,24 @@ local saberQuestStep = "BUTTONS"
 local currentButtonIndex = 1
 
 local SABER_BUTTONS = {
-    Vector3.new(-1263, 12, 310),      -- Điểm 1
-    Vector3.new(-1283, 34, 301),      -- Điểm 2
-    Vector3.new(-1318, 35, 285),      -- Điểm 3
-    Vector3.new(-1371, 35, 260),      -- Điểm 4
-    Vector3.new(-1438, 36, 229),      -- Điểm 5
-    Vector3.new(-1499, 36, 201),      -- Điểm 6
-    Vector3.new(-1559, 37, 173),      -- Điểm 7
-    Vector3.new(-1613, 37, 149),      -- Điểm 8
-    Vector3.new(-1181, 21, 188),      -- Điểm 9  [NÚT 1]
-    Vector3.new(-1389, 29, 169),      -- Điểm 10 [NÚT 2]
-    Vector3.new(-1648, 21, 438),      -- Điểm 11 [NÚT 3]
-    Vector3.new(-1324, 31, -461),     -- Điểm 12 [NÚT 4]
-    Vector3.new(-1389, 29, 169),      -- Điểm 13
-    Vector3.new(-1152, -1, -701),     -- Điểm 14 [NÚT 5]
-    Vector3.new(-1389, 29, 169),      -- Điểm 15
-    Vector3.new(-1497, 20, 167),      -- Điểm 16
-    Vector3.new(-1581, 14, 165),      -- Điểm 17
-    Vector3.new(-1421.8, 48.3, 22.4)  -- Điểm 18 [MỚI THÊM]
+    Vector3.new(-1263, 12, 310),      
+    Vector3.new(-1283, 34, 301),      
+    Vector3.new(-1318, 35, 285),      
+    Vector3.new(-1371, 35, 260),      
+    Vector3.new(-1438, 36, 229),      
+    Vector3.new(-1499, 36, 201),      
+    Vector3.new(-1559, 37, 173),      
+    Vector3.new(-1613, 37, 149),      
+    Vector3.new(-1181, 21, 188),      
+    Vector3.new(-1389, 29, 169),      
+    Vector3.new(-1648, 21, 438),      
+    Vector3.new(-1324, 31, -461),     
+    Vector3.new(-1389, 29, 169),      
+    Vector3.new(-1152, -1, -701),     
+    Vector3.new(-1389, 29, 169),      
+    Vector3.new(-1497, 20, 167),      
+    Vector3.new(-1581, 14, 165),      
+    Vector3.new(-1421.8, 48.3, 22.4)  
 }
 
 local BUTTON_INDICES = {
@@ -656,12 +645,10 @@ local BUTTON_INDICES = {
 local ownsSaberCache = false
 local function checkOwnsSaber()
     if ownsSaberCache then return true end
-    -- Check in backpack/character
     if hasTool("Saber", "Saber") then
         ownsSaberCache = true
         return true
     end
-    -- Check in stored inventory
     pcall(function()
         local inv = CommF:InvokeServer("getInventoryWeapons")
         if type(inv) == "table" then
@@ -673,7 +660,6 @@ local function checkOwnsSaber()
             end
         end
     end)
-    -- Nếu level quá cao (ví dụ >= 1500) mà đang ở Sea 1 thì chắc chắn đã qua Sea 2 và lấy Saber rồi
     if player.Data.Level.Value >= 1500 then
         ownsSaberCache = true
     end
@@ -1147,7 +1133,6 @@ local function saveGachaTime()
 end
 
 task.spawn(function()
-    -- KIỂM TRA GACHA LẦN ĐẦU KHI MỚI VÀO GAME
     pcall(function()
         updateTracker("⏳ Đang chờ load dữ liệu game...")
         local data = player:WaitForChild("Data", 15)
@@ -1165,10 +1150,8 @@ task.spawn(function()
         end
     end)
     
-    -- Mở khóa cho Auto Farm hoạt động sau khi kiểm tra xong Gacha
     isCheckingInitialGacha = false
     
-    -- BẮT ĐẦU VÒNG LẶP KIỂM TRA GACHA ĐỊNH KỲ
     while task.wait(5) do
         pcall(function()
             if not player:FindFirstChild("Data") or not player.Data:FindFirstChild("Level") then return end
@@ -1230,7 +1213,7 @@ player.Idled:Connect(function()
 end)
 
 ------------------------------------------------------------------
--- NATIVE NOCLIP HỆ THỐNG (TRÁNH BỊ KICK KHI BAY XUYÊN TƯỜNG)
+-- NATIVE NOCLIP HỆ THỐNG
 ------------------------------------------------------------------
 local noclipConnection = nil
 
@@ -1963,9 +1946,8 @@ task.spawn(function()
     end
 end)
 
-
 else
-    -- Không ở Sea 1 hoặc Sea 2
+    -- Không xác định được Sea 1 hoặc Sea 2
     local CoreGui = game:GetService("CoreGui")
     if CoreGui:FindFirstChild("AutoFarmLeftGui") then CoreGui.AutoFarmLeftGui:Destroy() end
     if CoreGui:FindFirstChild("AutoFarmTopGui") then CoreGui.AutoFarmTopGui:Destroy() end
@@ -1975,11 +1957,10 @@ else
     if gui then
         game:GetService("StarterGui"):SetCore("SendNotification", {
             Title = "Auto Farm Lỗi",
-            Text = "Phiên bản này chỉ hỗ trợ Sea 1 và Sea 2!",
+            Text = "Không thể xác định Sea hiện tại!",
             Duration = 10
         })
     end
 end
 
-
--- Version: 1.2.2
+-- Version: 1.2.1
