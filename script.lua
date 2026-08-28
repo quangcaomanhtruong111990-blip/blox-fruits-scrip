@@ -108,11 +108,11 @@ repeat task.wait(1) autoSelectTeam() until player.Character and player.Character
 -- CẤU HÌNH GACHA & MELEE SEA 1
 ------------------------------------------------------------------
 local gachaTargetPos = Vector3.new(-1441.9, 61.9, 3.1)
-local TARGET_MASTERY = 400
+local TARGET_MASTERY = 1
 
 local MeleeList = {
-    { Name = "Black Leg", AltName = "Dark Step", RemoteName = "BuyBlackLeg", CFrame = CFrame.new(-983.1, 13.8, 3992.2), MinLevel = 100 },
-    { Name = "Electro", AltName = "Electric", RemoteName = "BuyElectro", CFrame = CFrame.new(-5384.1, 14.0, -2151.8), MinLevel = 300 },
+    { Name = "Black Leg", AltName = "Dark Step", RemoteName = "BuyBlackLeg", CFrame = CFrame.new(-983.1, 13.8, 3992.2), MinLevel = 85 },
+    { Name = "Electro", AltName = "Electric", RemoteName = "BuyElectro", CFrame = CFrame.new(-5384.1, 14.0, -2151.8), MinLevel = 150 },
     { Name = "Fishman Karate", AltName = "Water Kung Fu", RemoteName = "BuyFishmanKarate", CFrame = CFrame.new(61587.2, 18.9, 986.9), MinLevel = 400 }
 }
 
