@@ -45,7 +45,7 @@ local lastAttackTime = 0
 local isDoingGacha = false
 local activeQuest = nil 
 local isCheckingInitialGacha = true
-local SCRIPT_VERSION = "1.0.8"
+local SCRIPT_VERSION = "1.0.9"
 
 -- TỐC ĐỘ BAY AN TOÀN CHỐNG ANTI-CHEAT KICK
 local FLY_SPEED_LONG = 110   
@@ -1072,7 +1072,7 @@ task.spawn(function()
                             updateTracker("⛵ Dự phòng chuyển Sea qua Thuyền Trưởng Middle Town")
                             local dist = (hrp.Position - POS_CAPTAIN.Position).Magnitude
                             if dist > 10 then
-                                flyLinearTo(POS_CAPTAIN + Vector3.new(0, 20, 0), FLY_SPEED_LONG)
+                                flyLinearTo(POS_CAPTAIN, FLY_SPEED_LONG)
                             else
                                 hrp.CFrame = POS_CAPTAIN
                                 CommF:InvokeServer("TravelDressrosa")
@@ -1162,4 +1162,4 @@ task.spawn(function()
     end
 end)
 
--- Version: 1.0.8
+-- Version: 1.0.9
