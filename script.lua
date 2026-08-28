@@ -635,7 +635,7 @@ local function hasAllMeleesMaxed()
 end
 
 ------------------------------------------------------------------
--- HÀM SABER QUEST (BƯỚC ĐẦU)
+-- HÀM SABER QUEST (HOÀN CHỈNH TẤT CẢ CÁC BƯỚC)
 ------------------------------------------------------------------
 local saberQuestStep = "BUTTONS"
 local currentButtonIndex = 1
@@ -658,7 +658,7 @@ local SABER_BUTTONS = {
     Vector3.new(-1389, 29, 169),      -- Điểm 15
     Vector3.new(-1497, 20, 167),      -- Điểm 16
     Vector3.new(-1581, 14, 165),      -- Điểm 17
-    Vector3.new(-1421.8, 48.3, 22.4)  -- Điểm 18 [MỚI THÊM]
+    Vector3.new(-1421.8, 48.3, 22.4)  -- Điểm 18 [NÚT BỔ SUNG]
 }
 
 local BUTTON_INDICES = {
@@ -685,7 +685,7 @@ local function checkOwnsSaber()
             end
         end
     end)
-    -- Nếu level quá cao (ví dụ >= 1500) mà đang ở Sea 1 thì chắc chắn đã qua Sea 2 và lấy Saber rồi
+    -- Nếu level >= 1500 mà ở Sea 1 thì chắc chắn đã hoàn thành
     if player.Data.Level.Value >= 1500 then
         ownsSaberCache = true
     end
@@ -693,15 +693,95 @@ local function checkOwnsSaber()
     return ownsSaberCache
 end
 
+local function equipToolByName(toolName, altName)
+    local char = player.Character
+    local bp = player:FindFirstChild("Backpack")
+    if not char or not char:FindFirstChild("Humanoid") then return false end
+
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") and (tool.Name == toolName or (altName and tool.Name == altName)) then
+            return true
+        end
+    end
+
+    if bp then
+        for _, tool in ipairs(bp:GetChildren()) do
+            if tool:IsA("Tool") and (tool.Name == toolName or (altName and tool.Name == altName)) then
+                char.Humanoid:EquipTool(tool)
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function flyAcrossSeaSafe(targetPos, speed)
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    
+    local dist = (hrp.Position - targetPos).Magnitude
+    if dist > 350 then
+        local highStart = Vector3.new(hrp.Position.X, 150, hrp.Position.Z)
+        local highTarget = Vector3.new(targetPos.X, 150, targetPos.Z)
+        flyLinearTo(CFrame.new(highStart), 90)
+        flyLinearTo(CFrame.new(highTarget), speed or FLY_SPEED_LONG)
+    end
+    flyLinearTo(CFrame.new(targetPos), speed or FLY_SPEED_LONG)
+end
+
+local function getMobLeader()
+    local enemies = workspace:FindFirstChild("Enemies")
+    if not enemies then return nil end
+    for _, mob in ipairs(enemies:GetChildren()) do
+        if mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+            local name = string.lower(mob.Name)
+            if string.find(name, "mob leader") or string.find(name, "mob") then
+                return mob
+            end
+        end
+    end
+    return nil
+end
+
+local function getSaberExpert()
+    local enemies = workspace:FindFirstChild("Enemies")
+    if not enemies then return nil end
+    for _, mob in ipairs(enemies:GetChildren()) do
+        if mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+            local name = string.lower(mob.Name)
+            if string.find(name, "saber expert") or string.find(name, "shanks") or string.find(name, "saber") then
+                return mob
+            end
+        end
+    end
+    return nil
+end
+
 local function doSaberQuest()
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     local hrp = character.HumanoidRootPart
 
+    -- Kiểm tra nếu đã hoàn thành nhận kiếm
+    if checkOwnsSaber() then return end
+
+    -- Tự động nhảy bước thông minh nếu đã sở hữu vật phẩm từ trước
+    if hasTool("Relic", "Relic") and saberQuestStep ~= "KILL_SABER_EXPERT" then
+        saberQuestStep = "OPEN_SABER_DOOR"
+    elseif (hasTool("Water Cup", "Cup (Water)") or hasTool("Filled Cup", "Water Cup")) and (saberQuestStep == "BUTTONS" or saberQuestStep == "TORCH" or saberQuestStep == "DESERT_BURN" or saberQuestStep == "GET_CUP" or saberQuestStep == "FROZEN_WATER") then
+        saberQuestStep = "SICK_MAN"
+    elseif hasTool("Cup", "Cup") and (saberQuestStep == "BUTTONS" or saberQuestStep == "TORCH" or saberQuestStep == "DESERT_BURN" or saberQuestStep == "GET_CUP") then
+        saberQuestStep = "FROZEN_WATER"
+    elseif hasTool("Torch", "Torch") and (saberQuestStep == "BUTTONS" or saberQuestStep == "TORCH") then
+        saberQuestStep = "DESERT_BURN"
+    end
+
+    -- BƯỚC 1: BẤM NÚT & LẤY ĐUỐC (RỪNG)
     if saberQuestStep == "BUTTONS" then
         if currentButtonIndex <= #SABER_BUTTONS then
             local targetPos = SABER_BUTTONS[currentButtonIndex]
-            updateTracker(string.format("🟢 Bay tọa độ Saber: %d/18", currentButtonIndex))
+            updateTracker(string.format("🟢 Saber B1: Bấm nút rừng (%d/18)", currentButtonIndex))
             local dist = (hrp.Position - targetPos).Magnitude
             if dist > 5 then
                 flyLinearTo(CFrame.new(targetPos), FLY_SPEED_LONG)
@@ -718,11 +798,12 @@ local function doSaberQuest()
         else
             saberQuestStep = "TORCH"
         end
+
     elseif saberQuestStep == "TORCH" then
         if hasTool("Torch", "Torch") then
-            saberQuestStep = "DONE_FOR_NOW"
+            saberQuestStep = "DESERT_BURN"
         else
-            updateTracker("🔥 Lấy Đuốc (Chống Té Nước)")
+            updateTracker("🔥 Saber B1: Xuống hầm Rừng nhặt Đuốc (Torch)...")
             local SAFE_GROUND = Vector3.new(-1612, 35, 163)
             local HOLE_ENTRANCE = Vector3.new(-1612, 12, 163)
             
@@ -750,11 +831,238 @@ local function doSaberQuest()
                     end
                     task.wait(1)
                     flyLinearTo(CFrame.new(SAFE_GROUND), 90)
+                    if hasTool("Torch", "Torch") then
+                        saberQuestStep = "DESERT_BURN"
+                    end
                 end
             end
         end
-    elseif saberQuestStep == "DONE_FOR_NOW" then
-        updateTracker("⚠️ Đã lấy Torch! Chờ bạn thêm đoạn code tiếp theo của nhiệm vụ Saber!")
+
+    -- BƯỚC 2: SA MẠC - ĐỐT CỬA GỖ & LẤY CỐC (CUP)
+    elseif saberQuestStep == "DESERT_BURN" then
+        if hasTool("Cup", "Cup") or hasTool("Water Cup", "Cup (Water)") or hasTool("Relic", "Relic") then
+            saberQuestStep = "FROZEN_WATER"
+            return
+        end
+
+        updateTracker("🌊 Saber B2: Đang bay qua biển sang Sa Mạc...")
+        equipToolByName("Torch")
+
+        local HOUSE_DOOR = Vector3.new(1113, 5, 4350)
+        local dist = (hrp.Position - HOUSE_DOOR).Magnitude
+        if dist > 15 then
+            flyAcrossSeaSafe(HOUSE_DOOR, FLY_SPEED_LONG)
+        else
+            hrp.CFrame = CFrame.new(HOUSE_DOOR)
+            equipToolByName("Torch")
+            updateTracker("🔥 Đang áp Đuốc đốt cháy cửa gỗ nhà Sa Mạc (3.5s)...")
+            task.wait(3.5)
+            saberQuestStep = "GET_CUP"
+        end
+
+    elseif saberQuestStep == "GET_CUP" then
+        if hasTool("Cup", "Cup") or hasTool("Water Cup", "Cup (Water)") then
+            saberQuestStep = "FROZEN_WATER"
+            return
+        end
+
+        updateTracker("🏺 Saber B2: Vào nhà nhặt Cái Cốc (Cup)...")
+        local CUP_POS = Vector3.new(1115, 4, 4350)
+        local cupPart = nil
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v.Name == "Cup" and (v:IsA("BasePart") or v:IsA("Model")) then
+                cupPart = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart")
+                break
+            end
+        end
+
+        local targetCup = cupPart and cupPart.Position or CUP_POS
+        local dist = (hrp.Position - targetCup).Magnitude
+        if dist > 5 then
+            flyLinearTo(CFrame.new(targetCup), 30)
+        else
+            if cupPart and firetouchinterest then
+                firetouchinterest(hrp, cupPart, 0)
+                task.wait(0.2)
+                firetouchinterest(hrp, cupPart, 1)
+            end
+            task.wait(1.5)
+            flyLinearTo(CFrame.new(1094, 25, 4192), 80)
+            if hasTool("Cup", "Cup") or hasTool("Water Cup", "Cup (Water)") then
+                saberQuestStep = "FROZEN_WATER"
+            end
+        end
+
+    -- BƯỚC 3: ĐẢO BĂNG TUYẾT - LẤY NƯỚC & ĐƯA NGƯỜI ỐM
+    elseif saberQuestStep == "FROZEN_WATER" then
+        if hasTool("Water Cup", "Cup (Water)") or hasTool("Relic", "Relic") then
+            saberQuestStep = "SICK_MAN"
+            return
+        end
+
+        updateTracker("💧 Saber B3: Bay sang Đảo Tuyết hứng nước vào Cốc...")
+        equipToolByName("Cup")
+
+        local CAVE_WATER = Vector3.new(1394, 38, -1322)
+        local dist = (hrp.Position - CAVE_WATER).Magnitude
+        if dist > 15 then
+            flyAcrossSeaSafe(CAVE_WATER, FLY_SPEED_LONG)
+        else
+            hrp.CFrame = CFrame.new(CAVE_WATER)
+            equipToolByName("Cup")
+            updateTracker("💧 Đang hứng nước từ thạch nhũ băng nhỏ giọt...")
+            task.wait(3.5)
+            saberQuestStep = "SICK_MAN"
+        end
+
+    elseif saberQuestStep == "SICK_MAN" then
+        if hasTool("Relic", "Relic") then
+            saberQuestStep = "OPEN_SABER_DOOR"
+            return
+        end
+
+        updateTracker("🍵 Saber B3: Đưa Cốc Nước cho Người Ốm (Sick Man)...")
+        equipToolByName("Water Cup", "Cup")
+
+        local SICK_MAN_POS = Vector3.new(1390, 87, -1299)
+        local dist = (hrp.Position - SICK_MAN_POS).Magnitude
+        if dist > 10 then
+            flyLinearTo(CFrame.new(SICK_MAN_POS), FLY_SPEED_LONG)
+        else
+            hrp.CFrame = CFrame.new(SICK_MAN_POS)
+            pcall(function()
+                CommF:InvokeServer("HealSickMan")
+                CommF:InvokeServer("SickMan")
+            end)
+            for i = 1, 4 do
+                talkToNPCSequence()
+                task.wait(0.3)
+            end
+            task.wait(1)
+            saberQuestStep = "RICH_MAN_1"
+        end
+
+    -- BƯỚC 4: LÀNG HẢI TẶC - GẶP NGƯỜI GIÀU & DIỆT MOB LEADER
+    elseif saberQuestStep == "RICH_MAN_1" then
+        if hasTool("Relic", "Relic") then
+            saberQuestStep = "OPEN_SABER_DOOR"
+            return
+        end
+
+        updateTracker("💰 Saber B4: Gặp Người Giàu (Rich Man) tại Làng Hải Tặc...")
+        local RICH_MAN_POS = Vector3.new(-2885, 44, 5368)
+        local dist = (hrp.Position - RICH_MAN_POS).Magnitude
+        if dist > 15 then
+            flyAcrossSeaSafe(RICH_MAN_POS, FLY_SPEED_LONG)
+        else
+            hrp.CFrame = CFrame.new(RICH_MAN_POS)
+            pcall(function()
+                CommF:InvokeServer("RichMan", 1)
+                CommF:InvokeServer("RichMan")
+            end)
+            for i = 1, 4 do
+                talkToNPCSequence()
+                task.wait(0.3)
+            end
+            task.wait(1)
+            saberQuestStep = "KILL_MOB_LEADER"
+        end
+
+    elseif saberQuestStep == "KILL_MOB_LEADER" then
+        if hasTool("Relic", "Relic") then
+            saberQuestStep = "OPEN_SABER_DOOR"
+            return
+        end
+
+        local MOB_ISLAND = Vector3.new(-2935, 2, 5320)
+        local mob = getMobLeader()
+
+        if mob and mob:FindFirstChild("HumanoidRootPart") then
+            updateTracker("⚔️ Saber B4: Đang tiêu diệt Mob Leader (Lv 120)...")
+            local mobHrp = mob.HumanoidRootPart
+            local dist = (hrp.Position - mobHrp.Position).Magnitude
+            if dist > 25 then
+                flyLinearTo(mobHrp.CFrame * CFrame.new(0, 20, 0), FLY_SPEED_LONG)
+            else
+                attackAboveHead(mobHrp)
+            end
+        else
+            local distToCave = (hrp.Position - MOB_ISLAND).Magnitude
+            if distToCave > 15 then
+                updateTracker("🏃 Saber B4: Đang bay tới Đảo Thảo Lũ (Hang Mob Leader)...")
+                flyAcrossSeaSafe(MOB_ISLAND, FLY_SPEED_LONG)
+            else
+                updateTracker("⏳ Chờ Mob Leader hồi sinh / đã tiêu diệt...")
+                task.wait(1.5)
+                saberQuestStep = "RICH_MAN_2"
+            end
+        end
+
+    elseif saberQuestStep == "RICH_MAN_2" then
+        if hasTool("Relic", "Relic") then
+            saberQuestStep = "OPEN_SABER_DOOR"
+            return
+        end
+
+        updateTracker("👑 Saber B4: Nhận Cổ Vật (Relic) từ Rich Man...")
+        local RICH_MAN_POS = Vector3.new(-2885, 44, 5368)
+        local dist = (hrp.Position - RICH_MAN_POS).Magnitude
+        if dist > 15 then
+            flyAcrossSeaSafe(RICH_MAN_POS, FLY_SPEED_LONG)
+        else
+            hrp.CFrame = CFrame.new(RICH_MAN_POS)
+            pcall(function()
+                CommF:InvokeServer("RichMan", 2)
+                CommF:InvokeServer("RichMan")
+            end)
+            for i = 1, 4 do
+                talkToNPCSequence()
+                task.wait(0.3)
+            end
+            task.wait(1)
+            if hasTool("Relic", "Relic") then
+                saberQuestStep = "OPEN_SABER_DOOR"
+            end
+        end
+
+    -- BƯỚC 5: RỪNG - MỞ CỬA CỔ VẬT & TIÊU DIỆT BOSS SABER EXPERT (SHANKS)
+    elseif saberQuestStep == "OPEN_SABER_DOOR" then
+        updateTracker("🚪 Saber B5: Đang bay về Rừng cắm Cổ Vật mở cửa bí mật...")
+        local SABER_DOOR = Vector3.new(-1406, 30, 4)
+        local dist = (hrp.Position - SABER_DOOR).Magnitude
+        if dist > 15 then
+            flyAcrossSeaSafe(SABER_DOOR, FLY_SPEED_LONG)
+        else
+            equipToolByName("Relic")
+            hrp.CFrame = CFrame.new(SABER_DOOR)
+            task.wait(2)
+            saberQuestStep = "KILL_SABER_EXPERT"
+        end
+
+    elseif saberQuestStep == "KILL_SABER_EXPERT" then
+        local ROOM_POS = Vector3.new(-1450, 30, -50)
+        local boss = getSaberExpert()
+
+        if boss and boss:FindFirstChild("HumanoidRootPart") then
+            updateTracker("⚔️ Saber B5: Đang tiêu diệt Boss Saber Expert (Shanks Lv 200)!")
+            local bossHrp = boss.HumanoidRootPart
+            local dist = (hrp.Position - bossHrp.Position).Magnitude
+            if dist > 25 then
+                flyLinearTo(bossHrp.CFrame * CFrame.new(0, 20, 0), FLY_SPEED_LONG)
+            else
+                attackAboveHead(bossHrp)
+            end
+        else
+            local distToRoom = (hrp.Position - ROOM_POS).Magnitude
+            if distToRoom > 15 then
+                updateTracker("🏃 Saber B5: Đang bay vào phòng bí mật Saber...")
+                flyLinearTo(CFrame.new(ROOM_POS), FLY_SPEED_LONG)
+            else
+                updateTracker("⏳ Chờ Boss Saber Expert hồi sinh...")
+                task.wait(1.5)
+                checkOwnsSaber()
+            end
+        end
     end
 end
 
@@ -1994,4 +2302,4 @@ else
 end
 
 
--- Version: 1.2.3 (Fix Sea 1 Auto Melee)
+-- Version: 1.2.4 (Full Auto Saber Quest: Shanks Lv 200)
