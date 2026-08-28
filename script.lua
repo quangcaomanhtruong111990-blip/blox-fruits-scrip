@@ -1,3 +1,9 @@
+local placeId = game.PlaceId
+
+if placeId == 2753915549 then
+------------------------------------------------------------------
+-- BẮT ĐẦU AUTO SEA 1
+------------------------------------------------------------------
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualUser = game:GetService("VirtualUser")
@@ -350,7 +356,7 @@ end
 local function autoStoreFruit()
     pcall(function()
         if not CommF then return end
-        updateTracker("📦 Đang kiểm tra & cất Trái Ác Quỷ vào kho...")
+        updateTracker("📦 Cất Trái Ác Quỷ...")
         local character = player.Character or player.CharacterAdded:Wait()
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then humanoid:UnequipTools() end
@@ -396,7 +402,7 @@ local function runGachaFruit()
     isDoingGacha = true
     restoreCharacterControl()
 
-    updateTracker("🍇 Đang di chuyển tới NPC Zioles để Random Trái...")
+    updateTracker("🍇 Bay tới NPC Random Trái...")
     local startTime = tick()
 
     while not getDialogue() do
@@ -418,7 +424,7 @@ local function runGachaFruit()
         task.wait(0.2)
     end
 
-    updateTracker("🎰 Đang giao dịch với NPC Gacha...")
+    updateTracker("🎰 Giao dịch Gacha...")
     task.wait(1.5)
 
     if getDialogue() then clickDialogueOption1() task.wait(2.2) end
@@ -1162,4 +1168,790 @@ task.spawn(function()
     end
 end)
 
--- Version: 1.0.9
+elseif placeId == 4442274612 then
+------------------------------------------------------------------
+-- BẮT ĐẦU AUTO SEA 2
+------------------------------------------------------------------
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+------------------------------------------------------------------
+-- CHỐNG AFK & CHỐNG KICK CAO CẤP
+------------------------------------------------------------------
+pcall(function()
+    if getconnections then
+        for _, conn in pairs(getconnections(player.Idled)) do
+            if conn.Disable then conn:Disable() elseif conn.Disconnect then conn:Disconnect() end
+        end
+    end
+end)
+
+player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new(0,0))
+end)
+
+------------------------------------------------------------------
+-- NATIVE NOCLIP HỆ THỐNG (TRÁNH BỊ KICK KHI BAY XUYÊN TƯỜNG)
+------------------------------------------------------------------
+local noclipConnection = nil
+
+local function setNoclip(enabled)
+    if enabled then
+        if not noclipConnection then
+            noclipConnection = RunService.Stepped:Connect(function()
+                if player.Character then
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") and part.CanCollide then
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end)
+        end
+    else
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+        if player.Character then
+            for _, part in pairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+------------------------------------------------------------------
+-- TÍCH HỢP REMOTE FAST ATTACK
+------------------------------------------------------------------
+local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
+local RegisterAttack = Net:FindFirstChild("RE/RegisterAttack") or Net:FindFirstChild("RegisterAttack")
+local RegisterHit = Net:FindFirstChild("RE/RegisterHit") or Net:FindFirstChild("RegisterHit")
+
+------------------------------------------------------------------
+-- TỐI ƯU HẠ ĐỒ HỌA & HIỆU ỨNG THẤP NHẤT (FPS BOOST)
+------------------------------------------------------------------
+local function optimizeVisuals()
+    pcall(function()
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        Lighting.Brightness = 1
+        
+        for _, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("PostEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") then
+                v.Enabled = false
+            end
+        end
+
+        if Workspace:FindFirstChildOfClass("Terrain") then
+            local terrain = Workspace.Terrain
+            terrain.WaterWaveSize = 0
+            terrain.WaterWaveSpeed = 0
+            terrain.WaterReflectance = 0
+            terrain.WaterTransparency = 0
+            if sethiddenproperty then
+                pcall(function() sethiddenproperty(terrain, "Decoration", false) end)
+            end
+        end
+
+        local function cleanItem(v)
+            if v:IsA("BasePart") then
+                v.Material = Enum.Material.SmoothPlastic
+                v.Reflectance = 0
+                v.CastShadow = false
+            elseif v:IsA("Decal") or v:IsA("Texture") then
+                v.Texture = ""
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") or v:IsA("Explosion") then
+                v.Enabled = false
+            elseif v:IsA("MeshPart") then
+                v.Material = Enum.Material.SmoothPlastic
+                v.Reflectance = 0
+                v.TextureID = ""
+            end
+        end
+
+        for _, v in pairs(Workspace:GetDescendants()) do
+            cleanItem(v)
+        end
+
+        Workspace.DescendantAdded:Connect(function(v)
+            task.spawn(function()
+                cleanItem(v)
+            end)
+        end)
+    end)
+end
+
+task.spawn(optimizeVisuals)
+
+------------------------------------------------------------------
+-- CẤU HÌNH CHỌN PHE (PIRATES / MARINES)
+------------------------------------------------------------------
+local CHOOSE_TEAM = "Pirates"
+
+local function autoSelectTeam()
+    pcall(function()
+        if player.Team == nil or player.Team.Name == "Neutral" or player.Team.Name == "" then
+            local commF = ReplicatedStorage:WaitForChild("Remotes", 5) and ReplicatedStorage.Remotes:WaitForChild("CommF_", 5)
+            if commF then
+                commF:InvokeServer("SetTeam", CHOOSE_TEAM)
+            end
+        end
+    end)
+end
+
+autoSelectTeam()
+
+repeat task.wait(1) 
+    autoSelectTeam()
+until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+
+task.wait(5)
+
+------------------------------------------------------------------
+-- CẤU HÌNH NHẬN TRÁI (GACHA SEA 2)
+------------------------------------------------------------------
+local gachaTargetPos = Vector3.new(-422.3, 73.0, 393.7) 
+local gachaClickPos  = Vector3.new(-429.9, 67.3, 390.1) 
+local isDoingGacha   = false                             
+
+------------------------------------------------------------------
+-- CẤU HÌNH AUTO FARM MOB SEA 2
+------------------------------------------------------------------
+local isScriptEnabled = true
+local isTweening = false
+local currentTween = nil
+local lastStatUpdate = 0
+local lastAttackTime = 0
+
+local FLY_SPEED_LONG = 110  
+local FLY_SPEED_SHORT = 85  
+
+------------------------------------------------------------------
+-- DATABASE: TỔNG HỢP QUEST QUÁI THƯỜNG SEA 2
+------------------------------------------------------------------
+local Sea2MobQuests = {
+    { Level = 700, QuestName = "Area1Quest", QuestLevel = 1, MobName = "Raider", NpcCFrame = CFrame.new(-425, 73, 1837), MobCFrame = CFrame.new(-750, 73, 2400) },
+    { Level = 725, QuestName = "Area1Quest", QuestLevel = 2, MobName = "Mercenary", NpcCFrame = CFrame.new(-425, 73, 1837), MobCFrame = CFrame.new(-930, 73, 1400) },
+    { Level = 775, QuestName = "Area2Quest", QuestLevel = 1, MobName = "Swan Pirate", NpcCFrame = CFrame.new(635, 73, 918), MobCFrame = CFrame.new(880, 120, 1200) },
+    { Level = 800, QuestName = "Area2Quest", QuestLevel = 2, MobName = "Factory Staff", NpcCFrame = CFrame.new(635, 73, 918), MobCFrame = CFrame.new(280, 73, -50) },
+    { Level = 950, QuestName = "ZombieQuest", QuestLevel = 1, MobName = "Zombie", NpcCFrame = CFrame.new(-5490, 48, -795), MobCFrame = CFrame.new(-5600, 48, -950) },
+    { Level = 975, QuestName = "ZombieQuest", QuestLevel = 2, MobName = "Vampire", NpcCFrame = CFrame.new(-5490, 48, -795), MobCFrame = CFrame.new(-6000, 6, -1300) },
+    { Level = 1000, QuestName = "SnowMountainQuest", QuestLevel = 1, MobName = "Snow Trooper", NpcCFrame = CFrame.new(605, 401, -5370), MobCFrame = CFrame.new(500, 401, -5500) },
+    { Level = 1050, QuestName = "SnowMountainQuest", QuestLevel = 2, MobName = "Winter Warrior", NpcCFrame = CFrame.new(605, 401, -5370), MobCFrame = CFrame.new(1100, 430, -5200) },
+    { Level = 1100, QuestName = "IceSideQuest", QuestLevel = 1, MobName = "Lab Subordinate", NpcCFrame = CFrame.new(-6060, 16, -4900), MobCFrame = CFrame.new(-5850, 16, -4800) },
+    { Level = 1150, QuestName = "IceSideQuest", QuestLevel = 2, MobName = "Horned Warrior", NpcCFrame = CFrame.new(-6060, 16, -4900), MobCFrame = CFrame.new(-6400, 16, -5800) },
+    { Level = 1175, QuestName = "FireSideQuest", QuestLevel = 1, MobName = "Magma Ninja", NpcCFrame = CFrame.new(-5430, 16, -5295), MobCFrame = CFrame.new(-5400, 16, -5800) },
+    { Level = 1200, QuestName = "FireSideQuest", QuestLevel = 2, MobName = "Lava Pirate", NpcCFrame = CFrame.new(-5430, 16, -5295), MobCFrame = CFrame.new(-5200, 16, -4800) },
+    { Level = 1250, QuestName = "ShipQuest1", QuestLevel = 1, MobName = "Ship Deckhand", NpcCFrame = CFrame.new(1030, 125, 32910), MobCFrame = CFrame.new(1180, 130, 33000) },
+    { Level = 1275, QuestName = "ShipQuest1", QuestLevel = 2, MobName = "Ship Engineer", NpcCFrame = CFrame.new(1030, 125, 32910), MobCFrame = CFrame.new(900, 50, 33000) },
+    { Level = 1300, QuestName = "ShipQuest2", QuestLevel = 1, MobName = "Ship Steward", NpcCFrame = CFrame.new(968, 125, 33240), MobCFrame = CFrame.new(915, 130, 33400) },
+    { Level = 1325, QuestName = "ShipQuest2", QuestLevel = 2, MobName = "Ship Officer", NpcCFrame = CFrame.new(968, 125, 33240), MobCFrame = CFrame.new(915, 180, 33300) },
+    { Level = 1350, QuestName = "FrostQuest", QuestLevel = 1, MobName = "Arctic Warrior", NpcCFrame = CFrame.new(5560, 28, -6250), MobCFrame = CFrame.new(6000, 28, -6200) },
+    { Level = 1375, QuestName = "FrostQuest", QuestLevel = 2, MobName = "Snow Lurker", NpcCFrame = CFrame.new(5560, 28, -6250), MobCFrame = CFrame.new(5500, 50, -6800) },
+    { Level = 1425, QuestName = "ForgottenQuest", QuestLevel = 1, MobName = "Sea Soldier", NpcCFrame = CFrame.new(-3050, 238, -10145), MobCFrame = CFrame.new(-3000, 50, -9600) },
+    { Level = 1450, QuestName = "ForgottenQuest", QuestLevel = 2, MobName = "Water Fighter", NpcCFrame = CFrame.new(-3050, 238, -10145), MobCFrame = CFrame.new(-3300, 240, -10500) }
+}
+
+------------------------------------------------------------------
+-- HÀM BỔ TRỢ DI CHUYỂN & GIỮ CHÂN TRÊN KHÔNG AN TOÀN
+------------------------------------------------------------------
+local function forceUnsit()
+    local character = player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            if humanoid.Sit then humanoid.Sit = false end
+            if humanoid.PlatformStand then humanoid.PlatformStand = false end
+        end
+    end
+end
+
+local function ensureHoverBodyVelocity()
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local hrp = character.HumanoidRootPart
+        local bv = hrp:FindFirstChild("AntiFallHover")
+        if not bv then
+            bv = Instance.new("BodyVelocity")
+            bv.Name = "AntiFallHover"
+            bv.Velocity = Vector3.new(0, 0, 0)
+            bv.MaxForce = Vector3.new(9e5, 9e5, 9e5)
+            bv.Parent = hrp
+        end
+    end
+end
+
+local function flyLinearTo(targetCFrame, speed)
+    if not isScriptEnabled or isDoingGacha then return end
+    forceUnsit()
+    ensureHoverBodyVelocity()
+    
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local hrp = character.HumanoidRootPart
+    speed = speed or FLY_SPEED_LONG
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    
+    if distance < 4 then
+        hrp.CFrame = targetCFrame
+        isTweening = false
+        setNoclip(false)
+        return
+    end
+
+    isTweening = true
+    setNoclip(true)
+
+    local tweenInfo = TweenInfo.new(distance / speed, Enum.EasingStyle.Linear)
+    currentTween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    currentTween:Play()
+    currentTween.Completed:Wait()
+
+    setNoclip(false)
+    isTweening = false
+end
+
+local function restoreCharacterControl()
+    local character = player.Character
+    if character then
+        setNoclip(false)
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _, v in pairs(hrp:GetChildren()) do
+                if v.Name == "AntiFall" or v.Name == "AntiFallHover" then v:Destroy() end
+            end
+        end
+    end
+    if currentTween then currentTween:Cancel() currentTween = nil end
+    isTweening = false
+    forceUnsit()
+end
+
+------------------------------------------------------------------
+-- HÀM COMBAT FAST ATTACK AN TOÀN
+------------------------------------------------------------------
+local function autoBuso()
+    pcall(function()
+        local character = player.Character
+        if character and not character:FindFirstChild("HasBuso") then
+            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+            if commF then
+                commF:InvokeServer("Buso")
+            end
+        end
+    end)
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        autoBuso()
+    end
+end)
+
+local function equipWeapon()
+    local character = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    if character and backpack and not character:FindFirstChildOfClass("Tool") then
+        for _, item in pairs(backpack:GetChildren()) do
+            if item:IsA("Tool") and (item.ToolTip == "Melee" or item.ToolTip == "Sword" or item.ToolTip == "Blox Fruit") then
+                character.Humanoid:EquipTool(item)
+                break
+            end
+        end
+    end
+end
+
+local function attackAboveHead(mobHrp)
+    pcall(function()
+        local character = player.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = character.HumanoidRootPart
+        local mob = mobHrp.Parent
+        local mobHum = mob and mob:FindFirstChild("Humanoid")
+
+        if not mob or not mobHum or mobHum.Health <= 0 then return end
+
+        ensureHoverBodyVelocity()
+        setNoclip(true)
+
+        local targetPos = mobHrp.CFrame * CFrame.new(0, 20, 0)
+        if (hrp.Position - targetPos.Position).Magnitude > 3 then
+            hrp.CFrame = targetPos
+        end
+        
+        equipWeapon()
+
+        if tick() - lastAttackTime >= 0.40 then
+            lastAttackTime = tick()
+            if RegisterAttack then RegisterAttack:FireServer(0) end
+            if RegisterHit then RegisterHit:FireServer(mobHrp, {mobHum}) end
+        end
+    end)
+end
+
+------------------------------------------------------------------
+-- HÀM AUTO STORE FRUIT
+------------------------------------------------------------------
+local function autoStoreFruit()
+    pcall(function()
+        local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        if not commF then return end
+
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        
+        if humanoid then humanoid:UnequipTools() end
+        task.wait(1)
+
+        local fruits = {}
+        local backpack = player:FindFirstChild("Backpack")
+        
+        if backpack then
+            for _, tool in pairs(backpack:GetChildren()) do
+                if tool:IsA("Tool") and (string.find(tool.Name, "Fruit") or string.find(tool.Name, "Trái") or tool:GetAttribute("OriginalName")) then
+                    table.insert(fruits, tool)
+                end
+            end
+        end
+        
+        if character then
+            for _, tool in pairs(character:GetChildren()) do
+                if tool:IsA("Tool") and (string.find(tool.Name, "Fruit") or string.find(tool.Name, "Trái") or tool:GetAttribute("OriginalName")) then
+                    table.insert(fruits, tool)
+                end
+            end
+        end
+
+        for _, tool in pairs(fruits) do
+            local storeName = tool:GetAttribute("OriginalName")
+            if not storeName then
+                local cleanName = tool.Name:gsub(" Fruit", ""):gsub("Trái ", ""):gsub(" ", "")
+                storeName = cleanName .. "-" .. cleanName
+            end
+            
+            pcall(function()
+                commF:InvokeServer("StoreFruit", storeName, tool)
+            end)
+        end
+
+        local playerGui = player:FindFirstChild("PlayerGui")
+        if playerGui and playerGui:FindFirstChild("Main") then
+            if playerGui.Main:FindFirstChild("FruitDialog") then playerGui.Main.FruitDialog.Visible = false end
+            if playerGui.Main:FindFirstChild("Dialog") then playerGui.Main.Dialog.Visible = false end
+        end
+    end)
+end
+
+------------------------------------------------------------------
+-- HÀM GIẢ LẬP CLICK 3D VÀ NÚT MUA GACHA
+------------------------------------------------------------------
+local function clickWorldPosition(worldPos, times)
+    times = times or 1
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local screenPos, onScreen = camera:WorldToViewportPoint(worldPos)
+    if onScreen then
+        for i = 1, times do
+            VirtualInputManager:SendMouseButtonEvent(screenPos.X, screenPos.Y, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(screenPos.X, screenPos.Y, 0, false, game, 0)
+            task.wait(0.05)
+        end
+    end
+end
+
+local function autoClickGachaUIButton()
+    pcall(function()
+        local playerGui = player:FindFirstChild("PlayerGui")
+        if not playerGui then return end
+
+        for _, v in pairs(playerGui:GetDescendants()) do
+            if (v:IsA("TextButton") or v:IsA("ImageButton")) and v.Visible then
+                local text = v:IsA("TextButton") and v.Text or ""
+                local name = string.lower(v.Name)
+
+                if string.find(text, "%$") or string.find(name, "buy") or string.find(name, "gacha") or string.find(name, "cousin") then
+                    if firesignal then
+                        firesignal(v.MouseButton1Click)
+                        firesignal(v.Activated)
+                    end
+
+                    local absPos = v.AbsolutePosition
+                    local absSize = v.AbsoluteSize
+                    local centerX = absPos.X + (absSize.X / 2)
+                    local centerY = absPos.Y + (absSize.Y / 2) + 38 
+
+                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+                    task.wait(0.05)
+                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
+                end
+            end
+        end
+    end)
+end
+
+------------------------------------------------------------------
+-- HÀM KIỂM TRA QUYẾT ĐỊNH QUEST
+------------------------------------------------------------------
+local function getQuestDataForActiveQuest()
+    local questData = nil
+    pcall(function()
+        local playerGui = player:FindFirstChild("PlayerGui")
+        local questFrame = playerGui and playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("Quest")
+        if questFrame and questFrame.Visible then
+            local container = questFrame:FindFirstChild("Container")
+            if container and container:FindFirstChild("QuestTitle") and container.QuestTitle:FindFirstChild("Title") then
+                local titleText = string.lower(container.QuestTitle.Title.Text)
+                for _, q in ipairs(Sea2MobQuests) do
+                    if string.find(titleText, string.lower(q.MobName)) then
+                        questData = q
+                        break
+                    end
+                end
+            end
+        end
+    end)
+    return questData
+end
+
+local function getCurrentQuestData()
+    local activeQuest = getQuestDataForActiveQuest()
+    if activeQuest then return activeQuest end
+
+    local myLevel = 700
+    pcall(function() myLevel = player.Data.Level.Value end)
+    local selectedQuest = Sea2MobQuests[1]
+    for i = #Sea2MobQuests, 1, -1 do
+        if myLevel >= Sea2MobQuests[i].Level then
+            selectedQuest = Sea2MobQuests[i]
+            break
+        end
+    end
+    return selectedQuest
+end
+
+------------------------------------------------------------------
+-- UI GIAO DIỆN SEA 2
+------------------------------------------------------------------
+if CoreGui:FindFirstChild("AutoFarmLeftGui") then CoreGui.AutoFarmLeftGui:Destroy() end
+if CoreGui:FindFirstChild("AutoFarmTopGui") then CoreGui.AutoFarmTopGui:Destroy() end
+
+local screenGuiLeft = Instance.new("ScreenGui", CoreGui)
+screenGuiLeft.Name = "AutoFarmLeftGui"
+
+local screenGuiTop = Instance.new("ScreenGui", CoreGui)
+screenGuiTop.Name = "AutoFarmTopGui"
+screenGuiTop.IgnoreGuiInset = true
+
+local mainFrame = Instance.new("Frame", screenGuiLeft)
+mainFrame.Size = UDim2.new(0, 250, 0, 50)
+mainFrame.Position = UDim2.new(0, 10, 0, 10)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+mainFrame.BackgroundTransparency = 0.15
+mainFrame.Active = true
+mainFrame.Draggable = true
+
+local frameCorner = Instance.new("UICorner", mainFrame)
+frameCorner.CornerRadius = UDim.new(0, 10)
+
+local frameStroke = Instance.new("UIStroke", mainFrame)
+frameStroke.Thickness = 1.5
+frameStroke.Color = Color3.fromRGB(0, 230, 150)
+
+local statusDot = Instance.new("Frame", mainFrame)
+statusDot.Size = UDim2.new(0, 10, 0, 10)
+statusDot.Position = UDim2.new(0, 14, 0.5, -5)
+statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
+
+local dotCorner = Instance.new("UICorner", statusDot)
+dotCorner.CornerRadius = UDim.new(1, 0)
+
+local titleText = Instance.new("TextLabel", mainFrame)
+titleText.Size = UDim2.new(0, 200, 0, 20)
+titleText.Position = UDim2.new(0, 32, 0, 8)
+titleText.BackgroundTransparency = 1
+titleText.Text = "AUTO FARM & GACHA (SEA 2)"
+titleText.TextColor3 = Color3.fromRGB(240, 240, 240)
+titleText.TextSize = 11
+titleText.Font = Enum.Font.GothamBold
+
+local subText = Instance.new("TextLabel", mainFrame)
+subText.Size = UDim2.new(0, 200, 0, 14)
+subText.Position = UDim2.new(0, 32, 0, 26)
+subText.BackgroundTransparency = 1
+subText.Text = "Status: RUNNING [Phím K]"
+subText.TextColor3 = Color3.fromRGB(0, 230, 115)
+subText.TextSize = 10
+subText.Font = Enum.Font.GothamMedium
+
+local toggleBtn = Instance.new("TextButton", mainFrame)
+toggleBtn.Size = UDim2.new(1, 0, 1, 0)
+toggleBtn.BackgroundTransparency = 1
+toggleBtn.Text = ""
+
+local trackerFrame = Instance.new("Frame", screenGuiTop)
+trackerFrame.Size = UDim2.new(0, 420, 0, 28)
+trackerFrame.Position = UDim2.new(0.5, -210, 0, 2)
+trackerFrame.BackgroundColor3 = Color3.fromRGB(15, 18, 24)
+trackerFrame.BackgroundTransparency = 0.2
+
+local trackerCorner = Instance.new("UICorner", trackerFrame)
+trackerCorner.CornerRadius = UDim.new(0, 6)
+
+local trackerStroke = Instance.new("UIStroke", trackerFrame)
+trackerStroke.Thickness = 1
+trackerStroke.Color = Color3.fromRGB(0, 230, 150)
+
+local trackerText = Instance.new("TextLabel", trackerFrame)
+trackerText.Size = UDim2.new(1, 0, 1, 0)
+trackerText.BackgroundTransparency = 1
+trackerText.Text = "🎯 Anti-AFK Active | Fast Attack (Safe)"
+trackerText.TextColor3 = Color3.fromRGB(255, 255, 255)
+trackerText.TextSize = 11
+trackerText.Font = Enum.Font.GothamBold
+
+------------------------------------------------------------------
+-- HÀM CẬP NHẬT UI & STATS
+------------------------------------------------------------------
+local function updateQuestTracker()
+    pcall(function()
+        local playerGui = player:WaitForChild("PlayerGui")
+        local questFrame = playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("Quest")
+        
+        if questFrame and questFrame.Visible then
+            local container = questFrame:FindFirstChild("Container")
+            if container and container:FindFirstChild("QuestTitle") then
+                local title = container.QuestTitle.Title.Text
+                local progress = container:FindFirstChild("QuestProgress") and container.QuestProgress.Text or ""
+                trackerText.Text = string.format("🎯 %s (%s)", title, progress)
+            else
+                trackerText.Text = "🎯 Đang làm nhiệm vụ..."
+            end
+        else
+            trackerText.Text = "❌ Chưa nhận nhiệm vụ"
+        end
+    end)
+end
+
+local function autoAddStats()
+    if tick() - lastStatUpdate < 2 then return end
+    lastStatUpdate = tick()
+
+    pcall(function()
+        local points = player.Data.Points.Value
+        if points > 0 then
+            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+            if commF then
+                commF:InvokeServer("AddPoint", "Melee", 2)
+                commF:InvokeServer("AddPoint", "Defense", 1)
+            end
+        end
+    end)
+end
+
+local function updateUIState()
+    if isDoingGacha then
+        frameStroke.Color = Color3.fromRGB(255, 200, 0)
+        statusDot.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+        subText.Text = "🍇 Đang nhận trái (10s)..."
+        subText.TextColor3 = Color3.fromRGB(255, 200, 0)
+        trackerText.Text = "🍇 Đang lấy trái ác quỷ..."
+        return
+    end
+
+    local qData = getCurrentQuestData()
+    if isScriptEnabled then
+        frameStroke.Color = Color3.fromRGB(0, 230, 150)
+        statusDot.BackgroundColor3 = Color3.fromRGB(0, 230, 115)
+        subText.Text = string.format("Mob: %s | Lv: %d [K]", qData.MobName, qData.Level)
+        subText.TextColor3 = Color3.fromRGB(0, 230, 115)
+    else
+        frameStroke.Color = Color3.fromRGB(235, 60, 60)
+        statusDot.BackgroundColor3 = Color3.fromRGB(235, 60, 60)
+        subText.Text = "Status: PAUSED [K]"
+        subText.TextColor3 = Color3.fromRGB(235, 60, 60)
+    end
+end
+
+local function toggleState()
+    isScriptEnabled = not isScriptEnabled
+    updateUIState()
+    if not isScriptEnabled then restoreCharacterControl() end
+end
+
+toggleBtn.MouseButton1Click:Connect(toggleState)
+UserInputService.InputBegan:Connect(function(input, gP)
+    if not gP and input.KeyCode == Enum.KeyCode.K then toggleState() end
+end)
+
+local function startQuest(qName, qLevel)
+    pcall(function()
+        local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+        if commF then commF:InvokeServer("StartQuest", qName, qLevel) end
+    end)
+end
+
+local function getClosestMob(mobName)
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    local hrp = character.HumanoidRootPart
+    local closestMob = nil
+    local shortestDistance = 2000
+
+    local enemies = workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, mob in pairs(enemies:GetChildren()) do
+            if string.find(mob.Name, mobName) then
+                local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+                local mobHum = mob:FindFirstChild("Humanoid")
+                if mobHrp and mobHum and mobHum.Health > 0 then
+                    local dist = (hrp.Position - mobHrp.Position).Magnitude
+                    if dist < shortestDistance then
+                        shortestDistance = dist
+                        closestMob = mob
+                    end
+                end
+            end
+        end
+    end
+    return closestMob
+end
+
+------------------------------------------------------------------
+-- HÀM NHẬN TRÁI ÁC QUỶ (GACHA)
+------------------------------------------------------------------
+local function runGachaFruit()
+    isDoingGacha = true
+    restoreCharacterControl()
+    updateUIState()
+
+    local startTime = tick()
+
+    while tick() - startTime < 10 do
+        local character = player.Character or player.CharacterAdded:Wait()
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+
+        if hrp then
+            hrp.CFrame = CFrame.new(gachaTargetPos)
+        end
+
+        pcall(function()
+            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+            if commF then
+                commF:InvokeServer("Cousin", "Buy")
+            end
+        end)
+
+        clickWorldPosition(gachaClickPos, 2)
+        autoClickGachaUIButton()
+        autoStoreFruit()
+        
+        task.wait(0.4)
+    end
+
+    autoStoreFruit()
+    isDoingGacha = false
+    
+    forceUnsit()
+    updateUIState()
+end
+
+------------------------------------------------------------------
+-- VÒNG LẶP CHÍNH AUTO FARM MOB SEA 2
+------------------------------------------------------------------
+task.spawn(function()
+    while task.wait(0.05) do
+        if isScriptEnabled and not isTweening and not isDoingGacha then
+            pcall(function()
+                local character = player.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                
+                forceUnsit()
+                ensureHoverBodyVelocity()
+                autoBuso()
+                updateUIState()
+                updateQuestTracker()
+                autoAddStats()
+                
+                local hrp = character.HumanoidRootPart
+                local qData = getCurrentQuestData()
+                local playerGui = player:WaitForChild("PlayerGui")
+                local questFrame = playerGui.Main.Quest
+
+                if not questFrame.Visible then
+                    local distToNpc = (hrp.Position - qData.NpcCFrame.Position).Magnitude
+                    if distToNpc > 15 then
+                        flyLinearTo(qData.NpcCFrame, FLY_SPEED_LONG)
+                    end
+                    if isScriptEnabled and not isDoingGacha then
+                        startQuest(qData.QuestName, qData.QuestLevel)
+                        task.wait(0.5)
+                    end
+                else
+                    local targetMob = getClosestMob(qData.MobName)
+                    if targetMob and targetMob:FindFirstChild("HumanoidRootPart") then
+                        local mobHrp = targetMob.HumanoidRootPart
+                        local distToMob = (hrp.Position - mobHrp.Position).Magnitude
+                        
+                        if distToMob > 25 then
+                            flyLinearTo(mobHrp.CFrame * CFrame.new(0, 20, 0), FLY_SPEED_SHORT)
+                        else
+                            attackAboveHead(mobHrp)
+                        end
+                    else
+                        if (hrp.Position - qData.MobCFrame.Position).Magnitude > 20 then
+                            flyLinearTo(qData.MobCFrame, FLY_SPEED_SHORT)
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+------------------------------------------------------------------
+-- LUỒNG ĐIỀU KHIỂN THỜI GIAN LẶP GACHA (MỖI 2 TIẾNG)
+------------------------------------------------------------------
+task.spawn(function()
+    while true do
+        runGachaFruit()
+        task.wait(7210)
+    end
+end)
+
+
+else
+    -- Không ở Sea 1 hoặc Sea 2
+    local CoreGui = game:GetService("CoreGui")
+    if CoreGui:FindFirstChild("AutoFarmLeftGui") then CoreGui.AutoFarmLeftGui:Destroy() end
+    if CoreGui:FindFirstChild("AutoFarmTopGui") then CoreGui.AutoFarmTopGui:Destroy() end
+
+    local p = game:GetService("Players").LocalPlayer
+    local gui = p:FindFirstChild("PlayerGui")
+    if gui then
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Auto Farm Lỗi",
+            Text = "Phiên bản này chỉ hỗ trợ Sea 1 và Sea 2!",
+            Duration = 10
+        })
+    end
+end
+
+
+-- Version: 1.2.0
