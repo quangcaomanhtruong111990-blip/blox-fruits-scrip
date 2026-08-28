@@ -1,6 +1,34 @@
+local currentSea = 1
 local placeId = game.PlaceId
 
 if placeId == 2753915549 then
+    currentSea = 1
+elseif placeId == 4442274612 or placeId == 508273428 then
+    currentSea = 2
+elseif placeId == 7449423635 then
+    currentSea = 3
+else
+    local map = workspace:FindFirstChild("Map") or workspace:FindFirstChild("_WorldOrigin")
+    if map then
+        if map:FindFirstChild("Desert") or map:FindFirstChild("Jungle") then
+            currentSea = 1
+        elseif map:FindFirstChild("Cafe") or map:FindFirstChild("Mansion") or map:FindFirstChild("Colosseum") or map:FindFirstChild("SnowMountain") then
+            currentSea = 2
+        elseif map:FindFirstChild("PortTown") or map:FindFirstChild("Mansion") then
+            currentSea = 3
+        end
+    end
+    
+    local p = game:GetService("Players").LocalPlayer
+    local data = p and p:FindFirstChild("Data")
+    if data and data:FindFirstChild("Level") then
+        if currentSea == 1 and data.Level.Value >= 700 and data.Level.Value < 1500 then
+            currentSea = 2
+        end
+    end
+end
+
+if currentSea == 1 then
 ------------------------------------------------------------------
 -- BẮT ĐẦU AUTO SEA 1
 ------------------------------------------------------------------
@@ -1168,7 +1196,7 @@ task.spawn(function()
     end
 end)
 
-elseif placeId == 4442274612 then
+elseif currentSea == 2 then
 ------------------------------------------------------------------
 -- BẮT ĐẦU AUTO SEA 2
 ------------------------------------------------------------------
@@ -1954,4 +1982,4 @@ else
 end
 
 
--- Version: 1.2.0
+-- Version: 1.2.2
