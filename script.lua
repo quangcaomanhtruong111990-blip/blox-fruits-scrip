@@ -103,7 +103,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 {
                     title = GameName,
                     description = game.PlaceId .. " | " .. game.JobId,
-                    color = 15642286,
+                    color = ,
                     fields = {
                         {
                             name = "Error Details",
@@ -231,7 +231,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "kunblox.net"
+        NameHub.Text = "cac"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
