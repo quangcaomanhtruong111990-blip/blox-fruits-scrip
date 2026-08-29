@@ -1,25 +1,37 @@
+-- === KHỞI TẠO BIẾN CƠ BẢN VÀ DEPENDENCIES ===
 local Players = game:GetService("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local VirtualUser = game:GetService("VirtualUser")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local GuiService = game:GetService("GuiService")
-local RunService = game:GetService("RunService")
-
 local player = Players.LocalPlayer
+local LocalPlayer = player -- Giải quyết xung đột chữ hoa/thường ở các hàm dưới
 
-local data = player:WaitForChild("Data", 20)
-if not data then return end
+local Services = {
+    Workspace = game:GetService("Workspace"),
+    ReplicatedStorage = game:GetService("ReplicatedStorage"),
+    RunService = game:GetService("RunService"),
+    VirtualUser = game:GetService("VirtualUser")
+}
 
-local Remotes = ReplicatedStorage:WaitForChild("Remotes", 20)
-local CommF = Remotes and Remotes:WaitForChild("CommF_", 20)
+local ScriptStorage = {
+    Tracebacks = {}, Task = {}, PlayerData = {}, NPCs = {}, 
+    Backpack = {}, Melees = {}, Connections = { LocalPlayer = {} },
+    Tools = {}, IgnoreStoreFruits = {}
+}
 
-local Modules = ReplicatedStorage:WaitForChild("Modules", 20)
-local Net = Modules and Modules:WaitForChild("Net", 20)
-local RegisterAttack = Net and (Net:FindFirstChild("RE/RegisterAttack") or Net:FindFirstChild("RegisterAttack"))
-local RegisterHit = Net and (Net:FindFirstChild("RE/RegisterHit") or Net:FindFirstChild("RegisterHit"))
+local Config = {
+    Configuration = { IdleCheck = false },
+    Items = { Eatlist = {} }
+}
+local SCRIPT_CONFIG = Config
+
+local Storage = {
+    Set = function(self, key, value) end,
+    Save = function(self) end
+}
+
+-- Khởi tạo các hàm phụ để chống lỗi undefined (nếu trong code chưa có)
+local function SetText(...) end
+local function alert(...) end
+local function Report(...) end
+local function Hop(...) end
 
 -- Anti AFK
 pcall(function()
@@ -2483,23 +2495,23 @@ local FLY_SPEED_SHORT = 85
         )
         -- LP Controller
 
-        FunctionsHandler.LocalPlayerController:RegisterMethod(
-            "EquipTool",
-            function(Tool)
-                if not Humanoid then
-                    return
-                end
-
-                for _, Item in LocalPlayer.Backpack:GetChildren() do
-                    if
-                        Item:IsA("Tool") and Item.Name ~= "Tool" and
-                            (Item.Name == tostring(Tool) or Item.ToolTip == Tool)
-                     then
-                        LocalPlayer.Character:WaitForChild "Humanoid":EquipTool(Item)
-                    end
-                end
-            end
-        )
+FunctionsHandler.LocalPlayerController:RegisterMethod(
+    "EquipTool",
+    function(Tool)
+        local char = LocalPlayer.Character
+        if not char then return end
+        
+        local Humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not Humanoid then
+            return -- Đã fix lỗi nhận diện Humanoid của Character hiện tại
+        end
+        
+        local toolObj = LocalPlayer.Backpack:FindFirstChild(Tool) or char:FindFirstChild(Tool)
+        if toolObj and toolObj:IsA("Tool") then
+            Humanoid:EquipTool(toolObj)
+        end
+    end
+)
 
         FunctionsHandler.LocalPlayerController:RegisterMethod(
             "ToggleAbilities",
@@ -3165,7 +3177,6 @@ local FLY_SPEED_SHORT = 85
                     if not Check1 then
                         if Check2 and Check2.Transparency == 0 then
                             SetTask("MainTask", "Auto Race V2 - Collecting Flower " .. i)
-                            while not ScriptStorage.Tools["Flower " .. i] do
                                 task.wait()
                                 TweenController.Create(Check2.CFrame + Vector3.new(0, math.random(-1, 2), 0))
                             end
