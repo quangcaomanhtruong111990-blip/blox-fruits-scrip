@@ -2193,6 +2193,48 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         
         -- TweenController
         
+        local noclipConnection = nil
+        local function setNoclip(enabled)
+            if enabled then
+                if not noclipConnection then
+                    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+                        local player = game.Players.LocalPlayer
+                        if player.Character then
+                            for _, part in pairs(player.Character:GetDescendants()) do
+                                if part:IsA("BasePart") and part.CanCollide then
+                                    part.CanCollide = false
+                                end
+                            end
+                        end
+                    end)
+                end
+            else
+                if noclipConnection then
+                    noclipConnection:Disconnect()
+                    noclipConnection = nil
+                end
+                local player = game.Players.LocalPlayer
+                if player.Character then
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end
+
+        local function forceUnsit()
+            local character = game.Players.LocalPlayer.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    if humanoid.Sit then humanoid.Sit = false end
+                    if humanoid.PlatformStand then humanoid.PlatformStand = false end
+                end
+            end
+        end
+        
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
@@ -2215,23 +2257,23 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         
             TweenController._isCreating = true
         
-            -- 3. XỬ LÝ NOCLIP (Mượt hơn)
-            pcall(function()
-                for _, part in ipairs(Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
-                end
-            end)
+            -- 3. XỬ LÝ NOCLIP (Native Stepped)
+            setNoclip(true)
+            forceUnsit()
         
-            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity)
-            local head = Character:FindFirstChild("Head")
-            if head and not head:FindFirstChild("eltrul") then
+            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity trên HRP an toàn hơn)
+            if not RootPart:FindFirstChild("AntiFallHover") then
                 local bv = Instance.new("BodyVelocity")
-                bv.Name = "eltrul"
-                bv.MaxForce = Vector3.new(0, math.huge, 0)
+                bv.Name = "AntiFallHover"
+                bv.MaxForce = Vector3.new(9e5, 9e5, 9e5)
                 bv.Velocity = Vector3.zero
-                bv.Parent = head
+                bv.Parent = RootPart
+            end
+            
+            -- Xóa eltrul cũ nếu còn
+            local head = Character:FindFirstChild("Head")
+            if head and head:FindFirstChild("eltrul") then
+                head.eltrul:Destroy()
             end
         
             -- 5. LOGIC DI CHUYỂN ĐẶC BIỆT (Sea 3 Submarine / Portals)
@@ -2487,6 +2529,23 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             pcall(
                 function()
                     _G.FastAttack = os.time()
+                    
+                    if typeof(MonResult) == "Instance" and MonResult:IsA("Model") then
+                        local character = game.Players.LocalPlayer.Character
+                        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                        
+                        local mobHum = MonResult:FindFirstChild("Humanoid")
+                        local mobHrp = MonResult:FindFirstChild("HumanoidRootPart")
+
+                        if not mobHrp or not mobHum or mobHum.Health <= 0 then return end
+                        
+                        local now = os.clock()
+                        if now - lastFuncsAttackTime >= 0.15 then
+                            lastFuncsAttackTime = now
+                            if RegisterAttack then RegisterAttack:FireServer(0) end
+                            if RegisterHit then RegisterHit:FireServer(mobHrp, {mobHum}) end
+                        end
+                    end
                 end
             )
         end
