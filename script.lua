@@ -75,7 +75,7 @@ repeat
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
 until game.Players.LocalPlayer.Character
 game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
-    if os.time() >= 1756319996 then
+    if os.time() >= 000000 then
     --  while true do end
     end
     
@@ -103,7 +103,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 {
                     title = GameName,
                     description = game.PlaceId .. " | " .. game.JobId,
-                    color = ,
+                    color = 15642286,
                     fields = {
                         {
                             name = "Error Details",
@@ -231,7 +231,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "cac"
+        NameHub.Text = "kunblox.net"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
