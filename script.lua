@@ -1309,7 +1309,7 @@ task.spawn(function()
                 else
                     activeQuest = nil 
 
-                    if myLevel < 700 or not hasAllMeleesMaxed() then
+                    if myLevel < 200 then
                         forceUnsit()
                         autoManageMelee()
 
@@ -1330,6 +1330,24 @@ task.spawn(function()
                     elseif not checkOwnsSaber() then
                         subText.Text = "🚀 Đang làm nhiệm vụ Saber..."
                         doSaberQuest()
+
+                    elseif myLevel < 700 then
+                        forceUnsit()
+                        autoManageMelee()
+
+                        local qData = getCurrentQuestData()
+                        activeQuest = qData
+                        subText.Text = string.format("Mob: %s | Lv: %d", qData.MobName, myLevel)
+
+                        local distToNpc = (hrp.Position - qData.NpcCFrame.Position).Magnitude
+                        if distToNpc > 15 then
+                            updateTracker(string.format("📜 Bay nhận Quest: %s (Lv %d)", qData.MobName, qData.Level))
+                            flyLinearTo(qData.NpcCFrame, FLY_SPEED_LONG)
+                        end
+                        if isScriptEnabled and not isDoingGacha then
+                            CommF:InvokeServer("StartQuest", qData.QuestName, qData.QuestLevel)
+                            task.wait(0.5)
+                        end
                     else
                         subText.Text = "🚀 Đang làm nhiệm vụ sang Sea 2..."
 
@@ -2302,4 +2320,4 @@ else
 end
 
 
--- Version: 1.2.4 (Full Auto Saber Quest: Shanks Lv 200)
+-- Version: 1.2.5 (Fix Saber Quest Priority over Mastery)
