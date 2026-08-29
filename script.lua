@@ -4060,16 +4060,35 @@ FunctionsHandler = {
             "Refresh",
             function()
                 local Boss
-                for _, BossName in BossesOrder do
+                for _, BossName in pairs(BossesOrder) do
                     if BossName then 
-                    local LevelReq = BossesOrderLevel[BossName]
-
-                    if ScriptStorage.PlayerData.Level >= LevelReq then
-                        local Result = ScriptStorage.Enemies[BossName]
-                        if Result and Result:FindFirstChild("Humanoid") and Result.Humanoid.Health > 0 then
-                            Boss = Result
+                        local LevelReq = BossesOrderLevel[BossName] or 0
+                        if ScriptStorage.PlayerData.Level >= LevelReq then
+                            local Result = ScriptStorage.Enemies[BossName]
+                            if Result and Result:FindFirstChild("Humanoid") and Result.Humanoid.Health > 0 then
+                                Boss = Result
+                                break
+                            end
                         end
                     end
+                end
+
+                if not Boss and SeaIndex == 2 and ScriptStorage.PlayerData.Level >= 1100 and not Storage:Get("SwanDefeated") then
+                    local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
+                    if not tDone then
+                        local tRes = nil
+                        pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
+                        if tRes == 0 or tRes == "0" or tRes == true then
+                            tDone = true
+                            FunctionsHandler.Trevor:Set("IsCompleted", true)
+                            Storage:Set("TrevorCompleted", true)
+                        end
+                    end
+                    if tDone then
+                        local swan = ScriptStorage.Enemies["Don Swan"]
+                        if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
+                            Boss = swan
+                        end
                     end
                 end
 
@@ -4077,6 +4096,7 @@ FunctionsHandler = {
                     Boss and
                         (CaculateDistance(Boss.HumanoidRootPart.CFrame) < (SeaIndex == 2 and 3000 or 5000) or
                             BossesOrderWL[tostring(Boss)] or
+                            tostring(Boss) == "Don Swan" or
                             ScriptStorage.PlayerData.Level == MaxLevel)
                  then
                     return Boss
@@ -4704,50 +4724,82 @@ FunctionsHandler = {
 
         -- Trevor
 
+        local FruitPrices = {
+            ["Quake-Quake"] = 1000000, ["Quake Fruit"] = 1000000,
+            ["Love-Love"] = 1300000, ["Love Fruit"] = 1300000,
+            ["Spider-Spider"] = 1500000, ["Spider Fruit"] = 1500000, ["String-String"] = 1500000,
+            ["Sound-Sound"] = 1700000, ["Sound Fruit"] = 1700000,
+            ["Phoenix-Phoenix"] = 1800000, ["Phoenix Fruit"] = 1800000,
+            ["Portal-Portal"] = 1900000, ["Portal Fruit"] = 1900000, ["Door-Door"] = 1900000,
+            ["Rumble-Rumble"] = 2100000, ["Rumble Fruit"] = 2100000,
+            ["Paw-Paw"] = 2300000, ["Pain-Pain"] = 2300000, ["Pain Fruit"] = 2300000,
+            ["Blizzard-Blizzard"] = 2400000, ["Blizzard Fruit"] = 2400000,
+            ["Gravity-Gravity"] = 2500000, ["Gravity Fruit"] = 2500000,
+            ["Mammoth-Mammoth"] = 2700000, ["Mammoth Fruit"] = 2700000,
+            ["T-Rex-T-Rex"] = 2700000, ["T-Rex Fruit"] = 2700000,
+            ["Dough-Dough"] = 2800000, ["Dough Fruit"] = 2800000,
+            ["Shadow-Shadow"] = 2900000, ["Shadow Fruit"] = 2900000,
+            ["Venom-Venom"] = 3000000, ["Venom Fruit"] = 3000000,
+            ["Control-Control"] = 3200000, ["Control Fruit"] = 3200000,
+            ["Gas-Gas"] = 3200000, ["Gas Fruit"] = 3200000,
+            ["Spirit-Spirit"] = 3400000, ["Spirit Fruit"] = 3400000,
+            ["Dragon-Dragon"] = 3500000, ["Dragon Fruit"] = 3500000,
+            ["Leopard-Leopard"] = 5000000, ["Leopard Fruit"] = 5000000,
+            ["Yeti-Yeti"] = 5000000, ["Yeti Fruit"] = 5000000,
+            ["Kitsune-Kitsune"] = 8000000, ["Kitsune Fruit"] = 8000000,
+        }
+
         FunctionsHandler.Trevor:RegisterMethod(
             "GetFruit",
             function()
-                for _, Fruit in ScriptStorage.Backpack do
-                    if string.find(FruitIdToName(Fruit.Name), " Fruit") then
-                        if Fruit.Value and Fruit.Value > 1000000 then
-                            return Fruit
-                        end
+                if not ScriptStorage.Backpack then return nil end
+                for _, Fruit in pairs(ScriptStorage.Backpack) do
+                    local fName = Fruit.Name or ""
+                    local price = FruitPrices[fName] or Fruit.Price or Fruit.Value or 0
+                    if price >= 1000000 then
+                        return Fruit
+                    end
+                    local parsed = FruitIdToName(fName)
+                    if FruitPrices[parsed] and FruitPrices[parsed] >= 1000000 then
+                        return Fruit
                     end
                 end
+                return nil
             end
         )
 
         FunctionsHandler.Trevor:RegisterMethod(
             "Refresh",
             function()
-                if FunctionsHandler.Trevor:Get("IsCompleted") or os.time() - StartTime < 1 then
-                    return
+                if os.time() - StartTime < 1 then
+                    return nil
+                end
+                if ScriptStorage.PlayerData.Level < 1100 or SeaIndex ~= 2 then
+                    return nil
                 end
 
-                if ScriptStorage.PlayerData.Level < 1100 then
-                    return
+                if not FunctionsHandler.Trevor:Get("IsCompleted") then
+                    local tRes = nil
+                    pcall(function()
+                        tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                    end)
+                    if tRes == 0 or tRes == "0" or tRes == true or Storage:Get("TrevorCompleted") then
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                        Storage:Set("TrevorCompleted", true)
+                    end
+                end
+
+                if FunctionsHandler.Trevor:Get("IsCompleted") then
+                    return nil
                 end
 
                 local Fruit = FunctionsHandler.Trevor.Methods.GetFruit:Call()
-
                 if Fruit then
                     FunctionsHandler.Trevor:Set("Fruit", Fruit)
+                    return true
                 end
 
-                TrevorDebounce = os.time()
-
-                if not FunctionsHandler.Trevor:Get("IsCompleted") then
-                    print("Update IsCompleted")
-                    FunctionsHandler.Trevor:Set("IsCompleted", (Remotes.CommF_:InvokeServer("TalkTrevor", "1") == 0))
-                    print(
-                        "Update IsCompleted",
-                        FunctionsHandler.Trevor:Get("IsCompleted"),
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "1"),
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "1") == 0
-                    )
-                end
-
-                return not FunctionsHandler.Trevor:Get("IsCompleted") and Fruit
+                return nil
             end
         )
 
@@ -4770,13 +4822,12 @@ FunctionsHandler = {
                 FunctionsHandler.Trevor:Set("IsLoadingFruit", false)
 
                 Remotes.CommF_:InvokeServer("TalkTrevor", "1")
-
                 Remotes.CommF_:InvokeServer("TalkTrevor", "2")
-
                 Remotes.CommF_:InvokeServer("TalkTrevor", "3")
 
                 task.wait(1)
                 FunctionsHandler.Trevor:Set("IsCompleted", true)
+                Storage:Set("TrevorCompleted", true)
             end
         )
 
@@ -4788,16 +4839,37 @@ FunctionsHandler = {
                 if ScriptStorage.PlayerData.Level < 1500 or SeaIndex ~= 2 then
                     return nil
                 end
+
                 local zCheck = nil
                 pcall(function()
                     zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
                 end)
-                if zCheck and zCheck ~= -1 and zCheck ~= "nil" then
+                if zCheck and zCheck ~= -1 and zCheck ~= "nil" and zCheck ~= 0 and zCheck ~= "0" then
                     return true
                 end
+
                 if Storage:Get("SwanDefeated") then
                     return true
                 end
+
+                local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
+                if not tDone then
+                    local tRes = nil
+                    pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
+                    if tRes == 0 or tRes == "0" or tRes == true then
+                        tDone = true
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                        Storage:Set("TrevorCompleted", true)
+                    end
+                end
+
+                if tDone then
+                    local swan = ScriptStorage.Enemies["Don Swan"]
+                    if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
+                        return nil
+                    end
+                end
+
                 return nil
             end
         )
@@ -4812,7 +4884,7 @@ FunctionsHandler = {
                 print("[ ThirdSeaPuzzle ] ZQuestProgress Check:", tostring(zProgress))
 
                 if zProgress == 0 or zProgress == "0" or zProgress == nil or zProgress == -1 then
-                    SetTask("MainTask", "Auto Third Sea - Talking to King Red Head / Entering Arena")
+                    SetTask("MainTask", "Auto Third Sea - Talking to King Red Head")
 
                     local startTry = os.time()
                     repeat
