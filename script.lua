@@ -4934,6 +4934,33 @@ FunctionsHandler = {
             "Start",
             function()
                 alert("[ Cyndral ]", "Pulling fruit for trevor...")
+                
+                local char = game.Players.LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                -- Teleport to Cafe to load the map (Trevor is near Mansion, but Cafe ensures Sea 2 loads properly)
+                SetTask("MainTask", "Giao trái ác quỷ cho Trevor")
+                hrp.CFrame = CFrame.new(-382, 75, 297)
+                task.wait(0.3)
+
+                -- Find Trevor
+                local trevorTarget = nil
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("Model") and string.lower(v.Name) == "trevor" then
+                        local p = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart or v:FindFirstChildOfClass("BasePart")
+                        if p then trevorTarget = p.CFrame break end
+                    end
+                end
+
+                if trevorTarget then
+                    hrp.CFrame = trevorTarget + Vector3.new(0, 2, 3)
+                else
+                    hrp.CFrame = CFrame.new(-470, 332, 630)
+                end
+                
+                task.wait(1)
+
                 local Fruit = FunctionsHandler.Trevor:Get("Fruit")
                 FunctionsHandler.Trevor:Set("Fruit", nil)
                 if Fruit and not table.find(ScriptStorage.IgnoreStoreFruits, Fruit.Name) then
@@ -4953,8 +4980,20 @@ FunctionsHandler = {
                 Remotes.CommF_:InvokeServer("TalkTrevor", "3")
 
                 task.wait(1)
-                FunctionsHandler.Trevor:Set("IsCompleted", true)
-                Storage:Set("TrevorCompleted", true)
+                
+                -- Verify if successfully completed
+                local tRes = nil
+                pcall(function()
+                    tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                end)
+                if tRes == 1 or tRes == "1" or tRes == true then
+                    FunctionsHandler.Trevor:Set("IsCompleted", true)
+                    Storage:Set("TrevorCompleted", true)
+                    Storage:Save()
+                    alert("[ Cyndral ]", "Giao trái thành công cho Trevor!")
+                else
+                    alert("[ Cyndral ]", "Giao trái thất bại, thử lại sau.")
+                end
             end
         )
 
