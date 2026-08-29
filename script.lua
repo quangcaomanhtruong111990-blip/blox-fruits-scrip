@@ -3124,15 +3124,8 @@ FunctionsHandler = {
 
                     LastTravel = os.time()
                     if PlayerLevel >= 1500 and (SeaIndex == 2) then
-                        
-                        if not Services.Workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor")  then
-                            
-
-                            Remotes.CommF_:InvokeServer("TravelZou")
-
-                            SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
-                             
-                        end
+                        SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
+                        pcall(function() Remotes.CommF_:InvokeServer("TravelZou") end)
                     elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
                         SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
                         Remotes.CommF_:InvokeServer("TravelDressrosa")
@@ -4781,57 +4774,66 @@ FunctionsHandler = {
                 if ScriptStorage.PlayerData.Level < 1500 or SeaIndex ~= 2 then
                     return nil
                 end
-
                 local zProgress = nil
                 pcall(function()
                     zProgress = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
                 end)
                 print("[ ThirdSeaPuzzle ] ZQuestProgress Check:", tostring(zProgress))
 
-                if zProgress == 0 or zProgress == "0" or zProgress == nil then
-                    FunctionsHandler.ThirdSeaPuzzle:Set("State", "NeedPuzzle")
-                    return "NeedPuzzle"
+                if zProgress == 0 or zProgress == "0" then
+                    FunctionsHandler.ThirdSeaPuzzle:Set("State", true)
+                    return true
                 else
-                    FunctionsHandler.ThirdSeaPuzzle:Set("State", "NeedTravel")
-                    return "NeedTravel"
+                    FunctionsHandler.ThirdSeaPuzzle:Set("State", false)
+                    return nil
                 end
             end
         )
 
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Start",
-            function(State)
-                if not State then
-                    State = FunctionsHandler.ThirdSeaPuzzle:Get("State")
-                end
+            function()
+                SetTask("MainTask", "Auto Third Sea - Talking to King Red Head / Entering Arena")
 
-                if State == "NeedPuzzle" then
-                    SetTask("MainTask", "Auto Third Sea - Starting King Red Head Quest")
+                local startTry = os.time()
+                repeat
                     pcall(function()
                         Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
                     end)
                     task.wait(1)
+                    local zCheck = nil
+                    pcall(function()
+                        zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                    end)
+                    if zCheck ~= 0 and zCheck ~= "0" and zCheck ~= nil then
+                        print("[ ThirdSeaPuzzle ] ZQuestProgress already done during start!")
+                        break
+                    end
+                until CaculateDistance(Vector3.new(0, 0, 0)) > 20000 or (os.time() - startTry > 15)
 
-                    SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
-                    local startFight = os.time()
-                    repeat
-                        pcall(function()
-                            CombatController.Attack({"rip_indra", "rip_indra True Form"})
-                        end)
-                        task.wait(0.5)
-                        local checkProg = nil
-                        pcall(function()
-                            checkProg = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
-                        end)
-                        if checkProg ~= 0 and checkProg ~= "0" and checkProg ~= nil then
-                            print("[ ThirdSeaPuzzle ] rip_indra defeated or quest done!")
-                            State = "NeedTravel"
-                            break
-                        end
-                    until os.time() - startFight > 60
-                end
+                SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
+                local startFight = os.time()
+                repeat
+                    pcall(function()
+                        CombatController.Attack({"rip_indra", "rip_indra True Form"})
+                    end)
+                    task.wait(0.5)
 
-                if State == "NeedTravel" or FunctionsHandler.ThirdSeaPuzzle:Get("State") == "NeedTravel" then
+                    local checkProg = nil
+                    pcall(function()
+                        checkProg = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                    end)
+                    if checkProg ~= 0 and checkProg ~= "0" and checkProg ~= nil then
+                        print("[ ThirdSeaPuzzle ] rip_indra defeated!")
+                        break
+                    end
+                until os.time() - startFight > 60
+
+                local finalCheck = nil
+                pcall(function()
+                    finalCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                end)
+                if finalCheck ~= 0 and finalCheck ~= "0" and finalCheck ~= nil then
                     SetTask("MainTask", "Sea Travel | Teleporting to Third Sea (Zou)")
                     pcall(function()
                         Remotes.CommF_:InvokeServer("TravelZou")
