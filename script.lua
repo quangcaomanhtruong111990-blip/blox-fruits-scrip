@@ -894,7 +894,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                             if Hop then
                                                 Hop("Rejoin")
                                             else
-                                                game.Players.LocalPlayer:Kick("Rejoining...")
+                                                if Hop then Hop("Rejoin") end
                                             end
                                             return
                                         end
@@ -1776,7 +1776,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 lastChange = tick()
             end
 
-            local sum = Position + Vector3.new(math.cos(math.rad(Angle)) * 40, 0, math.sin(math.rad(Angle)) * 40)
+            local sum = Position + Vector3.new(math.cos(math.rad(Angle)) * 20, 0, math.sin(math.rad(Angle)) * 20)
             return CFrame.new(RoundVector3Down(sum.p))
         end
 
@@ -2204,7 +2204,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
-            local Speed = (CurrentDist < 18) and 25 or 200
+            local Speed = (CurrentDist < 20) and 20 or 140
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2348,7 +2348,21 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         local RegisterAttack = require(Net):RemoteEvent("RegisterAttack", true)
         local RegisterHit = require(Net):RemoteEvent("RegisterHit", true)
 
+        local lastFuncsAttackTime = 0
         function Funcs:Attack()
+            local now = os.clock()
+            if now - lastFuncsAttackTime < 0.35 then
+                return
+            end
+            lastFuncsAttackTime = now
+
+            pcall(function()
+                local char = game.Players.LocalPlayer.Character
+                local tool = char and char:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
+                end
+            end)
             local bladehits = {}
             for r, v in pairs(GetAllBladeHits()) do
                 table.insert(bladehits, v)
@@ -2356,10 +2370,34 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             for r, v in pairs(Getplayerhit()) do
                 table.insert(bladehits, v)
             end
-
             if #bladehits == 0 then
                 return
             end
+            local args = {
+                [1] = nil,
+                [2] = {},
+                [4] = "078da341"
+            }
+            for r, v in pairs(bladehits) do
+                RegisterAttack:FireServer(0)
+                local headOrPart = v:FindFirstChild("Head") or v.PrimaryPart
+                if headOrPart then
+                    if not args[1] then
+                        args[1] = headOrPart
+                    end
+                    table.insert(
+                        args[2],
+                        {
+                            [1] = v,
+                            [2] = headOrPart
+                        }
+                    )
+                end
+            end
+            if #args[2] > 0 then
+                RegisterHit:FireServer(unpack(args))
+            end
+        end
 
             local args = {
                 [1] = nil,
@@ -2386,7 +2424,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
-            while task.wait(0.2) do
+            while task.wait(0.35) do
                 if _G.FastAttack == os.time() then
                     pcall(
                         function()
@@ -2585,7 +2623,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     local Count, Debounce = 0, os.time()
                     local Count2, Debounce = 0, os.time()
                     -- Optimize: Add delay to reduce FPS impact
-                    while task.wait(0.25) do
+                    while task.wait(0.35) do
                         if _G.Stop then
                             return
                         end
@@ -2608,10 +2646,10 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                         end
 
                         TweenController.Create(
-                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
+                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 18, 0)
                         )
 
-                        if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
+                        if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 18, 0)) < 150 then
                             CombatController.Grab(Child or "")
                             if MonResult.Name ~= "Core" then
                                 if
@@ -2626,7 +2664,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                     )
                                     alert("Stuck", "Mob health unchanged")
                                     _G.Stop = true
-                                    game.Players.LocalPlayer:Kick("Rejoining...")
+                                    if Hop then Hop("Rejoin") end
 
                                 end
 
@@ -2680,7 +2718,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 elseif not NearbyHit then
                     if (os.time() - LastFound) > 200 then
                         alert("KUN", "Error while farming, rejoin")
-                        game.Players.LocalPlayer:Kick("Rejoining...")
+                        if Hop then Hop("Rejoin") end
                         return
                     end
 
@@ -3298,7 +3336,7 @@ FunctionsHandler = {
                         if CurrentClaimQuest1 ~= QuestTitle and CurrentClaimQuest1 ~= (QuestTitle .. "s") then
                             AbandonedCount = AbandonedCount and AbandonedCount + 1 or 0
                             if AbandonedCount > 20 then 
-                            game.Players.LocalPlayer:Kick("Rejoining...")
+                            if Hop then Hop("Rejoin") end
                             end
                             alert("Abandon Quest", CurrentClaimQuest1 or '' .. ' / ' .. QuestTitle or '')
                             return QuestManager.AbandonQuest()
