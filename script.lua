@@ -283,6 +283,65 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         ToggleIcon.TextSize = 24
         ToggleIcon.TextScaled = true
 
+        -- Create Stop Button Container
+        local StopContainer = Instance.new("Frame")
+        local StopUIStroke = Instance.new("UIStroke")
+        local StopButton = Instance.new("ImageButton")
+        local StopIcon = Instance.new("TextLabel")
+
+        StopContainer.Name = "StopContainer"
+        StopContainer.Parent = HopGui
+        StopContainer.AnchorPoint = Vector2.new(1, 0)
+        StopContainer.Position = UDim2.new(1, -20, 0, 80)
+        StopContainer.Size = UDim2.new(0, 50, 0, 50)
+        StopContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        StopContainer.BackgroundTransparency = 0.2
+        StopContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+        StopContainer.BorderSizePixel = 0
+        StopContainer.ClipsDescendants = true
+        
+        local StopUICorner = Instance.new("UICorner")
+        StopUICorner.CornerRadius = UDim.new(1, 0)
+        StopUICorner.Parent = StopContainer
+        
+        StopUIStroke.Parent = StopContainer
+        StopUIStroke.Color = Color3.fromRGB(255, 50, 50)
+        StopUIStroke.Thickness = 2
+        
+        StopButton.Name = "StopButton"
+        StopButton.Parent = StopContainer
+        StopButton.AnchorPoint = Vector2.new(0.5, 0.5)
+        StopButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+        StopButton.Size = UDim2.new(1, 0, 1, 0)
+        StopButton.BackgroundTransparency = 1
+        StopButton.BorderSizePixel = 0
+        
+        StopIcon.Name = "StopIcon"
+        StopIcon.Parent = StopContainer
+        StopIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+        StopIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+        StopIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
+        StopIcon.BackgroundTransparency = 1
+        StopIcon.BorderSizePixel = 0
+        StopIcon.Font = Enum.Font.GothamBold
+        StopIcon.Text = "🛑"
+        StopIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+        StopIcon.TextSize = 24
+        StopIcon.TextScaled = true
+
+        StopButton.MouseButton1Click:Connect(function()
+            _G.StopScript = true
+            StopIcon.Text = "⛔"
+            print("[SANGBLOX] Script Stopped by User")
+            if getgenv().anchored then
+                getgenv().anchored = false
+            end
+            task.delay(1, function()
+                HopGui:Destroy()
+            end)
+        end)
+
+
         local function createTextLabel(text, position, isImage)
             local StrokeBounty = Instance.new("UIStroke")
             local Bounty = Instance.new("TextLabel")
@@ -5963,6 +6022,7 @@ FunctionsHandler = {
 
         task.spawn(function()
             while true do
+                if _G.StopScript then break end
                 pcall(function()
                     -- 1. Kiểm tra sự tồn tại của Remotes
                     if Remotes and Remotes.CommF_ then
@@ -5996,6 +6056,7 @@ FunctionsHandler = {
 
        
         while task.wait() do
+            if _G.StopScript then break end
             --[[
             if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
                 SendDataDelay = os.time() 
