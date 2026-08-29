@@ -2399,28 +2399,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
         end
 
-            local args = {
-                [1] = nil,
-                [2] = {},
-                [4] = "078da341"
-            }
-            for r, v in pairs(bladehits) do
-                RegisterAttack:FireServer(0)
-                if not args[1] then
-                    args[1] = v.Head
-                end
-                table.insert(
-                    args[2],
-                    {
-                        [1] = v,
-                        [2] = v.HumanoidRootPart
-                    }
-                )
-                table.insert(args[2], v)
-            end
 
-            RegisterHit:FireServer(unpack(args))
-        end
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
