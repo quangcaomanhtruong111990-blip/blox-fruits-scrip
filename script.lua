@@ -4838,10 +4838,22 @@ FunctionsHandler = {
                     pcall(function()
                         tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
                     end)
-                    -- FIX: tRes == 0 means failed (no fruit or not enough value). Do not mark as completed!
-                    if tRes == 1 or tRes == "1" or tRes == true or Storage:Get("TrevorCompleted") then
+                    
+                    if tRes == 1 or tRes == "1" or tRes == true then
+                        -- Server says it's completed
                         FunctionsHandler.Trevor:Set("IsCompleted", true)
                         Storage:Set("TrevorCompleted", true)
+                    elseif tRes == 0 or tRes == "0" then
+                        -- Server says it's NOT completed. If our local storage thinks it is, our storage is bugged!
+                        if Storage:Get("TrevorCompleted") then
+                            print("[SANGBLOX] Detected bugged Trevor state. Fixing...")
+                            Storage:Set("TrevorCompleted", false)
+                            Storage:Set("SwanDefeated", false)
+                            Storage:Save()
+                        end
+                    elseif Storage:Get("TrevorCompleted") then
+                        -- Fallback if server doesn't respond properly but we have it saved
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
                     end
                 end
 
@@ -5625,6 +5637,12 @@ FunctionsHandler = {
         end
 
         Storage.Data = {}
+        pcall(function()
+            local decoded = Decode(readfile(StoragePath))
+            if decoded then Storage.Data = decoded end
+        end)
+
+
 
         --Report(readfile(StoragePath))
         pcall(
