@@ -2305,7 +2305,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
-            local Speed = (CurrentDist < 20) and 20 or 95
+            -- Giảm tốc độ bay chậm lại để tránh bị văng/kick
+            local Speed = (CurrentDist < 20) and 20 or 60
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2742,8 +2743,9 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                             break
                         end
 
+                        -- Hover slightly above the mob, no circling
                         TweenController.Create(
-                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 18, 0)
+                            MobHumanoidRootPart.CFrame * CFrame.new(0, 18, 0)
                         )
 
                         if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 18, 0)) < 150 then
@@ -4939,27 +4941,36 @@ FunctionsHandler = {
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
 
-                -- Teleport to Cafe to load the map (Trevor is near Mansion, but Cafe ensures Sea 2 loads properly)
-                SetTask("MainTask", "Giao trái ác quỷ cho Trevor")
-                hrp.CFrame = CFrame.new(-382, 75, 297)
-                task.wait(0.3)
-
-                -- Find Trevor
-                local trevorTarget = nil
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("Model") and string.lower(v.Name) == "trevor" then
-                        local p = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart or v:FindFirstChildOfClass("BasePart")
-                        if p then trevorTarget = p.CFrame break end
+                SetTask("MainTask", "Bay từ từ tới biệt thự tìm Trevor")
+                local TargetPos = CFrame.new(-470, 332, 630) -- Default Mansion
+                
+                local function findTrevor()
+                    for _, v in pairs(workspace:GetDescendants()) do
+                        if v:IsA("Model") and string.lower(v.Name) == "trevor" then
+                            local p = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart or v:FindFirstChildOfClass("BasePart")
+                            if p then return p.CFrame + Vector3.new(0, 0, 5) end
+                        end
                     end
+                    return nil
                 end
 
-                if trevorTarget then
-                    hrp.CFrame = trevorTarget + Vector3.new(0, 2, 3)
-                else
-                    hrp.CFrame = CFrame.new(-470, 332, 630)
+                local trevorCFrame = findTrevor()
+                if trevorCFrame then TargetPos = trevorCFrame end
+
+                if CaculateDistance(TargetPos) > 10 then
+                    repeat
+                        task.wait()
+                        -- Dò lại lỡ map mới load ra Trevor
+                        local tcf = findTrevor()
+                        if tcf then TargetPos = tcf end
+                        TweenController.Create(TargetPos)
+                    until CaculateDistance(TargetPos) <= 15
                 end
                 
-                task.wait(1)
+                -- Đứng lại đàng hoàng
+                hrp.CFrame = TargetPos
+                TweenController.Create(TargetPos) -- Cancel current tween
+                task.wait(1.5)
 
                 local Fruit = FunctionsHandler.Trevor:Get("Fruit")
                 FunctionsHandler.Trevor:Set("Fruit", nil)
@@ -4967,19 +4978,26 @@ FunctionsHandler = {
                     table.insert(ScriptStorage.IgnoreStoreFruits, Fruit.Name)
                 end
                 
+                SetTask("MainTask", "Đang lấy trái ác quỷ cúng Trevor...")
                 FunctionsHandler.Trevor:Set("IsLoadingFruit", true)
                 
+                -- Lấy từ kho ra
                 Remotes.CommF_:InvokeServer("LoadFruit", Fruit.Name)
-                task.wait(1) 
+                task.wait(1.5) 
+                
+                -- Cầm lên tay
                 FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Fruit.Name))
-                task.wait(0.5) 
+                task.wait(1) 
                 FunctionsHandler.Trevor:Set("IsLoadingFruit", false)
 
+                SetTask("MainTask", "Đang nói chuyện với Trevor...")
                 Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                task.wait(0.5)
                 Remotes.CommF_:InvokeServer("TalkTrevor", "2")
+                task.wait(0.5)
                 Remotes.CommF_:InvokeServer("TalkTrevor", "3")
 
-                task.wait(1)
+                task.wait(1.5)
                 
                 -- Verify if successfully completed
                 local tRes = nil
