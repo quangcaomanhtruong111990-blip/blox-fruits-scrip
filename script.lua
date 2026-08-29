@@ -5016,26 +5016,67 @@ FunctionsHandler = {
         )
 
         print(4)
+                local MillionFruits = {
+            "Quake-Quake", "Love-Love", "Spider-Spider", "Sound-Sound", "Phoenix-Phoenix",
+            "Portal-Portal", "Rumble-Rumble", "Pain-Pain", "Blizzard-Blizzard", "Gravity-Gravity",
+            "Mammoth-Mammoth", "T-Rex-T-Rex", "Dough-Dough", "Shadow-Shadow", "Venom-Venom",
+            "Control-Control", "Spirit-Spirit", "Dragon-Dragon", "Leopard-Leopard", "Kitsune-Kitsune"
+        }
+
+        local function GetMillionFruit()
+            local player = game.Players.LocalPlayer
+            local char = player.Character
+            local bp = player.Backpack
+
+            for _, item in ipairs(char:GetChildren()) do
+                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                    return true
+                end
+            end
+            for _, item in ipairs(bp:GetChildren()) do
+                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                    item.Parent = char
+                    return true
+                end
+            end
+
+            for _, fruitName in ipairs(MillionFruits) do
+                local success = pcall(function()
+                    Remotes.CommF_:InvokeServer("LoadFruit", fruitName)
+                end)
+                task.wait(0.5)
+                for _, item in ipairs(bp:GetChildren()) do
+                    if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                        item.Parent = char
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+
         -- Third Sea Puzzle
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Refresh",
             function()
                 if ScriptStorage.PlayerData.Level < 1500 or SeaIndex ~= 2 then
-                    return nil
+                    return true -- SKIP this task if not ready or not in Sea 2
+                end
+                
+                if SeaIndex == 3 then
+                    return true -- SKIP if already in Sea 3
                 end
 
-                local zCheck = nil
-                pcall(function()
-                    zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
-                end)
-                if zCheck and zCheck ~= -1 and zCheck ~= "nil" and zCheck ~= 0 and zCheck ~= "0" then
-                    return true
-                end
+                return nil -- RUN this task
+            end
+        )
 
-                if Storage:Get("SwanDefeated") then
-                    return true
-                end
-
+        FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
+            "Start",
+            function()
+                -----------------------------------------------------------------
+                -- BƯỚC 1: NHIỆM VỤ TREVOR (GIAO TRÁI >= 1M ĐỂ MỞ CỔNG MANSIOIN)
+                -----------------------------------------------------------------
                 local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
                 if not tDone then
                     local tRes = nil
@@ -5044,72 +5085,120 @@ FunctionsHandler = {
                         tDone = true
                         FunctionsHandler.Trevor:Set("IsCompleted", true)
                         Storage:Set("TrevorCompleted", true)
+                        Storage:Save()
                     end
                 end
 
-                if tDone then
+                if not tDone then
+                    SetTask("MainTask", "Auto Third Sea - Getting Fruit >= 1M")
+                    local hasFruit = GetMillionFruit()
+                    
+                    if hasFruit then
+                        SetTask("MainTask", "Auto Third Sea - Flying to Trevor")
+                        local TargetPos = CFrame.new(-470, 332, 630)
+                        
+                        local function findTrevor()
+                            for _, v in pairs(workspace:GetDescendants()) do
+                                if v:IsA("Model") and string.lower(v.Name) == "trevor" then
+                                    local p = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart or v:FindFirstChildOfClass("BasePart")
+                                    if p then return p.CFrame + Vector3.new(0, 0, 5) end
+                                end
+                            end
+                            return nil
+                        end
+
+                        if CaculateDistance(TargetPos) > 15 then
+                            local tcf = findTrevor()
+                            if tcf then TargetPos = tcf end
+                            TweenController.Create(TargetPos)
+                            return -- Return to allow smooth looping without blocking main thread
+                        end
+                        
+                        TweenController.Create(TargetPos)
+                        task.wait(1)
+
+                        SetTask("MainTask", "Auto Third Sea - Talking to Trevor")
+                        pcall(function()
+                            Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                            task.wait(0.5)
+                            Remotes.CommF_:InvokeServer("TalkTrevor", "2")
+                            task.wait(0.5)
+                            Remotes.CommF_:InvokeServer("TalkTrevor", "3")
+                        end)
+                        return
+                    else
+                        SetTask("MainTask", "Auto Third Sea - Không có Trái >= 1M. Đang chờ...")
+                        return
+                    end
+                end
+
+                -----------------------------------------------------------------
+                -- BƯỚC 2: TIÊU DIỆT DON SWAN
+                -----------------------------------------------------------------
+                local swanDefeated = Storage:Get("SwanDefeated")
+                if not swanDefeated then
+                    local zProgCheck = nil
+                    pcall(function() zProgCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check") end)
+                    if zProgCheck and zProgCheck ~= -1 and zProgCheck ~= "nil" then
+                        Storage:Set("SwanDefeated", true)
+                        Storage:Save()
+                        swanDefeated = true
+                    end
+                end
+
+                if not swanDefeated then
+                    SetTask("MainTask", "Auto Third Sea - Defeating Don Swan")
+                    local swanPos = CFrame.new(-385, 332, 672)
+                    
                     local swan = ScriptStorage.Enemies["Don Swan"]
                     if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
-                        return nil
+                        CombatController.Attack({"Don Swan"})
+                    else
+                        if CaculateDistance(swanPos) > 15 then
+                            TweenController.Create(swanPos)
+                        else
+                            SetTask("MainTask", "Auto Third Sea - Waiting for Don Swan to spawn")
+                            TweenController.Create(swanPos)
+                        end
                     end
+                    return
                 end
 
-                return nil
-            end
-        )
-
-        FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
-            "Start",
-            function()
+                -----------------------------------------------------------------
+                -- BƯỚC 3 & 4: NÓI CHUYỆN VỚI KING RED HEAD, ĐÁNH RIP_INDRA & ĐI SEA 3
+                -----------------------------------------------------------------
                 local zProgress = nil
                 pcall(function()
                     zProgress = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
                 end)
-                print("[ ThirdSeaPuzzle ] ZQuestProgress Check:", tostring(zProgress))
-
+                
                 if zProgress == 0 or zProgress == "0" or zProgress == nil or zProgress == -1 then
                     SetTask("MainTask", "Auto Third Sea - Talking to King Red Head")
-
-                    local startTry = os.time()
-                    repeat
-                        pcall(function()
-                            Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
-                        end)
-                        task.wait(1)
-                        local zCheck = nil
-                        pcall(function()
-                            zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
-                        end)
-                        if zCheck ~= 0 and zCheck ~= "0" and zCheck ~= nil and zCheck ~= -1 then
-                            print("[ ThirdSeaPuzzle ] ZQuestProgress updated:", tostring(zCheck))
-                            break
-                        end
-                    until CaculateDistance(Vector3.new(0, 0, 0)) > 20000 or (os.time() - startTry > 10)
-
-                    SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
-                    local startFight = os.time()
-                    repeat
-                        pcall(function()
-                            CombatController.Attack({"rip_indra", "rip_indra True Form"})
-                        end)
-                        task.wait(0.5)
-
-                        local checkProg = nil
-                        pcall(function()
-                            checkProg = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
-                        end)
-                        if checkProg ~= 0 and checkProg ~= "0" and checkProg ~= nil and checkProg ~= -1 then
-                            print("[ ThirdSeaPuzzle ] rip_indra defeated!")
-                            break
-                        end
-                    until os.time() - startFight > 60
+                    local kingPos = CFrame.new(-1795, 303, -2900)
+                    if CaculateDistance(kingPos) > 15 then
+                        TweenController.Create(kingPos)
+                        return
+                    end
+                    
+                    pcall(function()
+                        Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
+                    end)
+                    return
                 end
 
-                SetTask("MainTask", "Sea Travel | Teleporting to Third Sea (Zou)")
-                pcall(function()
-                    Remotes.CommF_:InvokeServer("TravelZou")
-                end)
-                task.wait(2)
+                local indra = ScriptStorage.Enemies["rip_indra True Form"] or ScriptStorage.Enemies["rip_indra"]
+                if indra and indra:FindFirstChild("Humanoid") and indra.Humanoid.Health > 0 then
+                    SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
+                    CombatController.Attack({"rip_indra", "rip_indra True Form"})
+                    return
+                end
+
+                if zProgress ~= 0 and zProgress ~= "0" and zProgress ~= -1 then
+                    SetTask("MainTask", "Sea Travel | Teleporting to Third Sea (Zou)")
+                    pcall(function()
+                        Remotes.CommF_:InvokeServer("TravelZou")
+                    end)
+                end
             end
         )
 
