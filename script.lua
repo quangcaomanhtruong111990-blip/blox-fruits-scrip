@@ -5801,7 +5801,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                             end
                         end
                     else
-                        warn("error: " .. tostring(result))
+                        warn("error: Remotes or CommF_ not found")
                     end
                 end)
                 
