@@ -638,8 +638,8 @@ local saberStepAttempts = 0
 -- THÔNG BÁO TRÊN MÀN HÌNH PHIÊN BẢN MỚI
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "🚀 BLOX FRUITS AUTO v1.3.0",
-        Text = "Đã tích hợp tọa độ Sick Man chuẩn & Auto Click Trợ Giúp!",
+        Title = "🚀 BLOX FRUITS AUTO v1.3.1",
+        Text = "Đã cập nhật Rich Man chuẩn & Auto Click tọa độ 0.75/0.55!",
         Duration = 7
     })
 end)
@@ -1008,7 +1008,7 @@ local function doSaberQuest()
         end
 
         updateTracker("💰 Saber B4: Gặp Người Giàu (Rich Man) tại Làng Hải Tặc...")
-        local RICH_MAN_POS = Vector3.new(-2885, 44, 5368)
+        local RICH_MAN_POS = Vector3.new(-908.0, 13.8, 4079.8)
         local dist = (hrp.Position - RICH_MAN_POS).Magnitude
         if dist > 15 then
             flyAcrossSeaSafe(RICH_MAN_POS, FLY_SPEED_LONG)
@@ -1017,6 +1017,31 @@ local function doSaberQuest()
             pcall(function()
                 CommF:InvokeServer("RichMan", 1)
                 CommF:InvokeServer("RichMan")
+            end)
+            pcall(function()
+                local playerGui = player:WaitForChild("PlayerGui")
+                for _, v in ipairs(playerGui:GetDescendants()) do
+                    if (v:IsA("TextButton") or v:IsA("TextLabel")) and (v.Text:find("Nói Chuyện") or v.Text:find("Talk") or v.Text:find("Trợ Giúp")) then
+                        local targetBtn = v:IsA("TextButton") and v or v.Parent
+                        if targetBtn and targetBtn:IsA("TextButton") then
+                            for _, conn in ipairs(getconnections(targetBtn.MouseButton1Click)) do
+                                conn:Fire()
+                            end
+                        end
+                    end
+                end
+            end)
+            pcall(function()
+                local VirtualInputManager = game:GetService("VirtualInputManager")
+                local viewportSize = workspace.CurrentCamera.ViewportSize
+                local targetX = viewportSize.X * 0.75
+                local targetY = viewportSize.Y * 0.55
+                for i = 1, 5 do
+                    VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, true, game, 1)
+                    task.wait(0.05)
+                    VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, false, game, 1)
+                    task.wait(0.15)
+                end
             end)
             for i = 1, 4 do
                 talkToNPCSequence()
@@ -1032,7 +1057,7 @@ local function doSaberQuest()
             return
         end
 
-        local MOB_ISLAND = Vector3.new(-2935, 2, 5320)
+        local MOB_ISLAND = Vector3.new(-2850.0, 7.0, 5300.0)
         local mob = getMobLeader()
 
         if mob and mob:FindFirstChild("HumanoidRootPart") then
@@ -1063,7 +1088,7 @@ local function doSaberQuest()
         end
 
         updateTracker("👑 Saber B4: Nhận Cổ Vật (Relic) từ Rich Man...")
-        local RICH_MAN_POS = Vector3.new(-2885, 44, 5368)
+        local RICH_MAN_POS = Vector3.new(-908.0, 13.8, 4079.8)
         local dist = (hrp.Position - RICH_MAN_POS).Magnitude
         if dist > 15 then
             flyAcrossSeaSafe(RICH_MAN_POS, FLY_SPEED_LONG)
@@ -1072,6 +1097,31 @@ local function doSaberQuest()
             pcall(function()
                 CommF:InvokeServer("RichMan", 2)
                 CommF:InvokeServer("RichMan")
+            end)
+            pcall(function()
+                local playerGui = player:WaitForChild("PlayerGui")
+                for _, v in ipairs(playerGui:GetDescendants()) do
+                    if (v:IsA("TextButton") or v:IsA("TextLabel")) and (v.Text:find("Nói Chuyện") or v.Text:find("Talk") or v.Text:find("Trợ Giúp")) then
+                        local targetBtn = v:IsA("TextButton") and v or v.Parent
+                        if targetBtn and targetBtn:IsA("TextButton") then
+                            for _, conn in ipairs(getconnections(targetBtn.MouseButton1Click)) do
+                                conn:Fire()
+                            end
+                        end
+                    end
+                end
+            end)
+            pcall(function()
+                local VirtualInputManager = game:GetService("VirtualInputManager")
+                local viewportSize = workspace.CurrentCamera.ViewportSize
+                local targetX = viewportSize.X * 0.75
+                local targetY = viewportSize.Y * 0.55
+                for i = 1, 5 do
+                    VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, true, game, 1)
+                    task.wait(0.05)
+                    VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, false, game, 1)
+                    task.wait(0.15)
+                end
             end)
             for i = 1, 4 do
                 talkToNPCSequence()
@@ -2378,4 +2428,4 @@ else
 end
 
 
--- Version: 1.3.0 (Precise Sick Man & Auto-Click Help/Trợ Giúp)
+-- Version: 1.3.1 (Rich Man Coordinates & Auto-Click 0.75/0.55)
