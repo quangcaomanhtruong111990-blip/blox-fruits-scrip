@@ -10,23 +10,16 @@ elseif placeId == 7449423635 then
 else
     local map = workspace:FindFirstChild("Map") or workspace:FindFirstChild("_WorldOrigin")
     if map then
-        if map:FindFirstChild("Desert") or map:FindFirstChild("Jungle") then
+        if map:FindFirstChild("Desert") or map:FindFirstChild("Jungle") or map:FindFirstChild("PirateVillage") then
             currentSea = 1
         elseif map:FindFirstChild("Cafe") or map:FindFirstChild("Mansion") or map:FindFirstChild("Colosseum") or map:FindFirstChild("SnowMountain") then
             currentSea = 2
-        elseif map:FindFirstChild("PortTown") or map:FindFirstChild("Mansion") then
+        elseif map:FindFirstChild("PortTown") then
             currentSea = 3
         end
     end
-    
-    local p = game:GetService("Players").LocalPlayer
-    local data = p and p:FindFirstChild("Data")
-    if data and data:FindFirstChild("Level") then
-        if currentSea == 1 and data.Level.Value >= 700 and data.Level.Value < 1500 then
-            currentSea = 2
-        end
-    end
 end
+
 
 if currentSea == 1 then
 ------------------------------------------------------------------
@@ -2320,4 +2313,4 @@ else
 end
 
 
--- Version: 1.2.5 (Fix Saber Quest Priority over Mastery)
+-- Version: 1.2.6 (Strict Sea 1 & Sea 2 Map Isolation)
