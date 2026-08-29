@@ -67,9 +67,7 @@ function CheckKick(v)
         v:Destroy()
     end
 end
-print = function()
-    
-end
+-- print restored
 repeat
     task.wait() 
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
@@ -90,7 +88,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
         end
     )
-   -- print = function() end
+   -- -- print restored
     local StartTime = os.time()
 
     local Traces = {}
@@ -111,7 +109,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                         },
                         {
                             name = "Player Info",
-                            value = "Level: " .. ScriptStorage.PlayerData.Level
+                            value = "Level: " .. tostring((ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or "n/a")
                         },
                         {
                             name = "Script Details",
@@ -706,30 +704,39 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         Interface.ToggleUI = ToggleUI
         Interface.BlurManager = blurEffect
 
-        if not isfile("fluent.lua") then
-            writefile(
-                "fluent.lua",
-                game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
-            )
-        end
-
-        local Fluent = loadstring(readfile("fluent.lua"))()
-        local Animation = Instance.new("Animation")
-        Animation.AnimationId = "http://www.roblox.com/asset/?id=1elutruahuabuahd"
-
         getgenv().alert = function(t1, t2)
-            pcall(
-                function()
-                    Fluent:Notify(
-                        {
-                            Title = t1 or "",
-                            Content = t2 or "",
-                            Duration = 5
-                        }
-                    )
-                end
-            )
+            pcall(function() print("[Alert]", tostring(t1), tostring(t2)) end)
         end
+
+        pcall(function()
+            if not isfile("fluent.lua") then
+                pcall(function()
+                    writefile(
+                        "fluent.lua",
+                        game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
+                    )
+                end)
+            end
+
+            if isfile("fluent.lua") then
+                local content = readfile("fluent.lua")
+                if content and #content > 0 then
+                    local okLoad, fluentLib = pcall(function() return loadstring(content)() end)
+                    if okLoad and fluentLib then
+                        local Fluent = fluentLib
+                        getgenv().alert = function(t1, t2)
+                            pcall(function()
+                                Fluent:Notify({
+                                    Title = t1 or "",
+                                    Content = t2 or "",
+                                    Duration = 5
+                                })
+                            end)
+                        end
+                    end
+                end
+            end
+        end)
         alert("Cyndral", "Endpoint reached")
 
         local CDN_HOST = "https://files.lumitone.xyz/"
@@ -1008,26 +1015,29 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         end
 
         function AddPoint()
-            local PointsValue = {}
-            local Result
-
-            for _, CInst in LocalPlayer.Data.Stats:GetChildren() do
-                if CInst and CInst:FindFirstChild("Level") then
-                    PointsValue[CInst.Name] = CInst.Level.Value
+            pcall(function()
+                if not LocalPlayer or not LocalPlayer:FindFirstChild("Data") or not LocalPlayer.Data:FindFirstChild("Stats") then return end
+                local PointsValue = {}
+                local Result
+                for _, CInst in pairs(LocalPlayer.Data.Stats:GetChildren()) do
+                    if CInst and CInst:FindFirstChild("Level") then
+                        PointsValue[CInst.Name] = CInst.Level.Value
+                    end
                 end
-            end
-            if
-                PointsValue.Defense < MaxLevel and
-                    (PointsValue.Defense < (ScriptStorage.PlayerData.Level / 80) or MaxLevel - PointsValue.Melee < 100)
-             then
-                Result = "Defense"
-            elseif PointsValue.Melee < MaxLevel then
-                Result = "Melee"
-            else
-                Result = "Sword"
-            end
-
-            Remotes.CommF_:InvokeServer("AddPoint", Result, 999)
+                local defense = PointsValue.Defense or 0
+                local melee = PointsValue.Melee or 0
+                local lvl = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+                if defense < MaxLevel and (defense < (lvl / 80) or MaxLevel - melee < 100) then
+                    Result = "Defense"
+                elseif melee < MaxLevel then
+                    Result = "Melee"
+                else
+                    Result = "Sword"
+                end
+                if Remotes and Remotes.CommF_ then
+                    Remotes.CommF_:InvokeServer("AddPoint", Result, 999)
+                end
+            end)
         end
 
         local Colors = {
@@ -1039,10 +1049,10 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             Races = {}
         }
         function RefreshPlayerData()
-            for _, ChildInstance in LocalPlayer.Data:GetChildren() do
-                pcall(
-                    function()
-                        -- FIX Bug #4: Try to get value from Value property first, then fall back to Attribute
+            pcall(function()
+                if not LocalPlayer or not LocalPlayer:FindFirstChild("Data") then return end
+                for _, ChildInstance in pairs(LocalPlayer.Data:GetChildren()) do
+                    pcall(function()
                         local val = nil
                         if ChildInstance:IsA("IntValue") or ChildInstance:IsA("NumberValue") then
                             val = ChildInstance.Value
@@ -1051,7 +1061,6 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                         elseif ChildInstance:IsA("BoolValue") then
                             val = ChildInstance.Value
                         end
-                        -- If Value is nil/0 but Fragments attribute exists, use attribute
                         if val == nil or val == 0 then
                             if ChildInstance:GetAttribute("Fragments") then
                                 val = ChildInstance:GetAttribute("Fragments")
@@ -1062,22 +1071,26 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                         if val == nil and ChildInstance.Value ~= nil then
                             val = ChildInstance.Value
                         end
-                        ScriptStorage.PlayerData[ChildInstance.Name] = val
-                    end
-                )
-            end
-
-            local Currencies = ""
-            for Index, Value in ScriptStorage.PlayerData do
-                local Color = Colors.Currencies[Index]
-                if Color then
-                    Currencies = Currencies .. '<font color="' .. Color .. '">' .. Index .. "</font>: " .. Value .. " "
+                        if ScriptStorage and ScriptStorage.PlayerData then
+                            ScriptStorage.PlayerData[ChildInstance.Name] = val
+                        end
+                    end)
                 end
-            end
 
-            if ScriptStorage.Interface then
-                SetText("Currencies", Currencies)
-            end
+                local Currencies = ""
+                if ScriptStorage and ScriptStorage.PlayerData then
+                    for Index, Value in pairs(ScriptStorage.PlayerData) do
+                        local Color = Colors and Colors.Currencies and Colors.Currencies[Index]
+                        if Color then
+                            Currencies = Currencies .. '<font color="' .. Color .. '">' .. Index .. "</font>: " .. tostring(Value) .. " "
+                        end
+                    end
+                end
+
+                if ScriptStorage and ScriptStorage.Interface and type(ScriptStorage.Interface.SetText) == "function" then
+                    pcall(function() SetText("Currencies", Currencies) end)
+                end
+            end)
         end
 
         function RefreshRace()
@@ -1095,19 +1108,27 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         end
 
         function RefreshInventory()
-            ScriptStorage.Backpack2 = {}
-            for _, Value in Remotes.CommF_:InvokeServer("getInventory") do
-                if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
-                table.find(Config.Items.Eatlist, Value.Name) then 
-                    warn("Load fruit", Value.Name)
-                    Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
-                    task.wait(1)
-                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name))
+            pcall(function()
+                ScriptStorage.Backpack2 = {}
+                if not Remotes or not Remotes.CommF_ then return end
+                local inv = Remotes.CommF_:InvokeServer("getInventory")
+                if type(inv) == "table" then
+                    for _, Value in pairs(inv) do
+                        if type(Value) == "table" and Value.Name then
+                            if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer:FindFirstChild("Data") and game:GetService("Players").LocalPlayer.Data:FindFirstChild("DevilFruit") and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and table.find(Config.Items.Eatlist, Value.Name) then
+                                warn("Load fruit", Value.Name)
+                                Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
+                                task.wait(1)
+                                if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                    pcall(function() FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name)) end)
+                                end
+                            end
+                            ScriptStorage.Backpack2[Value.Name] = Value
+                        end
+                    end
+                    ScriptStorage.Backpack = ScriptStorage.Backpack2
                 end
-                ScriptStorage.Backpack2[Value.Name] = Value
-            end
-
-            ScriptStorage.Backpack = ScriptStorage.Backpack2
+            end)
         end
 
         function ResearchMoves(Child)
@@ -1873,47 +1894,76 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         end
 
         function QuestManager.RefreshQuest(Self)
-            while not ScriptStorage.PlayerData.Level do
-                task.wait(1)
-                print("[ Debug ] Waiting for LocalPlayer datas.")
-            end
+            pcall(function()
+                local retries = 0
+                while not (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) do
+                    pcall(RefreshPlayerData)
+                    if not (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) then
+                        local lp = game:GetService("Players").LocalPlayer
+                        if lp and lp:FindFirstChild("Data") and lp.Data:FindFirstChild("Level") then
+                            if not ScriptStorage.PlayerData then ScriptStorage.PlayerData = {} end
+                            ScriptStorage.PlayerData.Level = lp.Data.Level.Value
+                        end
+                    end
+                    if ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then break end
+                    task.wait(0.2)
+                    retries = retries + 1
+                    if retries > 15 then
+                        if not ScriptStorage.PlayerData then ScriptStorage.PlayerData = {} end
+                        ScriptStorage.PlayerData.Level = 1
+                        break
+                    end
+                end
 
-            local QuestLevelFlag = 0
-            local CurrentQuestData
+                local QuestLevelFlag = 0
+                local CurrentQuestData = nil
 
-            for QuestID, QuestDatas in QuestManager.Quests do
-                if not QuestManager.BlacklistedQuestIds[QuestID] then
-                    if
-                        (QuestDatas[1].LevelReq >= QuestLevelFlag and
-                            QuestDatas[1].LevelReq <= ScriptStorage.PlayerData.Level)
-                     then
-                        QuestLevelFlag = QuestDatas[1].LevelReq
-                        CurrentQuestData = QuestDatas
-                        Self.CurrentQuestId = QuestID
-                        if ScriptStorage.PlayerData.Level >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
-                            break
+                if QuestManager and QuestManager.Quests then
+                    for QuestID, QuestDatas in pairs(QuestManager.Quests) do
+                        if not QuestManager.BlacklistedQuestIds or not QuestManager.BlacklistedQuestIds[QuestID] then
+                            if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq and ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then
+                                if QuestDatas[1].LevelReq >= QuestLevelFlag and QuestDatas[1].LevelReq <= ScriptStorage.PlayerData.Level then
+                                    QuestLevelFlag = QuestDatas[1].LevelReq
+                                    CurrentQuestData = QuestDatas
+                                    Self.CurrentQuestId = QuestID
+                                    if ScriptStorage.PlayerData.Level >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
+                                        break
+                                    end
+                                end
+                            end
                         end
                     end
                 end
-            end
 
-            local LastQuest = CurrentQuestData[#CurrentQuestData]
+                if CurrentQuestData and #CurrentQuestData > 0 then
+                    local LastQuest = CurrentQuestData[#CurrentQuestData]
+                    if LastQuest and LastQuest.Task then
+                        for _, Count in pairs(LastQuest.Task) do
+                            if Count == 1 then
+                                table.remove(CurrentQuestData, #CurrentQuestData)
+                            end
+                        end
+                    end
 
-            for _, Count in LastQuest.Task do
-                if Count == 1 then
-                    table.remove(CurrentQuestData, #CurrentQuestData)
-                end
-            end
-
-            for i, v in require(game.ReplicatedStorage.GuideModule).Data.NPCList do
-                for i1, v1 in v.Levels do
-                    if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
-                        Self.CurrentNpc = i.CFrame
+                    local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
+                    if guideModule then
+                        local okModule, guideData = pcall(function() return require(guideModule) end)
+                        if okModule and guideData and guideData.Data and guideData.Data.NPCList then
+                            for i, v in pairs(guideData.Data.NPCList) do
+                                if v and v.Levels and CurrentQuestData[#CurrentQuestData] then
+                                    for _, v1 in pairs(v.Levels) do
+                                        if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
+                                            Self.CurrentNpc = i.CFrame
+                                        end
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
-            end
 
-            Self.CurrentQuests = CurrentQuestData
+                Self.CurrentQuests = CurrentQuestData
+            end)
         end
 
         function QuestManager.GetCurrentQuest(Self)
@@ -5661,14 +5711,13 @@ FunctionsHandler = {
         end
 
         SetText("MainTextLabel", "Refreshing Player Items...")
-        AddPoint()
-
-        QuestManager:RefreshQuest()
-        SetText("MainTextLabel", "A")
-
-        RefreshInventory()
-                SetText("MainTextLabel", "B")
-
+        pcall(RefreshPlayerData)
+        pcall(AddPoint)
+        pcall(function() QuestManager:RefreshQuest() end)
+        SetText("MainTextLabel", "Loading Inventory...")
+        pcall(RefreshInventory)
+        SetText("MainTextLabel", "Loading Race...")
+        pcall(RefreshRace)
         Remotes.CommE.OnClientEvent:Connect(
             function(...)
                 local data = {...}
@@ -5857,7 +5906,13 @@ FunctionsHandler = {
 
     end
     spawn(function ()
-            pcall(loadstring(game:HttpGet("https://kunblox.net/cron/kaitun.lua")))
+            pcall(function()
+        local code = game:HttpGet("https://kunblox.net/cron/kaitun.lua")
+        if code and #code > 0 then
+            local fn = loadstring(code)
+            if fn then fn() end
+        end
+    end)
         end)
         
     local success2, response2 = xpcall(mmb, debug.traceback)
