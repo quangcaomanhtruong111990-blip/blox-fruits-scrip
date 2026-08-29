@@ -103,7 +103,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 {
                     title = GameName,
                     description = game.PlaceId .. " | " .. game.JobId,
-                    color = ,
+                    color = 0x5865F2,
                     fields = {
                         {
                             name = "Error Details",
