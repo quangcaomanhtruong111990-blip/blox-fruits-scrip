@@ -628,10 +628,21 @@ local function hasAllMeleesMaxed()
 end
 
 ------------------------------------------------------------------
--- HÀM SABER QUEST (HOÀN CHỈNH TẤT CẢ CÁC BƯỚC)
+-- HÀM SABER QUEST (HOÀN CHỈNH TẤT CẢ CÁC BƯỚC - AUTO RETRY 3 LẦN & TỰ ĐỘNG BƯỚC TIẾP)
 ------------------------------------------------------------------
 local saberQuestStep = "BUTTONS"
 local currentButtonIndex = 1
+local lastSaberStep = ""
+local saberStepAttempts = 0
+
+-- THÔNG BÁO TRÊN MÀN HÌNH PHIÊN BẢN MỚI
+pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "🚀 BLOX FRUITS AUTO v1.2.7",
+        Text = "Đã bật chế độ Auto Retry 3x & Tự động vượt qua bước!",
+        Duration = 7
+    })
+end)
 
 local SABER_BUTTONS = {
     Vector3.new(-1263, 12, 310),      -- Điểm 1
@@ -758,6 +769,31 @@ local function doSaberQuest()
 
     -- Kiểm tra nếu đã hoàn thành nhận kiếm
     if checkOwnsSaber() then return end
+
+    -- Đếm số lần thực hiện cùng 1 bước, nếu quá 3 lần tự động ép qua bước tiếp theo
+    if lastSaberStep == saberQuestStep then
+        saberStepAttempts = saberStepAttempts + 1
+    else
+        lastSaberStep = saberQuestStep
+        saberStepAttempts = 1
+    end
+
+    if saberStepAttempts >= 3 then
+        updateTracker("⚠️ Thử 3 lần không đổi trạng thái -> Tự động ép qua bước kế tiếp!")
+        saberStepAttempts = 0
+        if saberQuestStep == "BUTTONS" then saberQuestStep = "TORCH"
+        elseif saberQuestStep == "TORCH" then saberQuestStep = "DESERT_BURN"
+        elseif saberQuestStep == "DESERT_BURN" then saberQuestStep = "GET_CUP"
+        elseif saberQuestStep == "GET_CUP" then saberQuestStep = "FROZEN_WATER"
+        elseif saberQuestStep == "FROZEN_WATER" then saberQuestStep = "SICK_MAN"
+        elseif saberQuestStep == "SICK_MAN" then saberQuestStep = "RICH_MAN_1"
+        elseif saberQuestStep == "RICH_MAN_1" then saberQuestStep = "KILL_MOB_LEADER"
+        elseif saberQuestStep == "KILL_MOB_LEADER" then saberQuestStep = "RICH_MAN_2"
+        elseif saberQuestStep == "RICH_MAN_2" then saberQuestStep = "OPEN_SABER_DOOR"
+        elseif saberQuestStep == "OPEN_SABER_DOOR" then saberQuestStep = "KILL_SABER_EXPERT"
+        end
+        return
+    end
 
     -- Tự động nhảy bước thông minh nếu đã sở hữu vật phẩm từ trước
     if hasTool("Relic", "Relic") and saberQuestStep ~= "KILL_SABER_EXPERT" then
@@ -2313,4 +2349,4 @@ else
 end
 
 
--- Version: 1.2.6 (Strict Sea 1 & Sea 2 Map Isolation)
+-- Version: 1.2.7 (Saber Auto-Retry 3x & UI Notification Banner)
