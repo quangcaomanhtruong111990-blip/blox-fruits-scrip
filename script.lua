@@ -103,7 +103,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 {
                     title = GameName,
                     description = game.PlaceId .. " | " .. game.JobId,
-                    color = 0x5865F2,
+                    color = 15642286,
                     fields = {
                         {
                             name = "Error Details",
@@ -2498,8 +2498,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         function CombatController.Attack(MobTable, NearbyHit, Range, Callback)
             -- Cache GuideModule env để tránh gọi getsenv nhiều lần
             local GuideEnv = pcall(function()
-                return getsenv(game.ReplicatedStorage.GuideModule)
-            end) and getsenv(game.ReplicatedStorage.GuideModule)
+                return GetGuideEnv()
+            end) and GetGuideEnv()
 
             if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
                 TweenController.Create(Vector3.new(0, 0, 0))
@@ -2670,7 +2670,26 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         LevelFarmTTL = 0
         LastTravel = os.time()
 
-        FunctionsHandler = {
+        
+local function GetGuideEnv()
+    local ok, env = pcall(function()
+        if type(getsenv) == "function" and game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule") then
+            return GetGuideEnv()
+        end
+    end)
+    return ok and env or nil
+end
+
+local function GetExpBoost()
+    local env = GetGuideEnv()
+    if env and env._G and env._G.ServerData and env._G.ServerData.ExpBoost then
+        return env._G.ServerData.ExpBoost
+    end
+    return 0
+end
+
+
+FunctionsHandler = {
             Initalized = false
         }
 
@@ -2880,7 +2899,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 --Report("Typeof: " .. typeof(Storage))
 
                 return ScriptStorage.PlayerData.Level < MaxLevel and
-                    getsenv(game.ReplicatedStorage.GuideModule)._G.ServerData.ExpBoost == 0 and
+                    GetExpBoost() == 0 and
                     not Storage.Get(Storage, "IsCodesRanOut")
             end
         )
@@ -2931,7 +2950,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     local Response = (Remotes.Redeem:InvokeServer(Promo))
                     task.wait()
                     SetTask("MainTask", "Code Redemption | " .. Promo .. " | " .. (Response or "Failed"))
-                    if getsenv(game.ReplicatedStorage.GuideModule)._G.ServerData.ExpBoost == 0 then
+                    if GetExpBoost() == 0 then
                         if Response and string.find(Response, "SUCC") then
                             return SetTask("MainTask", "Code Redemption | X2 Exp Boost Activated!") and task.wait(1)
                         end
@@ -3175,7 +3194,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
                 if
                     PlayerLevel >= 2025 and
-                        (getsenv(game.ReplicatedStorage.GuideModule)._G.ServerData.ExpBoost == 0 or
+                        (GetExpBoost() == 0 or
                             PlayerLevel == MaxLevel) and
                         (ScriptStorage.Backpack.Bones or {Count = 0}).Count < 500 and SeaIndex == 3
                 then
@@ -3927,7 +3946,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     return
                 end
                 if
-                    getsenv(game.ReplicatedStorage.GuideModule)._G.ServerData.ExpBoost ~= 0 or
+                    GetExpBoost() ~= 0 or
                         ScriptStorage.PlayerData.Level < 900 or
                         ScriptStorage.PlayerData.Beli < 1000000 or
                         ScriptStorage.PlayerData.RaceLevel ~= 1
@@ -5609,26 +5628,32 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
             for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
-                if not Task.Initalized then
-                    if not LogCache[TaskName] then
-                        print("[ Debug ] Task", Name, "is not registered yet")
-                        LogCache[TaskName] = true
-                    end
-                else
-                    local Refresh = Task.Methods.Refresh
-                    local Start = Task.Methods.Start
+                if Task then
+                    if not Task.Initalized then
+                        if not LogCache[TaskName] then
+                            print("[ Debug ] Task", TaskName, "is not registered yet")
+                            LogCache[TaskName] = true
+                        end
+                    else
+                        local Refresh = Task.Methods and Task.Methods.Refresh
+                        local Start = Task.Methods and Task.Methods.Start
 
-                    if Refresh then
-                        local RefreshValue = Refresh:Call(ParsingTimes < 100)
+                        if Refresh then
+                            local ok, RefreshValue = pcall(function()
+                                return Refresh:Call(ParsingTimes < 100)
+                            end)
 
-                        ParsingTimes = ParsingTimes + 1
-                        if RefreshValue and ParsingTimes > 100 then
-                            CurrentTask = CurrentTask ~= TaskName
-
-                            CurrentTask = TaskName
-                            ScriptStorage.Interface.SetText("DebugLine", TaskName)
-                            Start:Call(RefreshValue)
-                            return
+                            ParsingTimes = ParsingTimes + 1
+                            if ok and RefreshValue then
+                                CurrentTask = TaskName
+                                if ScriptStorage.Interface and type(ScriptStorage.Interface.SetText) == "function" then
+                                    pcall(function() ScriptStorage.Interface.SetText("DebugLine", TaskName) end)
+                                end
+                                if Start then
+                                    pcall(function() Start:Call(RefreshValue) end)
+                                end
+                                return
+                            end
                         end
                     end
                 end
@@ -5801,7 +5826,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                             end
                         end
                     else
-                        warn("error: Remotes or CommF_ not found")
+                        warn("error: " .. tostring(result))
                     end
                 end)
                 
