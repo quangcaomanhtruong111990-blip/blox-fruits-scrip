@@ -2204,7 +2204,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
-            local Speed = (CurrentDist < 18) and 25 or 330
+            local Speed = (CurrentDist < 18) and 25 or 200
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2386,7 +2386,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
-            while task.wait(.06) do
+            while task.wait(0.2) do
                 if _G.FastAttack == os.time() then
                     pcall(
                         function()
@@ -2585,7 +2585,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     local Count, Debounce = 0, os.time()
                     local Count2, Debounce = 0, os.time()
                     -- Optimize: Add delay to reduce FPS impact
-                    while task.wait(0.1) do
+                    while task.wait(0.25) do
                         if _G.Stop then
                             return
                         end
@@ -5021,7 +5021,7 @@ FunctionsHandler = {
                     else
                         local StartTime19 = os.time()
                         for Idx, Object in Objects do
-                            while task.wait() and Object.Humanoid.Health > 7000 do
+                            while task.wait(0.2) and Object.Humanoid.Health > 7000 do
                                 SetTask("MainTask", "Soul Guitar task 1 / 5: Hit mob " .. Idx .. " / 6")
                                 FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                 if os.time() - StartTime19 > 60 then
