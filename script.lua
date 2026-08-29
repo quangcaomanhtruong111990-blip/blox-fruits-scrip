@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "kunblox.net"
+        NameHub.Text = "SANGBLOX"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2696,7 +2696,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
                 elseif not NearbyHit then
                     if (os.time() - LastFound) > 200 then
-                        alert("KUN", "Error while farming, rejoin")
+                        alert("Cyndral", "Error while farming, rejoin")
                         if Hop then Hop("Rejoin") end
                         return
                     end
@@ -6018,7 +6018,8 @@ FunctionsHandler = {
     end
     spawn(function ()
             pcall(function()
-        local code = game:HttpGet("https://kunblox.net/cron/kaitun.lua")
+        -- Removed kunblox.net external call
+        local code = ""
         if code and #code > 0 then
             local fn = loadstring(code)
             if fn then fn() end
