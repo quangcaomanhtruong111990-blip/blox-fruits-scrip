@@ -2204,7 +2204,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
-            local Speed = (CurrentDist < 20) and 20 or 140
+            local Speed = (CurrentDist < 20) and 20 or 95
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
