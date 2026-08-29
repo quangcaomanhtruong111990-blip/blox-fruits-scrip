@@ -2351,7 +2351,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         local lastFuncsAttackTime = 0
         function Funcs:Attack()
             local now = os.clock()
-            if now - lastFuncsAttackTime < 0.35 then
+            if now - lastFuncsAttackTime < 0.12 then
                 return
             end
             lastFuncsAttackTime = now
@@ -2424,8 +2424,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
-            while task.wait(0.35) do
-                if _G.FastAttack == os.time() then
+            while task.wait(0.12) do
+                if (os.time() - (_G.FastAttack or 0)) <= 1 then
                     pcall(
                         function()
                             Funcs:Attack()
@@ -2623,7 +2623,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     local Count, Debounce = 0, os.time()
                     local Count2, Debounce = 0, os.time()
                     -- Optimize: Add delay to reduce FPS impact
-                    while task.wait(0.35) do
+                    while task.wait(0.25) do
                         if _G.Stop then
                             return
                         end
@@ -3161,10 +3161,7 @@ FunctionsHandler = {
                 end
 
                     LastTravel = os.time()
-                    if PlayerLevel >= 1500 and (SeaIndex == 2) then
-                        SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
-                        pcall(function() Remotes.CommF_:InvokeServer("TravelZou") end)
-                    elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
+                    if PlayerLevel >= 700 and (SeaIndex == 1)  then
                         SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
                         Remotes.CommF_:InvokeServer("TravelDressrosa")
                     end
@@ -4812,7 +4809,17 @@ FunctionsHandler = {
                 if ScriptStorage.PlayerData.Level < 1500 or SeaIndex ~= 2 then
                     return nil
                 end
-                return true
+                local zCheck = nil
+                pcall(function()
+                    zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                end)
+                if zCheck and zCheck ~= -1 and zCheck ~= "nil" then
+                    return true
+                end
+                if Storage:Get("SwanDefeated") then
+                    return true
+                end
+                return nil
             end
         )
 
