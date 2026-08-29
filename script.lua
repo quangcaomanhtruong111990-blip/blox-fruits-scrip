@@ -638,8 +638,8 @@ local saberStepAttempts = 0
 -- THÔNG BÁO TRÊN MÀN HÌNH PHIÊN BẢN MỚI
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "🚀 BLOX FRUITS AUTO v1.2.8",
-        Text = "Đã cập nhật tọa độ Sick Man chuẩn & Auto Retry 3x!",
+        Title = "🚀 BLOX FRUITS AUTO v1.3.0",
+        Text = "Đã tích hợp tọa độ Sick Man chuẩn & Auto Click Trợ Giúp!",
         Duration = 7
     })
 end)
@@ -953,17 +953,46 @@ local function doSaberQuest()
         updateTracker("🍵 Saber B3: Đưa Cốc Nước cho Người Ốm (Sick Man)...")
         equipToolByName("Water Cup", "Cup")
 
-        local SICK_MAN_POS = Vector3.new(1393, 37, -1321)
+        local SICK_MAN_POS = Vector3.new(1456.4, 88.3, -1388.4)
         local dist = (hrp.Position - SICK_MAN_POS).Magnitude
         if dist > 10 then
             flyLinearTo(CFrame.new(SICK_MAN_POS), FLY_SPEED_LONG)
         else
             hrp.CFrame = CFrame.new(SICK_MAN_POS)
             pcall(function()
-                CommF:InvokeServer("HealSickMan")
                 CommF:InvokeServer("SickMan")
+                CommF:InvokeServer("SickMan", "Help")
             end)
-            for i = 1, 4 do
+
+            pcall(function()
+                local playerGui = player:WaitForChild("PlayerGui")
+                for _, v in ipairs(playerGui:GetDescendants()) do
+                    if (v:IsA("TextButton") or v:IsA("TextLabel")) and (v.Text:find("Trợ Giúp") or v.Text:find("Help")) then
+                        local targetBtn = v:IsA("TextButton") and v or v.Parent
+                        if targetBtn and targetBtn:IsA("TextButton") then
+                            for _, conn in ipairs(getconnections(targetBtn.MouseButton1Click)) do
+                                conn:Fire()
+                            end
+                        end
+                    end
+                end
+            end)
+
+            pcall(function()
+                local VirtualInputManager = game:GetService("VirtualInputManager")
+                local viewportSize = workspace.CurrentCamera.ViewportSize
+                local targetX = viewportSize.X * 0.82
+                local targetY = viewportSize.Y * 0.38
+
+                for i = 1, 3 do
+                    VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, true, game, 1)
+                    task.wait(0.05)
+                    VirtualInputManager:SendMouseButtonEvent(targetX, targetY, 0, false, game, 1)
+                    task.wait(0.1)
+                end
+            end)
+
+            for i = 1, 3 do
                 talkToNPCSequence()
                 task.wait(0.3)
             end
@@ -2349,4 +2378,4 @@ else
 end
 
 
--- Version: 1.2.8 (Exact Sick Man Position & Auto Retry)
+-- Version: 1.3.0 (Precise Sick Man & Auto-Click Help/Trợ Giúp)
