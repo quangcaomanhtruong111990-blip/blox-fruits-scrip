@@ -2494,7 +2494,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         CombatController = {
             GRAB = true,
             GRAB_DISTANCE = SeaIndex == 1 and 250 or 350,
-            MAX_ATTACK_DURATION = 3,
+            MAX_ATTACK_DURATION = 999,
             MAX_ATTACK_DURATION_2 = 60,
             LEVITATE_TIME = 1,
             CurrentIndex = 1
@@ -2722,11 +2722,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                             "FailureCount",
                                             (MonResult:GetAttribute("FailureCount") or 0) + 1
                                         )
-                                        alert(
-                                            "Failed to attack",
-                                            "Returning to the old position ( #" ..
-                                                MonResult:GetAttribute("FailureCount") .. " )"
-                                        )
+                                        -- alert removed
                                        MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
                                         task.wait()
 
@@ -4137,7 +4133,7 @@ FunctionsHandler = {
                     if not tDone then
                         local tRes = nil
                         pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
-                        if tRes == 0 or tRes == "0" or tRes == true then
+                        if tRes == 1 or tRes == "1" or tRes == true then
                             tDone = true
                             FunctionsHandler.Trevor:Set("IsCompleted", true)
                             Storage:Set("TrevorCompleted", true)
@@ -4842,7 +4838,8 @@ FunctionsHandler = {
                     pcall(function()
                         tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
                     end)
-                    if tRes == 0 or tRes == "0" or tRes == true or Storage:Get("TrevorCompleted") then
+                    -- FIX: tRes == 0 means failed (no fruit or not enough value). Do not mark as completed!
+                    if tRes == 1 or tRes == "1" or tRes == true or Storage:Get("TrevorCompleted") then
                         FunctionsHandler.Trevor:Set("IsCompleted", true)
                         Storage:Set("TrevorCompleted", true)
                     end
@@ -4915,7 +4912,7 @@ FunctionsHandler = {
                 if not tDone then
                     local tRes = nil
                     pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
-                    if tRes == 0 or tRes == "0" or tRes == true then
+                    if tRes == 1 or tRes == "1" or tRes == true then
                         tDone = true
                         FunctionsHandler.Trevor:Set("IsCompleted", true)
                         Storage:Set("TrevorCompleted", true)
