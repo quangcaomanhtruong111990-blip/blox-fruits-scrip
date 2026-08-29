@@ -638,8 +638,8 @@ local saberStepAttempts = 0
 -- THÔNG BÁO TRÊN MÀN HÌNH PHIÊN BẢN MỚI
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "🚀 BLOX FRUITS AUTO v1.2.7",
-        Text = "Đã bật chế độ Auto Retry 3x & Tự động vượt qua bước!",
+        Title = "🚀 BLOX FRUITS AUTO v1.2.8",
+        Text = "Đã cập nhật tọa độ Sick Man chuẩn & Auto Retry 3x!",
         Duration = 7
     })
 end)
@@ -953,7 +953,7 @@ local function doSaberQuest()
         updateTracker("🍵 Saber B3: Đưa Cốc Nước cho Người Ốm (Sick Man)...")
         equipToolByName("Water Cup", "Cup")
 
-        local SICK_MAN_POS = Vector3.new(1390, 87, -1299)
+        local SICK_MAN_POS = Vector3.new(1393, 37, -1321)
         local dist = (hrp.Position - SICK_MAN_POS).Magnitude
         if dist > 10 then
             flyLinearTo(CFrame.new(SICK_MAN_POS), FLY_SPEED_LONG)
@@ -2349,4 +2349,4 @@ else
 end
 
 
--- Version: 1.2.7 (Saber Auto-Retry 3x & UI Notification Banner)
+-- Version: 1.2.8 (Exact Sick Man Position & Auto Retry)
