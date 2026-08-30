@@ -5073,10 +5073,30 @@ FunctionsHandler = {
                 -- BƯỚC 1: NHIỆM VỤ TREVOR (MỞ CỔNG MANSION)
                 -----------------------------------------------------------------
                 local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
+                
+                -- Check if Don Swan is already accessible / defeated (Bypass Trevor completely)
+                local swanDefeated = Storage:Get("SwanDefeated")
+                if not swanDefeated then
+                    local zProgCheck = nil
+                    pcall(function() zProgCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check") end)
+                    if zProgCheck and zProgCheck ~= -1 and zProgCheck ~= "nil" and zProgCheck ~= 0 and zProgCheck ~= "0" then
+                        Storage:Set("SwanDefeated", true)
+                        Storage:Save()
+                        swanDefeated = true
+                    end
+                end
+                
+                if swanDefeated then
+                    tDone = true
+                    FunctionsHandler.Trevor:Set("IsCompleted", true)
+                    Storage:Set("TrevorCompleted", true)
+                end
+
                 if not tDone then
+                    -- Verify via remote before attempting anything
                     local tRes = nil
                     pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
-                    if tRes == 1 or tRes == "1" or tRes == true then
+                    if tRes == 1 or tRes == "1" or tRes == true or tRes == 3 or tRes == "3" then
                         tDone = true
                         FunctionsHandler.Trevor:Set("IsCompleted", true)
                         Storage:Set("TrevorCompleted", true)
@@ -5085,8 +5105,15 @@ FunctionsHandler = {
                 end
 
                 if not tDone then
-                    -- Bỏ qua điều kiện có trái, cứ bay lại Trevor để nói chuyện xem có phải đã đưa trái rồi không
-                    SetTask("MainTask", "Auto Third Sea - Flying to Trevor (Checking Status)")
+                    SetTask("MainTask", "Auto Third Sea - Getting Fruit >= 1M")
+                    local hasFruit = GetMillionFruit()
+                    
+                    if not hasFruit then
+                        SetTask("MainTask", "Auto Third Sea - Không có Trái >= 1M. Đang chờ...")
+                        return
+                    end
+                    
+                    SetTask("MainTask", "Auto Third Sea - Flying to Trevor")
                     local TargetPos = CFrame.new(-335.9, 331.9, 646.6)
                     
                     -- Dò vị trí Trevor chuẩn xác để không kẹt tường
@@ -5105,31 +5132,45 @@ FunctionsHandler = {
                         return
                     end
                     
-                    SetTask("MainTask", "Auto Third Sea - Talking to Trevor")
-                    local tRes = nil
+                    SetTask("MainTask", "Auto Third Sea - Holding Fruit & Talking to Trevor")
+                    -- Force Equip Fruit to hand explicitly
                     pcall(function()
-                        tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                        local char = game.Players.LocalPlayer.Character
+                        local bp = game.Players.LocalPlayer.Backpack
+                        if char and bp then
+                            -- Bỏ các vũ khí đang cầm trên tay xuống (để tránh xung đột)
+                            for _, tool in ipairs(char:GetChildren()) do
+                                if tool:IsA("Tool") and not (tool.Name:find("Fruit") or tool.Name:find("Trái")) then
+                                    tool.Parent = bp
+                                end
+                            end
+                            -- Cầm trái ác quỷ lên tay
+                            for _, item in ipairs(bp:GetChildren()) do
+                                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                                    item.Parent = char
+                                    break
+                                end
+                            end
+                        end
+                    end)
+                    
+                    task.wait(0.5) -- Đợi 0.5s để server nhận diện trái trên tay
+                    
+                    local talkRes = nil
+                    pcall(function()
+                        talkRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
                         task.wait(0.2)
                         Remotes.CommF_:InvokeServer("TalkTrevor", "2")
                         task.wait(0.2)
                         Remotes.CommF_:InvokeServer("TalkTrevor", "3")
                     end)
                     
-                    -- Nếu Trevor trả về giá trị khác (ví dụ 3) nghĩa là đã đưa trái rồi
-                    if tRes == 1 or tRes == "1" or tRes == true or tRes == 3 or tRes == "3" then
+                    if talkRes == 1 or talkRes == "1" or talkRes == true or talkRes == 3 or talkRes == "3" then
                         FunctionsHandler.Trevor:Set("IsCompleted", true)
                         Storage:Set("TrevorCompleted", true)
                         Storage:Save()
-                        return
                     end
                     
-                    -- Nếu chưa đưa trái, tiến hành tìm trái >= 1M
-                    SetTask("MainTask", "Auto Third Sea - Getting Fruit >= 1M")
-                    local hasFruit = GetMillionFruit()
-                    if not hasFruit then
-                        SetTask("MainTask", "Auto Third Sea - Không có Trái >= 1M. Đang chờ...")
-                        return
-                    end
                     return
                 end
 
