@@ -6198,7 +6198,7 @@ FunctionsHandler = {
 
     end
 
--- Start SANGBLOX V1 cleanly
+-- Start SANGBLOX V1.0.1 cleanly
 pcall(function()
     if type(mmb) == "function" then
         task.spawn(mmb)
