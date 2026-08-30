@@ -1,3 +1,7 @@
+-- ==============================================================================
+-- ROBLOX BLOX FRUITS - SCRIPT CHÍNH (KAITUN FULL SYSTEM v4.5.0)
+-- [SCRIPT CHÍNH] test.lua - Tích hợp Auto Farm, Kaitun, Quét Map & Quái Sea 3 Ổn Định
+-- ==============================================================================
 Config =
         Config or
         {
@@ -10,7 +14,8 @@ Config =
                 AutoHop = true,
                 AutoHopDelay = 60 * 60,
                 FpsBoost = true,
-                ["IdleCheck"] = 150, -- every (x) seconds if not moving rejoin
+                ["IdleCheck"] = 150,
+                Sea3ScanDelay = 0.45, -- Quét map Sea 3 chậm lại và ổn định hơn (giảm lag, chống kick) -- every (x) seconds if not moving rejoin
             },
             Items = {
                 -- Melees
@@ -211,7 +216,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "SANGBLOX V1.0.5"
+        NameHub.Text = "SANGBLOX V10.6"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2629,6 +2634,9 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         end
 
         function CombatController.Search(MobTable)
+            if SeaIndex == 3 then
+                task.wait(0.15) -- Quét quái Sea 3 chậm rãi, mượt mà hơn
+            end
             local Lists = {}
             local Found = false
             for _, ChildInstance in GetMonAsSortedRange() do
@@ -6175,8 +6183,11 @@ FunctionsHandler = {
         end)
 
        
-        while task.wait() do
+        while true do
             if _G.StopScript then break end
+            -- Tốc độ quét map/task: Sea 3 quét chậm hơn (0.45s) để an toàn tuyệt đối, Sea 1-2 quét nhanh (0.1s)
+            local currentScanDelay = (SeaIndex == 3) and (Config.Configuration.Sea3ScanDelay or 0.45) or 0.1
+            task.wait(currentScanDelay)
             --[[
             if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
                 SendDataDelay = os.time() 
