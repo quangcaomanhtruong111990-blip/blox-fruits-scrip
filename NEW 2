@@ -5781,6 +5781,13 @@ FunctionsHandler = {
         end
       
         function boostfps()
+            -- Mobile Anti-Lag & Crash Prevention (Sea 3 Optimization)
+            pcall(function()
+                if setfpscap then setfpscap(30) end
+                UserSettings():GetService("UserGameSettings").SavedQualityLevel = Enum.SavedQualityLevel.Level1
+                game:GetService("Lighting").GlobalShadows = false
+                game:GetService("Lighting").Brightness = 2
+            end)
             local Terrain = workspace:FindFirstChildOfClass('Terrain')
             local ReplicatedStorage = game.ReplicatedStorage
             local Players = game.Players
