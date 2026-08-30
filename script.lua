@@ -3230,14 +3230,18 @@ FunctionsHandler = {
 
                     if Material then
                         if SeaIndex ~= MaterialData[2] then
-                            alert("Material - " .. Material, "Travelling sea " .. MaterialData[2])
-                            SetTask(
-                                "MainTask",
-                                "Sea Travel | Godhuman Materials | Travelling to Sea " .. MaterialData[2]
-                            )
+                            if SeaIndex == 3 then
+                                -- Do not travel across seas while in Sea 3
+                            else
+                                alert("Material - " .. Material, "Travelling sea " .. MaterialData[2])
+                                SetTask(
+                                    "MainTask",
+                                    "Sea Travel | Godhuman Materials | Travelling to Sea " .. MaterialData[2]
+                                )
 
-                            Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
-                            return
+                                Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
+                                return
+                            end
                         end
 
                         SetTask("MainTask", "Material Farming | Godhuman | " .. Material .. " | In Progress" )
@@ -5083,6 +5087,9 @@ FunctionsHandler = {
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Start",
             function()
+                if SeaIndex == 3 then
+                    return
+                end
                 -----------------------------------------------------------------
                 -- BƯỚC 1: NHIỆM VỤ TREVOR (MỞ CỔNG MANSION)
                 -----------------------------------------------------------------
@@ -5434,8 +5441,14 @@ FunctionsHandler = {
                     SoulGuitarProcess = Remotes.CommF_:InvokeServer("gravestoneEvent", 2, true)
                 elseif State == 1 then
                     if SeaIndex ~= 2 then
-                        SetTask("MainTask", "Teleport to second sea to farm ectoplasm")
-                        return Remotes.CommF_:InvokeServer("TravelDressrosa")
+                        if SeaIndex == 3 then
+                            SetTask("MainTask", "Farming ectoplasms (Sea 3)")
+                            CombatController.Attack({"Reaper", "Demonic Soul", "Posessed Mummy", "Living Zombie"})
+                            return
+                        else
+                            SetTask("MainTask", "Teleport to second sea to farm ectoplasm")
+                            return Remotes.CommF_:InvokeServer("TravelDressrosa")
+                        end
                     else
                         SetTask("MainTask", "Farming ectoplasms for soul guitar")
                         CombatController.Attack({"Ship Deckhand", "Ship Engineer", "Ship Steward", "Ship Officer"})
