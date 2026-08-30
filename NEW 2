@@ -1,7 +1,3 @@
--- ==============================================================================
--- ROBLOX BLOX FRUITS - SCRIPT CHÍNH (KAITUN FULL SYSTEM v4.5.0)
--- [SCRIPT CHÍNH] test.lua - Tích hợp Auto Farm, Kaitun, Quét Map & Quái Sea 3 Ổn Định
--- ==============================================================================
 Config =
         Config or
         {
@@ -14,8 +10,7 @@ Config =
                 AutoHop = true,
                 AutoHopDelay = 60 * 60,
                 FpsBoost = true,
-                ["IdleCheck"] = 150,
-                Sea3ScanDelay = 0.45, -- Quét map Sea 3 chậm lại và ổn định hơn (giảm lag, chống kick) -- every (x) seconds if not moving rejoin
+                ["IdleCheck"] = 150, -- every (x) seconds if not moving rejoin
             },
             Items = {
                 -- Melees
@@ -216,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "SANGBLOX V10.6"
+        NameHub.Text = "SANGBLOX V1.0.7"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1632,15 +1627,14 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             "Tushita",
             "SpecialBossesTask",
             "RaidController",
-            "Trevor",
-            "UtillyItemsActivitation",
-            "ColosseumPuzzle",
-            "ThirdSeaPuzzle",
-            "Yama",
             "Saber",
-            "PirateRaid",
             "SecondSeaPuzzle",
+            "ColosseumPuzzle",
+            "Trevor",
             "ThirdSeaPuzzle",
+            "UtillyItemsActivitation",
+            "Yama",
+            "PirateRaid",
             "CollectDrops",
             "BossesTask",
             "LevelFarm"
@@ -2634,9 +2628,6 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         end
 
         function CombatController.Search(MobTable)
-            if SeaIndex == 3 then
-                task.wait(0.15) -- Quét quái Sea 3 chậm rãi, mượt mà hơn
-            end
             local Lists = {}
             local Found = false
             for _, ChildInstance in GetMonAsSortedRange() do
@@ -3245,11 +3236,8 @@ FunctionsHandler = {
                     return true
                 end
 
-                    LastTravel = os.time()
-                    if PlayerLevel >= 700 and (SeaIndex == 1)  then
-                        SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
-                        Remotes.CommF_:InvokeServer("TravelDressrosa")
-                    end
+                    -- [ĐÃ TỐI ƯU]: Không tự ý nhảy Sea trong LevelFarm.
+                    -- Nhiệm vụ chuyển Sea 1 -> Sea 2 sẽ do SecondSeaPuzzle xử lý tuần tự sau khi hoàn thành Saber & Ice Admiral.
                 
 
                 if ScriptStorage.Tools["God's Chalice"] and not ScriptStorage.Tools["Mirror Fractal"] then
@@ -3913,16 +3901,24 @@ FunctionsHandler = {
             "Refresh",
             function()
                 if ScriptStorage.PlayerData.Level < 700 or SeaIndex ~= 1 then
-                    return
+                    return nil
                 end
                 if FunctionsHandler.SecondSeaPuzzle:Get("IsCompleted") then
-                    return
+                    return nil
+                end
+
+                -- [KIỂM TRA ĐIỀU KIỆN SEA 1]: Nếu bật Saber mà chưa có kiếm Saber thì ưu tiên hoàn thành Saber trước khi chuyển Sea 2
+                if (Config.Items.Saber or Config.Items.Saber == nil) and not ScriptStorage.Backpack.Saber then
+                    return nil
                 end
 
                 local Result = nil
-                local Result = nil
-                local Response = Remotes.CommF_:InvokeServer("DressrosaQuestProgress")
-                print(959, Response.TalkedDetective, Response.KilledIceBoss)
+                local Response = nil
+                pcall(function()
+                    Response = Remotes.CommF_:InvokeServer("DressrosaQuestProgress")
+                end)
+                if type(Response) ~= "table" then return nil end
+
                 if not Response.TalkedDetective then
                     Result = 1
                 elseif not Response.KilledIceBoss then
@@ -5014,6 +5010,37 @@ FunctionsHandler = {
                     return nil
                 end
 
+                -- [KIỂM TRA ĐIỀU KIỆN SEA 2 - BƯỚC 1]: Kiểm tra ColosseumPuzzle (Bartilo Quest / Warrior Helmet)
+                if not ScriptStorage.Backpack["Warrior Helmet"] then
+                    local bartiloResp = nil
+                    pcall(function() bartiloResp = Remotes.CommF_:InvokeServer("BartiloQuestProgress") end)
+                    if type(bartiloResp) == "table" and not bartiloResp.DidPlates then
+                        return nil -- Chưa giải xong Colosseum puzzle thì ưu tiên làm Colosseum trước
+                    end
+                end
+
+                -- [KIỂM TRA ĐIỀU KIỆN SEA 2 - BƯỚC 2]: Kiểm tra Trevor Quest (Đổi trái ác quỷ > 1M để mở cửa Biệt thự Don Swan)
+                local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
+                if not tDone then
+                    local tRes = nil
+                    pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
+                    if tRes == 1 or tRes == "1" or tRes == true then
+                        tDone = true
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                        Storage:Set("TrevorCompleted", true)
+                    else
+                        return nil -- Chưa giải xong Trevor quest, phải hoàn tất trước khi sang Sea 3
+                    end
+                end
+
+                -- [KIỂM TRA ĐIỀU KIỆN SEA 2 - BƯỚC 3]: Kiểm tra Don Swan
+                if not Storage:Get("SwanDefeated") then
+                    local swan = ScriptStorage.Enemies["Don Swan"]
+                    if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
+                        return nil -- Cần tiêu diệt Don Swan trước
+                    end
+                end
+
                 local zCheck = nil
                 pcall(function()
                     zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
@@ -5026,25 +5053,7 @@ FunctionsHandler = {
                     return true
                 end
 
-                local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
-                if not tDone then
-                    local tRes = nil
-                    pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
-                    if tRes == 1 or tRes == "1" or tRes == true then
-                        tDone = true
-                        FunctionsHandler.Trevor:Set("IsCompleted", true)
-                        Storage:Set("TrevorCompleted", true)
-                    end
-                end
-
-                if tDone then
-                    local swan = ScriptStorage.Enemies["Don Swan"]
-                    if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
-                        return nil
-                    end
-                end
-
-                return nil
+                return true
             end
         )
 
@@ -6183,11 +6192,8 @@ FunctionsHandler = {
         end)
 
        
-        while true do
+        while task.wait() do
             if _G.StopScript then break end
-            -- Tốc độ quét map/task: Sea 3 quét chậm hơn (0.45s) để an toàn tuyệt đối, Sea 1-2 quét nhanh (0.1s)
-            local currentScanDelay = (SeaIndex == 3) and (Config.Configuration.Sea3ScanDelay or 0.45) or 0.1
-            task.wait(currentScanDelay)
             --[[
             if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
                 SendDataDelay = os.time() 
