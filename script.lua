@@ -5085,31 +5085,52 @@ FunctionsHandler = {
                 end
 
                 if not tDone then
+                    -- Bỏ qua điều kiện có trái, cứ bay lại Trevor để nói chuyện xem có phải đã đưa trái rồi không
+                    SetTask("MainTask", "Auto Third Sea - Flying to Trevor (Checking Status)")
+                    local TargetPos = CFrame.new(-335.9, 331.9, 646.6)
+                    
+                    -- Dò vị trí Trevor chuẩn xác để không kẹt tường
+                    for _, v in pairs(workspace:GetDescendants()) do
+                        if v:IsA("Model") and string.lower(v.Name) == "trevor" then
+                            local p = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart
+                            if p then 
+                                TargetPos = p.CFrame * CFrame.new(0, 0, 5) 
+                                break
+                            end
+                        end
+                    end
+                    
+                    if CaculateDistance(TargetPos) > 15 then
+                        TweenController.Create(TargetPos)
+                        return
+                    end
+                    
+                    SetTask("MainTask", "Auto Third Sea - Talking to Trevor")
+                    local tRes = nil
+                    pcall(function()
+                        tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                        task.wait(0.2)
+                        Remotes.CommF_:InvokeServer("TalkTrevor", "2")
+                        task.wait(0.2)
+                        Remotes.CommF_:InvokeServer("TalkTrevor", "3")
+                    end)
+                    
+                    -- Nếu Trevor trả về giá trị khác (ví dụ 3) nghĩa là đã đưa trái rồi
+                    if tRes == 1 or tRes == "1" or tRes == true or tRes == 3 or tRes == "3" then
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                        Storage:Set("TrevorCompleted", true)
+                        Storage:Save()
+                        return
+                    end
+                    
+                    -- Nếu chưa đưa trái, tiến hành tìm trái >= 1M
                     SetTask("MainTask", "Auto Third Sea - Getting Fruit >= 1M")
                     local hasFruit = GetMillionFruit()
-                    
-                    if hasFruit then
-                        SetTask("MainTask", "Auto Third Sea - Flying to Trevor")
-                        local TargetPos = CFrame.new(-335.9, 331.9, 646.6)
-                        
-                        if CaculateDistance(TargetPos) > 15 then
-                            TweenController.Create(TargetPos)
-                            return
-                        end
-                        
-                        SetTask("MainTask", "Auto Third Sea - Talking to Trevor")
-                        pcall(function()
-                            Remotes.CommF_:InvokeServer("TalkTrevor", "1")
-                            task.wait(0.2)
-                            Remotes.CommF_:InvokeServer("TalkTrevor", "2")
-                            task.wait(0.2)
-                            Remotes.CommF_:InvokeServer("TalkTrevor", "3")
-                        end)
-                        return
-                    else
+                    if not hasFruit then
                         SetTask("MainTask", "Auto Third Sea - Không có Trái >= 1M. Đang chờ...")
                         return
                     end
+                    return
                 end
 
                 -----------------------------------------------------------------
