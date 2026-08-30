@@ -1,5 +1,5 @@
 -- ====================================================
--- Cyndral Kaitun Script v1.0.3 (Sea 3 Stable & Smooth Flight)
+-- Cyndral Kaitun Script v1.0.4 (Sea 3 Stable & Smooth Flight)
 -- Updated: 2026-08-30 | Fixed Submarine Remote Spam & Sea 2-like Flight Speed
 -- ====================================================
 Config =
@@ -215,7 +215,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "SANGBLOX V1.0.3"
+        NameHub.Text = "SANGBLOX V1.0.4"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
