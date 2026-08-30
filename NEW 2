@@ -6199,4 +6199,11 @@ FunctionsHandler = {
     end
     spawn(function ()
             pcall(function()
--- Embedded kaitun logic
+
+-- Start SANGBLOX V1 locally without any external webhooks or tracking
+pcall(function()
+    local success, err = pcall(mmb)
+    if not success then
+        warn("[SANGBLOX V1] Error: " .. tostring(err))
+    end
+end)
