@@ -6197,13 +6197,13 @@ FunctionsHandler = {
         end
 
     end
-    spawn(function ()
-            pcall(function()
 
--- Start SANGBLOX V1 locally without any external webhooks or tracking
+-- Start SANGBLOX V1 cleanly
 pcall(function()
-    local success, err = pcall(mmb)
-    if not success then
-        warn("[SANGBLOX V1] Error: " .. tostring(err))
+    if type(mmb) == "function" then
+        task.spawn(mmb)
+        print("[SANGBLOX V1] Initialized successfully!")
+    else
+        warn("[SANGBLOX V1] mmb function not found!")
     end
 end)
