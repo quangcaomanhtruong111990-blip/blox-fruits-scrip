@@ -1,37 +1,4 @@
-Config =
-        Config or
-        {
-            Team = "Pirates",
-            Configuration = {
-                HideallPath = false,
-                blackscreen = false,
-                HideGui = false,
-                HopWhenIdle = true,
-                AutoHop = true,
-                AutoHopDelay = 60 * 60,
-                FpsBoost = true,
-                ["IdleCheck"] = 150, -- every (x) seconds if not moving rejoin
-            },
-            Items = {
-                -- Melees
-                AutoFullyMelees = true,
-                -- Swords
-                Saber = true,
-                CursedDualKatana = false,
-                -- Guns
-                SoulGuitar = false,
-                -- Upgrades
-
-                RaceV2 = false,
-                AutoFarmFruitMastery = false,
-                AutoEatFruit = 1,
-                Eatlist = {}
-            },
-            Settings = {
-                StayInSea2UntilHaveDarkFragments = false, -- bat cai nay se hop tim darkbeard / turn this on to force hop for darkbeard ( for sg )
-                ["Fragments"] = 5000 -- Auto farm fragments until you have 5000 fragments to buy the chip
-            }
-}
+local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/quangcaomanhtruong111990-blip/blox-fruits-scrip/main/config.lua"))()
 repeat
     task.wait(0.5)
 until game:IsLoaded()
@@ -165,25 +132,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function Report(Message)
-        if true then
-            if Traces[Message] then
-                return
-            end
-            Traces[Message] = true
-    
-            local Body = game:GetService("HttpService"):JSONEncode(Build(Message))
-    
-            local AffectedIndexes = {0, 0, 0, 0}
-    
-            request({
-                Url = "https://discord.com/api/webhooks/1489044457503592600/72IHxqtvinkQI3TJ1b4H_GZPvfwFbIZ1ba5CyOSdwi78KlV7gs56x9CtYky5FCxZNgiY",
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = Body
-            })
-        end
+        print("[Report Disabled]", Message)
     end
 
     function mmb()
@@ -229,7 +178,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = (Config.Configuration and Config.Configuration.HubName) or _G.HubName or "SANGBLOX"
+        NameHub.Text = "SANGBLOX V1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1676,7 +1625,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                
     --         elseif ScriptStorage.PlayerData.Level >= 700 and (SeaIndex == 1 ) then
     --                            print("B")
-    --                             game.ReplicatedStorage.if SeaIndex ~= 3 then Remotes.CommF_:InvokeServer("TravelDressrosa") end
+    --                             game.ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelDressrosa")
     --                     end   
         
     
@@ -1954,39 +1903,39 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         function QuestManager.RefreshQuest(Self)
             pcall(function()
-                local retries = 0
-                while not (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) do
-                    pcall(RefreshPlayerData)
-                    if not (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) then
-                        local lp = game:GetService("Players").LocalPlayer
-                        if lp and lp:FindFirstChild("Data") and lp.Data:FindFirstChild("Level") then
-                            if not ScriptStorage.PlayerData then ScriptStorage.PlayerData = {} end
-                            ScriptStorage.PlayerData.Level = lp.Data.Level.Value
-                        end
-                    end
-                    if ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then break end
-                    task.wait(0.2)
-                    retries = retries + 1
-                    if retries > 15 then
+                RefreshPlayerData()
+                local playerLevel = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+                if playerLevel <= 1 then
+                    local lp = game:GetService("Players").LocalPlayer
+                    if lp and lp:FindFirstChild("Data") and lp.Data:FindFirstChild("Level") then
+                        playerLevel = lp.Data.Level.Value
                         if not ScriptStorage.PlayerData then ScriptStorage.PlayerData = {} end
-                        ScriptStorage.PlayerData.Level = 1
-                        break
+                        ScriptStorage.PlayerData.Level = playerLevel
                     end
                 end
 
-                local QuestLevelFlag = 0
-                local CurrentQuestData = nil
+                local BestQuestID, BestQuestData, BestNpcPos = nil, nil, nil
+                local BestReqLevel = 0
 
                 if QuestManager and QuestManager.Quests then
                     for QuestID, QuestDatas in pairs(QuestManager.Quests) do
                         if not QuestManager.BlacklistedQuestIds or not QuestManager.BlacklistedQuestIds[QuestID] then
-                            if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq and ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then
-                                if QuestDatas[1].LevelReq >= QuestLevelFlag and QuestDatas[1].LevelReq <= ScriptStorage.PlayerData.Level then
-                                    QuestLevelFlag = QuestDatas[1].LevelReq
-                                    CurrentQuestData = QuestDatas
-                                    Self.CurrentQuestId = QuestID
-                                    if ScriptStorage.PlayerData.Level >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
-                                        break
+                            for qIdx, qData in ipairs(QuestDatas) do
+                                if qData and qData.LevelReq and qData.LevelReq <= playerLevel then
+                                    local isBoss = false
+                                    if qData.Task then
+                                        for mobName, reqAmount in pairs(qData.Task) do
+                                            if reqAmount <= 1 or string.find(string.lower(mobName), "boss") then
+                                                isBoss = true
+                                                break
+                                            end
+                                        end
+                                    end
+
+                                    if not isBoss and qData.LevelReq >= BestReqLevel then
+                                        BestReqLevel = qData.LevelReq
+                                        BestQuestID = QuestID
+                                        BestQuestData = QuestDatas
                                     end
                                 end
                             end
@@ -1994,48 +1943,74 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
                 end
 
-                if CurrentQuestData and #CurrentQuestData > 0 then
-                    local LastQuest = CurrentQuestData[#CurrentQuestData]
-                    if LastQuest and LastQuest.Task then
-                        for _, Count in pairs(LastQuest.Task) do
-                            if Count == 1 then
-                                table.remove(CurrentQuestData, #CurrentQuestData)
+                if BestQuestData and #BestQuestData > 0 then
+                    local filteredQuests = {}
+                    for _, q in ipairs(BestQuestData) do
+                        local isBoss = false
+                        if q.Task then
+                            for mobName, reqAmount in pairs(q.Task) do
+                                if reqAmount <= 1 or string.find(string.lower(mobName), "boss") then
+                                    isBoss = true
+                                    break
+                                end
                             end
                         end
+                        if not isBoss then
+                            table.insert(filteredQuests, q)
+                        end
+                    end
+                    if #filteredQuests > 0 then
+                        BestQuestData = filteredQuests
                     end
 
+                    Self.CurrentQuestId = BestQuestID
+                    Self.CurrentQuests = BestQuestData
+
+                    local targetReq = BestQuestData[#BestQuestData].LevelReq
                     local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
                     if guideModule then
                         local okModule, guideData = pcall(function() return require(guideModule) end)
                         if okModule and guideData and guideData.Data and guideData.Data.NPCList then
-                            for i, v in pairs(guideData.Data.NPCList) do
-                                if v and v.Levels and CurrentQuestData[#CurrentQuestData] then
-                                    for _, v1 in pairs(v.Levels) do
-                                        if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
-                                            Self.CurrentNpc = i.CFrame
+                            for _, npcData in pairs(guideData.Data.NPCList) do
+                                if npcData and npcData.Levels and npcData.CFrame then
+                                    for _, lvl in ipairs(npcData.Levels) do
+                                        if lvl == targetReq then
+                                            Self.CurrentNpc = npcData.CFrame.Position
+                                            break
                                         end
                                     end
                                 end
+                                if Self.CurrentNpc then break end
                             end
                         end
                     end
                 end
-
-                Self.CurrentQuests = CurrentQuestData
             end)
         end
 
         function QuestManager.GetCurrentQuest(Self)
-            local QuestIndex =
-                Self.CurrentQuests[Self.CurrentLevel] and
-                Self.CurrentQuests[Self.CurrentLevel].LevelReq <= ScriptStorage.PlayerData.Level and
-                Self.CurrentLevel or
-                1
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                Self:RefreshQuest()
+            end
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                return nil, nil, nil, 1, nil
+            end
 
-            --print(Self.CurrentQuests[QuestIndex], Self.CurrentQuests[QuestIndex].NameMon)
+            local myLevel = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+            local QuestIndex = 1
+            for idx = #Self.CurrentQuests, 1, -1 do
+                local q = Self.CurrentQuests[idx]
+                if q and q.LevelReq and q.LevelReq <= myLevel then
+                    QuestIndex = idx
+                    break
+                end
+            end
 
-            for Name in Self.CurrentQuests[QuestIndex].Task do
-                return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, Self.CurrentQuests[QuestIndex].Name
+            local qObj = Self.CurrentQuests[QuestIndex]
+            if qObj and qObj.Task then
+                for Name in pairs(qObj.Task) do
+                    return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, qObj.Name
+                end
             end
         end
 
@@ -2306,7 +2281,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
             -- Giảm tốc độ bay chậm lại để tránh bị văng/kick
-            local Speed = (CurrentDist < 20) and 20 or 60
+            local Speed = (CurrentDist < 20) and 35 or 320
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2453,7 +2428,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         local lastFuncsAttackTime = 0
         function Funcs:Attack()
             local now = os.clock()
-            if now - lastFuncsAttackTime < 0.225 then
+            if now - lastFuncsAttackTime < 0.12 then
                 return
             end
             lastFuncsAttackTime = now
@@ -2480,8 +2455,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 [2] = {},
                 [4] = "078da341"
             }
-            RegisterAttack:FireServer(0)
             for r, v in pairs(bladehits) do
+                RegisterAttack:FireServer(0)
                 local headOrPart = v:FindFirstChild("Head") or v.PrimaryPart
                 if headOrPart then
                     if not args[1] then
@@ -2505,7 +2480,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
-            while task.wait(0.225) do
+            while task.wait(0.12) do
                 if (os.time() - (_G.FastAttack or 0)) <= 1 then
                     pcall(
                         function()
@@ -2541,7 +2516,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                         if not mobHrp or not mobHum or mobHum.Health <= 0 then return end
                         
                         local now = os.clock()
-                        if now - lastFuncsAttackTime >= 0.225 then
+                        if now - lastFuncsAttackTime >= 0.15 then
                             lastFuncsAttackTime = now
                             if RegisterAttack then RegisterAttack:FireServer(0) end
                             if RegisterHit then RegisterHit:FireServer(mobHrp, {mobHum}) end
@@ -2818,6 +2793,21 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
 
                     local Region = ScriptStorage.MobRegions[Child]
+
+                    if not Region then
+                        -- Tim bãi spawn tu _WorldOrigin.EnemySpawns
+                        local worldOrigin = game.Workspace:FindFirstChild("_WorldOrigin")
+                        if worldOrigin and worldOrigin:FindFirstChild("EnemySpawns") then
+                            local cleanName = string.lower(Child):gsub("s$", "")
+                            for _, spawner in ipairs(worldOrigin.EnemySpawns:GetChildren()) do
+                                local spawnerClean = string.lower(spawner.Name)
+                                if string.find(spawnerClean, cleanName) or string.find(cleanName, spawnerClean) then
+                                    Region = {spawner.Position}
+                                    break
+                                end
+                            end
+                        end
+                    end
 
                     if not Region then
                         local Inst =
@@ -3230,18 +3220,14 @@ FunctionsHandler = {
 
                     if Material then
                         if SeaIndex ~= MaterialData[2] then
-                            if SeaIndex == 3 then
-                                -- Do not travel across seas while in Sea 3
-                            else
-                                alert("Material - " .. Material, "Travelling sea " .. MaterialData[2])
-                                SetTask(
-                                    "MainTask",
-                                    "Sea Travel | Godhuman Materials | Travelling to Sea " .. MaterialData[2]
-                                )
+                            alert("Material - " .. Material, "Travelling sea " .. MaterialData[2])
+                            SetTask(
+                                "MainTask",
+                                "Sea Travel | Godhuman Materials | Travelling to Sea " .. MaterialData[2]
+                            )
 
-                                Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
-                                return
-                            end
+                            Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
+                            return
                         end
 
                         SetTask("MainTask", "Material Farming | Godhuman | " .. Material .. " | In Progress" )
@@ -3262,7 +3248,7 @@ FunctionsHandler = {
                     LastTravel = os.time()
                     if PlayerLevel >= 700 and (SeaIndex == 1)  then
                         SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
-                        if SeaIndex ~= 3 then Remotes.CommF_:InvokeServer("TravelDressrosa") end
+                        Remotes.CommF_:InvokeServer("TravelDressrosa")
                     end
                 
 
@@ -3891,7 +3877,7 @@ FunctionsHandler = {
                                             type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
                                                 alert("Go Back To Second Sea", "Water Key / Library Key")
 
-                                                if SeaIndex ~= 3 then Remotes.CommF_:InvokeServer("TravelDressrosa") end
+                                                Remotes.CommF_:InvokeServer("TravelDressrosa")
                                             end
                                             ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
                                         else
@@ -3981,7 +3967,7 @@ FunctionsHandler = {
                     SetTask("MainTask", "Auto Second Sea - Defeating Ice Admiral")
                     CombatController.Attack("Ice Admiral")
                     alert("Traveling back to Dressrosa [ Ice Admiral ]")
-                    if SeaIndex ~= 3 then Remotes.CommF_:InvokeServer("TravelDressrosa") end
+                    Remotes.CommF_:InvokeServer("TravelDressrosa")
                 end
             end
         )
@@ -4946,7 +4932,7 @@ FunctionsHandler = {
                 if not hrp then return end
 
                 SetTask("MainTask", "Bay từ từ tới biệt thự tìm Trevor")
-                local TargetPos = CFrame.new(-335.9, 331.9, 646.6) -- Default Mansion
+                local TargetPos = CFrame.new(-470, 332, 630) -- Default Mansion
                 
                 local function findTrevor()
                     for _, v in pairs(workspace:GetDescendants()) do
@@ -5020,278 +5006,100 @@ FunctionsHandler = {
         )
 
         print(4)
-                        local MillionFruits = {
-            "Quake-Quake", "Love-Love", "Spider-Spider", "Sound-Sound", "Phoenix-Phoenix",
-            "Portal-Portal", "Rumble-Rumble", "Pain-Pain", "Blizzard-Blizzard", "Gravity-Gravity",
-            "Mammoth-Mammoth", "T-Rex-T-Rex", "Dough-Dough", "Shadow-Shadow", "Venom-Venom",
-            "Control-Control", "Spirit-Spirit", "Dragon-Dragon", "Leopard-Leopard", "Kitsune-Kitsune"
-        }
-
-        local function GetMillionFruit()
-            local player = game.Players.LocalPlayer
-            local char = player.Character
-            local bp = player.Backpack
-            
-            -- Khóa tạm thời hàm cất trái ác quỷ
-            if FunctionsHandler.Trevor then
-                FunctionsHandler.Trevor:Set("IsLoadingFruit", true)
-            end
-
-            for _, item in ipairs(char:GetChildren()) do
-                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
-                    if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
-                        table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
-                    end
-                    return true
-                end
-            end
-            for _, item in ipairs(bp:GetChildren()) do
-                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
-                    if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
-                        table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
-                    end
-                    item.Parent = char
-                    return true
-                end
-            end
-
-            for _, fruitName in ipairs(MillionFruits) do
-                pcall(function()
-                    Remotes.CommF_:InvokeServer("LoadFruit", fruitName)
-                end)
-                task.wait(0.1)
-                for _, item in ipairs(bp:GetChildren()) do
-                    if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
-                        if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
-                            table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
-                        end
-                        item.Parent = char
-                        return true
-                    end
-                end
-            end
-            return false
-        end
-
         -- Third Sea Puzzle
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Refresh",
             function()
                 if ScriptStorage.PlayerData.Level < 1500 or SeaIndex ~= 2 then
-                    return nil -- SKIP THIS TASK
+                    return nil
                 end
-                return true -- RUN THIS TASK
+
+                local zCheck = nil
+                pcall(function()
+                    zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                end)
+                if zCheck and zCheck ~= -1 and zCheck ~= "nil" and zCheck ~= 0 and zCheck ~= "0" then
+                    return true
+                end
+
+                if Storage:Get("SwanDefeated") then
+                    return true
+                end
+
+                local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
+                if not tDone then
+                    local tRes = nil
+                    pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
+                    if tRes == 1 or tRes == "1" or tRes == true then
+                        tDone = true
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                        Storage:Set("TrevorCompleted", true)
+                    end
+                end
+
+                if tDone then
+                    local swan = ScriptStorage.Enemies["Don Swan"]
+                    if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
+                        return nil
+                    end
+                end
+
+                return nil
             end
         )
 
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Start",
             function()
-                if SeaIndex == 3 then
-                    return
-                end
-                -----------------------------------------------------------------
-                -- BƯỚC 1: NHIỆM VỤ TREVOR (MỞ CỔNG MANSION)
-                -----------------------------------------------------------------
-                local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
-                
-                -- Check if Don Swan is already accessible / defeated (Bypass Trevor completely)
-                local swanDefeated = Storage:Get("SwanDefeated")
-                if not swanDefeated then
-                    local zProgCheck = nil
-                    pcall(function() zProgCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check") end)
-                    if zProgCheck and zProgCheck ~= -1 and zProgCheck ~= "nil" and zProgCheck ~= 0 and zProgCheck ~= "0" then
-                        Storage:Set("SwanDefeated", true)
-                        Storage:Save()
-                        swanDefeated = true
-                    end
-                end
-                
-                if swanDefeated then
-                    tDone = true
-                    FunctionsHandler.Trevor:Set("IsCompleted", true)
-                    Storage:Set("TrevorCompleted", true)
-                end
-
-                if not tDone then
-                    -- Verify via remote before attempting anything
-                    local tRes = nil
-                    pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
-                    if tRes == 1 or tRes == "1" or tRes == true or tRes == 3 or tRes == "3" then
-                        tDone = true
-                        FunctionsHandler.Trevor:Set("IsCompleted", true)
-                        Storage:Set("TrevorCompleted", true)
-                        Storage:Save()
-                    end
-                end
-
-                if not tDone then
-                    SetTask("MainTask", "Auto Third Sea - Getting Fruit >= 1M")
-                    local hasFruit = GetMillionFruit()
-                    
-                    if not hasFruit then
-                        SetTask("MainTask", "Auto Third Sea - Không có Trái >= 1M. Đang chờ...")
-                        return
-                    end
-                    
-                    SetTask("MainTask", "Auto Third Sea - Flying to Trevor")
-                    local TargetPos = CFrame.new(-335.9, 331.9, 646.6)
-                    
-                    -- Dò vị trí Trevor chuẩn xác để không kẹt tường
-                    for _, v in pairs(workspace:GetDescendants()) do
-                        if v:IsA("Model") and string.lower(v.Name) == "trevor" then
-                            local p = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart
-                            if p then 
-                                TargetPos = p.CFrame * CFrame.new(0, 0, 5) 
-                                break
-                            end
-                        end
-                    end
-                    
-                    if CaculateDistance(TargetPos) > 3 then
-                        TweenController.Create(TargetPos)
-                        return
-                    end
-                    
-                    SetTask("MainTask", "Auto Third Sea - Holding Fruit & Talking to Trevor")
-                    
-                    local equippedFruit = nil
-                    
-                    pcall(function()
-                        local char = game.Players.LocalPlayer.Character
-                        local bp = game.Players.LocalPlayer.Backpack
-                        if char and bp then
-                            for _, tool in ipairs(char:GetChildren()) do
-                                if tool:IsA("Tool") and not (tool.Name:find("Fruit") or tool.Name:find("Trái")) then
-                                    tool.Parent = bp
-                                end
-                            end
-                            for _, item in ipairs(bp:GetChildren()) do
-                                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
-                                    item.Parent = char
-                                    equippedFruit = item
-                                    break
-                                end
-                            end
-                            if not equippedFruit then
-                                for _, item in ipairs(char:GetChildren()) do
-                                    if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
-                                        equippedFruit = item
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                    end)
-                    
-                    task.wait(0.5) 
-                    
-                    pcall(function()
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "1")
-                        task.wait(0.2)
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "2")
-                        task.wait(0.2)
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "3")
-                        task.wait(0.2)
-                        Remotes.CommF_:InvokeServer("TalkTrevor", 1)
-                        Remotes.CommF_:InvokeServer("TalkTrevor", 2)
-                        Remotes.CommF_:InvokeServer("TalkTrevor", 3)
-                        task.wait(0.2)
-                        Remotes.CommF_:InvokeServer("TalkTrevor")
-                    end)
-                    
-                    if FunctionsHandler.Trevor then
-                        FunctionsHandler.Trevor:Set("IsLoadingFruit", false)
-                    end
-                    
-                    -- CẤT TRÁI VÀO LẠI BALO NGAY LẬP TỨC ĐỂ TRÁNH BỊ PK MẤT
-                    pcall(function()
-                        if equippedFruit and equippedFruit.Parent ~= nil then
-                            local bp = game.Players.LocalPlayer.Backpack
-                            equippedFruit.Parent = bp
-                        end
-                    end)
-                    
-                    -- BỎ QUA LUÔN: Dù NPC có lấy hay không thì cũng ép buộc đánh dấu hoàn thành 
-                    -- (vì nếu không lấy nghĩa là đã đưa từ trước)
-                    print("[ ThirdSeaPuzzle ] Bỏ qua bước giao trái, tiến hành đập Don Swan!")
-                    FunctionsHandler.Trevor:Set("IsCompleted", true)
-                    Storage:Set("TrevorCompleted", true)
-                    Storage:Save()
-                    
-                    return
-                end
-
-                -----------------------------------------------------------------
-                -- BƯỚC 2: TIÊU DIỆT DON SWAN
-                -----------------------------------------------------------------
-                local swanDefeated = Storage:Get("SwanDefeated")
-                if not swanDefeated then
-                    local zProgCheck = nil
-                    pcall(function() zProgCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check") end)
-                    if zProgCheck and zProgCheck ~= -1 and zProgCheck ~= "nil" and zProgCheck ~= 0 and zProgCheck ~= "0" then
-                        Storage:Set("SwanDefeated", true)
-                        Storage:Save()
-                        swanDefeated = true
-                    end
-                end
-
-                if not swanDefeated then
-                    SetTask("MainTask", "Auto Third Sea - Defeating Don Swan")
-                    local swanPos = CFrame.new(-385, 332, 672)
-                    
-                    local swan = ScriptStorage.Enemies["Don Swan"]
-                    if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
-                        CombatController.Attack({"Don Swan"})
-                    else
-                        if CaculateDistance(swanPos) > 15 then
-                            TweenController.Create(swanPos)
-                        else
-                            SetTask("MainTask", "Auto Third Sea - Waiting for Don Swan")
-                        end
-                    end
-                    return
-                end
-
-                -----------------------------------------------------------------
-                -- BƯỚC 3 & 4: NÓI CHUYỆN VỚI KING RED HEAD, ĐÁNH RIP_INDRA & ĐI SEA 3
-                -----------------------------------------------------------------
                 local zProgress = nil
                 pcall(function()
                     zProgress = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
                 end)
-                
+                print("[ ThirdSeaPuzzle ] ZQuestProgress Check:", tostring(zProgress))
+
                 if zProgress == 0 or zProgress == "0" or zProgress == nil or zProgress == -1 then
                     SetTask("MainTask", "Auto Third Sea - Talking to King Red Head")
-                    local kingPos = CFrame.new(-1795, 303, -2900)
-                    if CaculateDistance(kingPos) > 15 then
-                        TweenController.Create(kingPos)
-                        return
-                    end
-                    
-                    pcall(function()
-                        Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
-                    end)
-                    return
-                end
 
-                local indra = ScriptStorage.Enemies["rip_indra True Form"] or ScriptStorage.Enemies["rip_indra"]
-                if indra and indra:FindFirstChild("Humanoid") and indra.Humanoid.Health > 0 then
-                    SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
-                    CombatController.Attack({"rip_indra", "rip_indra True Form"})
-                    return
-                end
-
-                if zProgress ~= 0 and zProgress ~= "0" and zProgress ~= -1 then
-                    if not _G.IsTravelingToSea3 then
-                        _G.IsTravelingToSea3 = true
-                        SetTask("MainTask", "Sea Travel | Teleporting to Third Sea (Zou)")
+                    local startTry = os.time()
+                    repeat
                         pcall(function()
-                            if SeaIndex ~= 3 then Remotes.CommF_:InvokeServer("TravelZou") end
+                            Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
                         end)
-                        task.wait(10)
-                    end
+                        task.wait(1)
+                        local zCheck = nil
+                        pcall(function()
+                            zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                        end)
+                        if zCheck ~= 0 and zCheck ~= "0" and zCheck ~= nil and zCheck ~= -1 then
+                            print("[ ThirdSeaPuzzle ] ZQuestProgress updated:", tostring(zCheck))
+                            break
+                        end
+                    until CaculateDistance(Vector3.new(0, 0, 0)) > 20000 or (os.time() - startTry > 10)
+
+                    SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
+                    local startFight = os.time()
+                    repeat
+                        pcall(function()
+                            CombatController.Attack({"rip_indra", "rip_indra True Form"})
+                        end)
+                        task.wait(0.5)
+
+                        local checkProg = nil
+                        pcall(function()
+                            checkProg = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                        end)
+                        if checkProg ~= 0 and checkProg ~= "0" and checkProg ~= nil and checkProg ~= -1 then
+                            print("[ ThirdSeaPuzzle ] rip_indra defeated!")
+                            break
+                        end
+                    until os.time() - startFight > 60
                 end
+
+                SetTask("MainTask", "Sea Travel | Teleporting to Third Sea (Zou)")
+                pcall(function()
+                    Remotes.CommF_:InvokeServer("TravelZou")
+                end)
+                task.wait(2)
             end
         )
 
@@ -5405,7 +5213,7 @@ FunctionsHandler = {
                 SoulGuitarProcess = Remotes.CommF_:InvokeServer("GuitarPuzzleProgress", "Check")
 
                 if not SoulGuitarProcess then
-                    if SeaIndex ~= 3 then Remotes.CommF_:InvokeServer("gravestoneEvent", 2) end
+                    Remotes.CommF_:InvokeServer("gravestoneEvent", 2)
                     if not CheckFullMoon() then
                         SetTask("MainTask", "Hopping for full moon ( soul guitar )")
                         -- Hop()
@@ -5441,14 +5249,8 @@ FunctionsHandler = {
                     SoulGuitarProcess = Remotes.CommF_:InvokeServer("gravestoneEvent", 2, true)
                 elseif State == 1 then
                     if SeaIndex ~= 2 then
-                        if SeaIndex == 3 then
-                            SetTask("MainTask", "Farming ectoplasms (Sea 3)")
-                            CombatController.Attack({"Reaper", "Demonic Soul", "Posessed Mummy", "Living Zombie"})
-                            return
-                        else
-                            SetTask("MainTask", "Teleport to second sea to farm ectoplasm")
-                            return if SeaIndex ~= 3 then Remotes.CommF_:InvokeServer("TravelDressrosa") end
-                        end
+                        SetTask("MainTask", "Teleport to second sea to farm ectoplasm")
+                        return Remotes.CommF_:InvokeServer("TravelDressrosa")
                     else
                         SetTask("MainTask", "Farming ectoplasms for soul guitar")
                         CombatController.Attack({"Ship Deckhand", "Ship Engineer", "Ship Steward", "Ship Officer"})
@@ -5969,6 +5771,13 @@ FunctionsHandler = {
         end
       
         function boostfps()
+            -- Mobile Anti-Lag & Crash Prevention (Sea 3 Optimization)
+            pcall(function()
+                if setfpscap then setfpscap(30) end
+                UserSettings():GetService("UserGameSettings").SavedQualityLevel = Enum.SavedQualityLevel.Level1
+                game:GetService("Lighting").GlobalShadows = false
+                game:GetService("Lighting").Brightness = 2
+            end)
             local Terrain = workspace:FindFirstChildOfClass('Terrain')
             local ReplicatedStorage = game.ReplicatedStorage
             local Players = game.Players
@@ -6219,24 +6028,12 @@ FunctionsHandler = {
 
         RefreshRace()
 
-        -- [ SANGBLOX ] Anti-AFK (Chống Kick 20 Phút / 30 Phút)
         Players.LocalPlayer.Idled:Connect(
             function()
                 Services.VirtualUser:CaptureController()
                 Services.VirtualUser:ClickButton2(Vector2.new())
             end
         )
-        
-        -- Vô hiệu hóa tính năng tự động đá của Roblox
-        pcall(function()
-            for i, v in pairs(getconnections(Players.LocalPlayer.Idled)) do
-                if v["Disable"] then
-                    v:Disable()
-                elseif v["Disconnect"] then
-                    v:Disconnect()
-                end
-            end
-        end)
 
         SetText("MainTextLabel", "Loaded In " .. tick() - StartTick .. "ms!")
         Loaded = 1
@@ -6408,18 +6205,13 @@ FunctionsHandler = {
         end
 
     end
-    spawn(function ()
-            pcall(function()
-        -- Removed kunblox.net external call
-        local code = ""
-        if code and #code > 0 then
-            local fn = loadstring(code)
-            if fn then fn() end
-        end
-    end)
-        end)
-        
-    local success2, response2 = xpcall(mmb, debug.traceback)
-    if not success2 then
-        Report(response2)
+
+-- Start SANGBLOX V1 cleanly
+pcall(function()
+    if type(mmb) == "function" then
+        task.spawn(mmb)
+        print("[SANGBLOX V1] Initialized successfully!")
+    else
+        warn("[SANGBLOX V1] mmb function not found!")
     end
+end)
