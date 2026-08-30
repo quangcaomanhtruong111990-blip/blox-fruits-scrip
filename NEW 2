@@ -1,4 +1,37 @@
-local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/quangcaomanhtruong111990-blip/blox-fruits-scrip/main/config.lua"))()
+Config =
+        Config or
+        {
+            Team = "Pirates",
+            Configuration = {
+                HideallPath = false,
+                blackscreen = false,
+                HideGui = false,
+                HopWhenIdle = true,
+                AutoHop = true,
+                AutoHopDelay = 60 * 60,
+                FpsBoost = true,
+                ["IdleCheck"] = 150, -- every (x) seconds if not moving rejoin
+            },
+            Items = {
+                -- Melees
+                AutoFullyMelees = true,
+                -- Swords
+                Saber = true,
+                CursedDualKatana = false,
+                -- Guns
+                SoulGuitar = false,
+                -- Upgrades
+
+                RaceV2 = false,
+                AutoFarmFruitMastery = false,
+                AutoEatFruit = 1,
+                Eatlist = {}
+            },
+            Settings = {
+                StayInSea2UntilHaveDarkFragments = false, -- bat cai nay se hop tim darkbeard / turn this on to force hop for darkbeard ( for sg )
+                ["Fragments"] = 5000 -- Auto farm fragments until you have 5000 fragments to buy the chip
+            }
+}
 repeat
     task.wait(0.5)
 until game:IsLoaded()
@@ -6165,7 +6198,7 @@ FunctionsHandler = {
 
     end
 
--- Start SANGBLOX V1.0.1 cleanly
+-- Start SANGBLOX V1 cleanly
 pcall(function()
     if type(mmb) == "function" then
         task.spawn(mmb)
