@@ -5027,14 +5027,25 @@ FunctionsHandler = {
             local player = game.Players.LocalPlayer
             local char = player.Character
             local bp = player.Backpack
+            
+            -- Khóa tạm thời hàm cất trái ác quỷ
+            if FunctionsHandler.Trevor then
+                FunctionsHandler.Trevor:Set("IsLoadingFruit", true)
+            end
 
             for _, item in ipairs(char:GetChildren()) do
                 if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                    if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
+                        table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
+                    end
                     return true
                 end
             end
             for _, item in ipairs(bp:GetChildren()) do
                 if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                    if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
+                        table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
+                    end
                     item.Parent = char
                     return true
                 end
@@ -5044,9 +5055,12 @@ FunctionsHandler = {
                 pcall(function()
                     Remotes.CommF_:InvokeServer("LoadFruit", fruitName)
                 end)
-                task.wait(0.05)
+                task.wait(0.1)
                 for _, item in ipairs(bp:GetChildren()) do
                     if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                        if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
+                            table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
+                        end
                         item.Parent = char
                         return true
                     end
@@ -5159,11 +5173,15 @@ FunctionsHandler = {
                     local talkRes = nil
                     pcall(function()
                         talkRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
-                        task.wait(0.2)
+                        task.wait(0.5)
                         Remotes.CommF_:InvokeServer("TalkTrevor", "2")
-                        task.wait(0.2)
+                        task.wait(0.5)
                         Remotes.CommF_:InvokeServer("TalkTrevor", "3")
                     end)
+                    
+                    if FunctionsHandler.Trevor then
+                        FunctionsHandler.Trevor:Set("IsLoadingFruit", false)
+                    end
                     
                     if talkRes == 1 or talkRes == "1" or talkRes == true or talkRes == 3 or talkRes == "3" then
                         FunctionsHandler.Trevor:Set("IsCompleted", true)
