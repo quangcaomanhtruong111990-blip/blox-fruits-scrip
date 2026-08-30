@@ -4942,7 +4942,7 @@ FunctionsHandler = {
                 if not hrp then return end
 
                 SetTask("MainTask", "Bay từ từ tới biệt thự tìm Trevor")
-                local TargetPos = CFrame.new(-470, 332, 630) -- Default Mansion
+                local TargetPos = CFrame.new(-335.9, 331.9, 646.6) -- Default Mansion
                 
                 local function findTrevor()
                     for _, v in pairs(workspace:GetDescendants()) do
@@ -5090,7 +5090,7 @@ FunctionsHandler = {
                     
                     if hasFruit then
                         SetTask("MainTask", "Auto Third Sea - Flying to Trevor")
-                        local TargetPos = CFrame.new(-470, 332, 630)
+                        local TargetPos = CFrame.new(-335.9, 331.9, 646.6)
                         
                         if CaculateDistance(TargetPos) > 15 then
                             TweenController.Create(TargetPos)
