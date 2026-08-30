@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "kunblox.net"
+        NameHub.Text = "SANGBLOX"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -282,6 +282,65 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         ToggleIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
         ToggleIcon.TextSize = 24
         ToggleIcon.TextScaled = true
+
+        -- Create Stop Button Container
+        local StopContainer = Instance.new("Frame")
+        local StopUIStroke = Instance.new("UIStroke")
+        local StopButton = Instance.new("ImageButton")
+        local StopIcon = Instance.new("TextLabel")
+
+        StopContainer.Name = "StopContainer"
+        StopContainer.Parent = HopGui
+        StopContainer.AnchorPoint = Vector2.new(1, 0)
+        StopContainer.Position = UDim2.new(1, -20, 0, 80)
+        StopContainer.Size = UDim2.new(0, 50, 0, 50)
+        StopContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        StopContainer.BackgroundTransparency = 0.2
+        StopContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+        StopContainer.BorderSizePixel = 0
+        StopContainer.ClipsDescendants = true
+        
+        local StopUICorner = Instance.new("UICorner")
+        StopUICorner.CornerRadius = UDim.new(1, 0)
+        StopUICorner.Parent = StopContainer
+        
+        StopUIStroke.Parent = StopContainer
+        StopUIStroke.Color = Color3.fromRGB(255, 50, 50)
+        StopUIStroke.Thickness = 2
+        
+        StopButton.Name = "StopButton"
+        StopButton.Parent = StopContainer
+        StopButton.AnchorPoint = Vector2.new(0.5, 0.5)
+        StopButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+        StopButton.Size = UDim2.new(1, 0, 1, 0)
+        StopButton.BackgroundTransparency = 1
+        StopButton.BorderSizePixel = 0
+        
+        StopIcon.Name = "StopIcon"
+        StopIcon.Parent = StopContainer
+        StopIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+        StopIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+        StopIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
+        StopIcon.BackgroundTransparency = 1
+        StopIcon.BorderSizePixel = 0
+        StopIcon.Font = Enum.Font.GothamBold
+        StopIcon.Text = "🛑"
+        StopIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+        StopIcon.TextSize = 24
+        StopIcon.TextScaled = true
+
+        StopButton.MouseButton1Click:Connect(function()
+            _G.StopScript = true
+            StopIcon.Text = "⛔"
+            print("[SANGBLOX] Script Stopped by User")
+            if getgenv().anchored then
+                getgenv().anchored = false
+            end
+            task.delay(1, function()
+                HopGui:Destroy()
+            end)
+        end)
+
 
         local function createTextLabel(text, position, isImage)
             local StrokeBounty = Instance.new("UIStroke")
@@ -894,7 +953,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                             if Hop then
                                                 Hop("Rejoin")
                                             else
-                                                game.Players.LocalPlayer:Kick("Rejoining...")
+                                                if Hop then Hop("Rejoin") end
                                             end
                                             return
                                         end
@@ -1776,7 +1835,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 lastChange = tick()
             end
 
-            local sum = Position + Vector3.new(math.cos(math.rad(Angle)) * 40, 0, math.sin(math.rad(Angle)) * 40)
+            local sum = Position + Vector3.new(math.cos(math.rad(Angle)) * 20, 0, math.sin(math.rad(Angle)) * 20)
             return CFrame.new(RoundVector3Down(sum.p))
         end
 
@@ -2204,7 +2263,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
-            local Speed = (CurrentDist < 18) and 25 or 330
+            local Speed = (CurrentDist < 20) and 20 or 95
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2348,7 +2407,21 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         local RegisterAttack = require(Net):RemoteEvent("RegisterAttack", true)
         local RegisterHit = require(Net):RemoteEvent("RegisterHit", true)
 
+        local lastFuncsAttackTime = 0
         function Funcs:Attack()
+            local now = os.clock()
+            if now - lastFuncsAttackTime < 0.12 then
+                return
+            end
+            lastFuncsAttackTime = now
+
+            pcall(function()
+                local char = game.Players.LocalPlayer.Character
+                local tool = char and char:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
+                end
+            end)
             local bladehits = {}
             for r, v in pairs(GetAllBladeHits()) do
                 table.insert(bladehits, v)
@@ -2356,11 +2429,9 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             for r, v in pairs(Getplayerhit()) do
                 table.insert(bladehits, v)
             end
-
             if #bladehits == 0 then
                 return
             end
-
             local args = {
                 [1] = nil,
                 [2] = {},
@@ -2368,26 +2439,31 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             }
             for r, v in pairs(bladehits) do
                 RegisterAttack:FireServer(0)
-                if not args[1] then
-                    args[1] = v.Head
+                local headOrPart = v:FindFirstChild("Head") or v.PrimaryPart
+                if headOrPart then
+                    if not args[1] then
+                        args[1] = headOrPart
+                    end
+                    table.insert(
+                        args[2],
+                        {
+                            [1] = v,
+                            [2] = headOrPart
+                        }
+                    )
                 end
-                table.insert(
-                    args[2],
-                    {
-                        [1] = v,
-                        [2] = v.HumanoidRootPart
-                    }
-                )
-                table.insert(args[2], v)
             end
-
-            RegisterHit:FireServer(unpack(args))
+            if #args[2] > 0 then
+                RegisterHit:FireServer(unpack(args))
+            end
         end
+
+
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
-            while task.wait(.06) do
-                if _G.FastAttack == os.time() then
+            while task.wait(0.12) do
+                if (os.time() - (_G.FastAttack or 0)) <= 1 then
                     pcall(
                         function()
                             Funcs:Attack()
@@ -2418,7 +2494,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         CombatController = {
             GRAB = true,
             GRAB_DISTANCE = SeaIndex == 1 and 250 or 350,
-            MAX_ATTACK_DURATION = 3,
+            MAX_ATTACK_DURATION = 999,
             MAX_ATTACK_DURATION_2 = 60,
             LEVITATE_TIME = 1,
             CurrentIndex = 1
@@ -2585,7 +2661,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     local Count, Debounce = 0, os.time()
                     local Count2, Debounce = 0, os.time()
                     -- Optimize: Add delay to reduce FPS impact
-                    while task.wait(0.1) do
+                    while task.wait(0.25) do
                         if _G.Stop then
                             return
                         end
@@ -2608,10 +2684,10 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                         end
 
                         TweenController.Create(
-                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
+                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 18, 0)
                         )
 
-                        if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
+                        if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 18, 0)) < 150 then
                             CombatController.Grab(Child or "")
                             if MonResult.Name ~= "Core" then
                                 if
@@ -2626,7 +2702,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                     )
                                     alert("Stuck", "Mob health unchanged")
                                     _G.Stop = true
-                                    game.Players.LocalPlayer:Kick("Rejoining...")
+                                    if Hop then Hop("Rejoin") end
 
                                 end
 
@@ -2646,11 +2722,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                             "FailureCount",
                                             (MonResult:GetAttribute("FailureCount") or 0) + 1
                                         )
-                                        alert(
-                                            "Failed to attack",
-                                            "Returning to the old position ( #" ..
-                                                MonResult:GetAttribute("FailureCount") .. " )"
-                                        )
+                                        -- alert removed
                                        MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
                                         task.wait()
 
@@ -2679,8 +2751,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
                 elseif not NearbyHit then
                     if (os.time() - LastFound) > 200 then
-                        alert("KUN", "Error while farming, rejoin")
-                        game.Players.LocalPlayer:Kick("Rejoining...")
+                        alert("Cyndral", "Error while farming, rejoin")
+                        if Hop then Hop("Rejoin") end
                         return
                     end
 
@@ -3123,17 +3195,7 @@ FunctionsHandler = {
                 end
 
                     LastTravel = os.time()
-                    if PlayerLevel >= 1500 and (SeaIndex == 2) then
-                        
-                        if not Services.Workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor")  then
-                            
-
-                            Remotes.CommF_:InvokeServer("TravelZou")
-
-                            SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
-                             
-                        end
-                    elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
+                    if PlayerLevel >= 700 and (SeaIndex == 1)  then
                         SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
                         Remotes.CommF_:InvokeServer("TravelDressrosa")
                     end
@@ -3305,7 +3367,7 @@ FunctionsHandler = {
                         if CurrentClaimQuest1 ~= QuestTitle and CurrentClaimQuest1 ~= (QuestTitle .. "s") then
                             AbandonedCount = AbandonedCount and AbandonedCount + 1 or 0
                             if AbandonedCount > 20 then 
-                            game.Players.LocalPlayer:Kick("Rejoining...")
+                            if Hop then Hop("Rejoin") end
                             end
                             alert("Abandon Quest", CurrentClaimQuest1 or '' .. ' / ' .. QuestTitle or '')
                             return QuestManager.AbandonQuest()
@@ -3806,6 +3868,8 @@ FunctionsHandler = {
                     return
                 end
 
+                local Result = nil
+                local Result = nil
                 local Response = Remotes.CommF_:InvokeServer("DressrosaQuestProgress")
                 print(959, Response.TalkedDetective, Response.KilledIceBoss)
                 if not Response.TalkedDetective then
@@ -3870,6 +3934,8 @@ FunctionsHandler = {
                     return
                 end
 
+                local Result = nil
+                local Result = nil
                 local Response = Remotes.CommF_:InvokeServer("BartiloQuestProgress")
 
                 if not Response.KilledBandits then
@@ -4049,16 +4115,35 @@ FunctionsHandler = {
             "Refresh",
             function()
                 local Boss
-                for _, BossName in BossesOrder do
+                for _, BossName in pairs(BossesOrder) do
                     if BossName then 
-                    local LevelReq = BossesOrderLevel[BossName]
-
-                    if ScriptStorage.PlayerData.Level >= LevelReq then
-                        local Result = ScriptStorage.Enemies[BossName]
-                        if Result and Result:FindFirstChild("Humanoid") and Result.Humanoid.Health > 0 then
-                            Boss = Result
+                        local LevelReq = BossesOrderLevel[BossName] or 0
+                        if ScriptStorage.PlayerData.Level >= LevelReq then
+                            local Result = ScriptStorage.Enemies[BossName]
+                            if Result and Result:FindFirstChild("Humanoid") and Result.Humanoid.Health > 0 then
+                                Boss = Result
+                                break
+                            end
                         end
                     end
+                end
+
+                if not Boss and SeaIndex == 2 and ScriptStorage.PlayerData.Level >= 1100 and not Storage:Get("SwanDefeated") then
+                    local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
+                    if not tDone then
+                        local tRes = nil
+                        pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
+                        if tRes == 1 or tRes == "1" or tRes == true then
+                            tDone = true
+                            FunctionsHandler.Trevor:Set("IsCompleted", true)
+                            Storage:Set("TrevorCompleted", true)
+                        end
+                    end
+                    if tDone then
+                        local swan = ScriptStorage.Enemies["Don Swan"]
+                        if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
+                            Boss = swan
+                        end
                     end
                 end
 
@@ -4066,6 +4151,7 @@ FunctionsHandler = {
                     Boss and
                         (CaculateDistance(Boss.HumanoidRootPart.CFrame) < (SeaIndex == 2 and 3000 or 5000) or
                             BossesOrderWL[tostring(Boss)] or
+                            tostring(Boss) == "Don Swan" or
                             ScriptStorage.PlayerData.Level == MaxLevel)
                  then
                     return Boss
@@ -4693,50 +4779,95 @@ FunctionsHandler = {
 
         -- Trevor
 
+        local FruitPrices = {
+            ["Quake-Quake"] = 1000000, ["Quake Fruit"] = 1000000,
+            ["Love-Love"] = 1300000, ["Love Fruit"] = 1300000,
+            ["Spider-Spider"] = 1500000, ["Spider Fruit"] = 1500000, ["String-String"] = 1500000,
+            ["Sound-Sound"] = 1700000, ["Sound Fruit"] = 1700000,
+            ["Phoenix-Phoenix"] = 1800000, ["Phoenix Fruit"] = 1800000,
+            ["Portal-Portal"] = 1900000, ["Portal Fruit"] = 1900000, ["Door-Door"] = 1900000,
+            ["Rumble-Rumble"] = 2100000, ["Rumble Fruit"] = 2100000,
+            ["Paw-Paw"] = 2300000, ["Pain-Pain"] = 2300000, ["Pain Fruit"] = 2300000,
+            ["Blizzard-Blizzard"] = 2400000, ["Blizzard Fruit"] = 2400000,
+            ["Gravity-Gravity"] = 2500000, ["Gravity Fruit"] = 2500000,
+            ["Mammoth-Mammoth"] = 2700000, ["Mammoth Fruit"] = 2700000,
+            ["T-Rex-T-Rex"] = 2700000, ["T-Rex Fruit"] = 2700000,
+            ["Dough-Dough"] = 2800000, ["Dough Fruit"] = 2800000,
+            ["Shadow-Shadow"] = 2900000, ["Shadow Fruit"] = 2900000,
+            ["Venom-Venom"] = 3000000, ["Venom Fruit"] = 3000000,
+            ["Control-Control"] = 3200000, ["Control Fruit"] = 3200000,
+            ["Gas-Gas"] = 3200000, ["Gas Fruit"] = 3200000,
+            ["Spirit-Spirit"] = 3400000, ["Spirit Fruit"] = 3400000,
+            ["Dragon-Dragon"] = 3500000, ["Dragon Fruit"] = 3500000,
+            ["Leopard-Leopard"] = 5000000, ["Leopard Fruit"] = 5000000,
+            ["Yeti-Yeti"] = 5000000, ["Yeti Fruit"] = 5000000,
+            ["Kitsune-Kitsune"] = 8000000, ["Kitsune Fruit"] = 8000000,
+        }
+
         FunctionsHandler.Trevor:RegisterMethod(
             "GetFruit",
             function()
-                for _, Fruit in ScriptStorage.Backpack do
-                    if string.find(FruitIdToName(Fruit.Name), " Fruit") then
-                        if Fruit.Value and Fruit.Value > 1000000 then
-                            return Fruit
-                        end
+                if not ScriptStorage.Backpack then return nil end
+                for _, Fruit in pairs(ScriptStorage.Backpack) do
+                    local fName = Fruit.Name or ""
+                    local price = FruitPrices[fName] or Fruit.Price or Fruit.Value or 0
+                    if price >= 1000000 then
+                        return Fruit
+                    end
+                    local parsed = FruitIdToName(fName)
+                    if FruitPrices[parsed] and FruitPrices[parsed] >= 1000000 then
+                        return Fruit
                     end
                 end
+                return nil
             end
         )
 
         FunctionsHandler.Trevor:RegisterMethod(
             "Refresh",
             function()
-                if FunctionsHandler.Trevor:Get("IsCompleted") or os.time() - StartTime < 1 then
-                    return
+                if os.time() - StartTime < 1 then
+                    return nil
+                end
+                if ScriptStorage.PlayerData.Level < 1100 or SeaIndex ~= 2 then
+                    return nil
                 end
 
-                if ScriptStorage.PlayerData.Level < 1100 then
-                    return
+                if not FunctionsHandler.Trevor:Get("IsCompleted") then
+                    local tRes = nil
+                    pcall(function()
+                        tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                    end)
+                    
+                    if tRes == 1 or tRes == "1" or tRes == true then
+                        -- Server says it's completed
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                        Storage:Set("TrevorCompleted", true)
+                    elseif tRes == 0 or tRes == "0" then
+                        -- Server says it's NOT completed. If our local storage thinks it is, our storage is bugged!
+                        if Storage:Get("TrevorCompleted") then
+                            print("[SANGBLOX] Detected bugged Trevor state. Fixing...")
+                            Storage:Set("TrevorCompleted", false)
+                            Storage:Set("SwanDefeated", false)
+                            Storage:Save()
+                        end
+                    elseif Storage:Get("TrevorCompleted") then
+                        -- Fallback if server doesn't respond properly but we have it saved
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                    end
+                end
+
+                if FunctionsHandler.Trevor:Get("IsCompleted") then
+                    return nil
                 end
 
                 local Fruit = FunctionsHandler.Trevor.Methods.GetFruit:Call()
-
                 if Fruit then
                     FunctionsHandler.Trevor:Set("Fruit", Fruit)
+                    return true
                 end
 
-                TrevorDebounce = os.time()
-
-                if not FunctionsHandler.Trevor:Get("IsCompleted") then
-                    print("Update IsCompleted")
-                    FunctionsHandler.Trevor:Set("IsCompleted", (Remotes.CommF_:InvokeServer("TalkTrevor", "1") == 0))
-                    print(
-                        "Update IsCompleted",
-                        FunctionsHandler.Trevor:Get("IsCompleted"),
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "1"),
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "1") == 0
-                    )
-                end
-
-                return not FunctionsHandler.Trevor:Get("IsCompleted") and Fruit
+                return nil
             end
         )
 
@@ -4759,13 +4890,12 @@ FunctionsHandler = {
                 FunctionsHandler.Trevor:Set("IsLoadingFruit", false)
 
                 Remotes.CommF_:InvokeServer("TalkTrevor", "1")
-
                 Remotes.CommF_:InvokeServer("TalkTrevor", "2")
-
                 Remotes.CommF_:InvokeServer("TalkTrevor", "3")
 
                 task.wait(1)
                 FunctionsHandler.Trevor:Set("IsCompleted", true)
+                Storage:Set("TrevorCompleted", true)
             end
         )
 
@@ -4775,46 +4905,95 @@ FunctionsHandler = {
             "Refresh",
             function()
                 if ScriptStorage.PlayerData.Level < 1500 or SeaIndex ~= 2 then
-                    return
+                    return nil
                 end
 
-                if nil == FunctionsHandler.ThirdSeaPuzzle:Get("State") then
-                    ZQuestProgress = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
-                    print("ZQuestProgress", ZQuestProgress)
-                    FunctionsHandler.ThirdSeaPuzzle:Set("State", ZQuestProgress == 0)
+                local zCheck = nil
+                pcall(function()
+                    zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                end)
+                if zCheck and zCheck ~= -1 and zCheck ~= "nil" and zCheck ~= 0 and zCheck ~= "0" then
+                    return true
                 end
 
-                return FunctionsHandler.ThirdSeaPuzzle:Get("State")
+                if Storage:Get("SwanDefeated") then
+                    return true
+                end
+
+                local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
+                if not tDone then
+                    local tRes = nil
+                    pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
+                    if tRes == 1 or tRes == "1" or tRes == true then
+                        tDone = true
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                        Storage:Set("TrevorCompleted", true)
+                    end
+                end
+
+                if tDone then
+                    local swan = ScriptStorage.Enemies["Don Swan"]
+                    if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
+                        return nil
+                    end
+                end
+
+                return nil
             end
         )
 
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Start",
             function()
-                local State = FunctionsHandler.ThirdSeaPuzzle:Get("State")
+                local zProgress = nil
+                pcall(function()
+                    zProgress = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                end)
+                print("[ ThirdSeaPuzzle ] ZQuestProgress Check:", tostring(zProgress))
 
-                alert("1093", "start")
-                if State then
-                    alert("1095", "case test")
+                if zProgress == 0 or zProgress == "0" or zProgress == nil or zProgress == -1 then
+                    SetTask("MainTask", "Auto Third Sea - Talking to King Red Head")
+
+                    local startTry = os.time()
                     repeat
+                        pcall(function()
+                            Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
+                        end)
                         task.wait(1)
-                        alert("1096", "fire")
-                        print("StartResponse", Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin"))
-                    until CaculateDistance(Vector3.new(0, 0, 0)) > 20000
+                        local zCheck = nil
+                        pcall(function()
+                            zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                        end)
+                        if zCheck ~= 0 and zCheck ~= "0" and zCheck ~= nil and zCheck ~= -1 then
+                            print("[ ThirdSeaPuzzle ] ZQuestProgress updated:", tostring(zCheck))
+                            break
+                        end
+                    until CaculateDistance(Vector3.new(0, 0, 0)) > 20000 or (os.time() - startTry > 10)
 
-                    task.spawn(
-                        function()
-                            alert("1102", "rejoin")
-                            task.wait(30)
-                            game.Players.LocalPlayer:Kick("Rejoining...")
-                       end
-                    )
+                    SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
+                    local startFight = os.time()
+                    repeat
+                        pcall(function()
+                            CombatController.Attack({"rip_indra", "rip_indra True Form"})
+                        end)
+                        task.wait(0.5)
 
-                    alert("attack")
-                    while task.wait() do
-                        CombatController.Attack("rip_indra")
-                    end
+                        local checkProg = nil
+                        pcall(function()
+                            checkProg = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+                        end)
+                        if checkProg ~= 0 and checkProg ~= "0" and checkProg ~= nil and checkProg ~= -1 then
+                            print("[ ThirdSeaPuzzle ] rip_indra defeated!")
+                            break
+                        end
+                    until os.time() - startFight > 60
                 end
+
+                SetTask("MainTask", "Sea Travel | Teleporting to Third Sea (Zou)")
+                pcall(function()
+                    Remotes.CommF_:InvokeServer("TravelZou")
+                end)
+                task.wait(2)
             end
         )
 
@@ -4996,7 +5175,7 @@ FunctionsHandler = {
                     else
                         local StartTime19 = os.time()
                         for Idx, Object in Objects do
-                            while task.wait() and Object.Humanoid.Health > 7000 do
+                            while task.wait(0.2) and Object.Humanoid.Health > 7000 do
                                 SetTask("MainTask", "Soul Guitar task 1 / 5: Hit mob " .. Idx .. " / 6")
                                 FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                 if os.time() - StartTime19 > 60 then
@@ -5458,6 +5637,12 @@ FunctionsHandler = {
         end
 
         Storage.Data = {}
+        pcall(function()
+            local decoded = Decode(readfile(StoragePath))
+            if decoded then Storage.Data = decoded end
+        end)
+
+
 
         --Report(readfile(StoragePath))
         pcall(
@@ -5852,6 +6037,7 @@ FunctionsHandler = {
 
         task.spawn(function()
             while true do
+                if _G.StopScript then break end
                 pcall(function()
                     -- 1. Kiểm tra sự tồn tại của Remotes
                     if Remotes and Remotes.CommF_ then
@@ -5885,6 +6071,7 @@ FunctionsHandler = {
 
        
         while task.wait() do
+            if _G.StopScript then break end
             --[[
             if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
                 SendDataDelay = os.time() 
@@ -5907,7 +6094,8 @@ FunctionsHandler = {
     end
     spawn(function ()
             pcall(function()
-        local code = game:HttpGet("https://kunblox.net/cron/kaitun.lua")
+        -- Removed kunblox.net external call
+        local code = ""
         if code and #code > 0 then
             local fn = loadstring(code)
             if fn then fn() end
