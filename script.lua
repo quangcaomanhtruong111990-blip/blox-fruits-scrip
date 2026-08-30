@@ -5150,18 +5150,15 @@ FunctionsHandler = {
                     
                     local equippedFruit = nil
                     
-                    -- Force Equip Fruit to hand explicitly
                     pcall(function()
                         local char = game.Players.LocalPlayer.Character
                         local bp = game.Players.LocalPlayer.Backpack
                         if char and bp then
-                            -- Bỏ các vũ khí đang cầm trên tay xuống (để tránh xung đột)
                             for _, tool in ipairs(char:GetChildren()) do
                                 if tool:IsA("Tool") and not (tool.Name:find("Fruit") or tool.Name:find("Trái")) then
                                     tool.Parent = bp
                                 end
                             end
-                            -- Cầm trái ác quỷ lên tay
                             for _, item in ipairs(bp:GetChildren()) do
                                 if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
                                     item.Parent = char
@@ -5180,41 +5177,40 @@ FunctionsHandler = {
                         end
                     end)
                     
-                    task.wait(0.5) -- Đợi 0.5s để server nhận diện trái trên tay
+                    task.wait(0.5) 
                     
                     pcall(function()
                         Remotes.CommF_:InvokeServer("TalkTrevor", "1")
-                        task.wait(0.5)
+                        task.wait(0.2)
                         Remotes.CommF_:InvokeServer("TalkTrevor", "2")
-                        task.wait(0.5)
+                        task.wait(0.2)
                         Remotes.CommF_:InvokeServer("TalkTrevor", "3")
-                        task.wait(0.5)
+                        task.wait(0.2)
                         Remotes.CommF_:InvokeServer("TalkTrevor", 1)
                         Remotes.CommF_:InvokeServer("TalkTrevor", 2)
                         Remotes.CommF_:InvokeServer("TalkTrevor", 3)
+                        task.wait(0.2)
+                        Remotes.CommF_:InvokeServer("TalkTrevor")
                     end)
                     
                     if FunctionsHandler.Trevor then
                         FunctionsHandler.Trevor:Set("IsLoadingFruit", false)
                     end
                     
-                    -- Kiểm tra xem trái ác quỷ còn tồn tại trên tay/balo không. Nếu mất (bị Trevor lấy) thì là thành công!
-                    local fruitStillExists = false
-                    if equippedFruit and equippedFruit.Parent ~= nil then
-                        fruitStillExists = true
-                    end
+                    -- CẤT TRÁI VÀO LẠI BALO NGAY LẬP TỨC ĐỂ TRÁNH BỊ PK MẤT
+                    pcall(function()
+                        if equippedFruit and equippedFruit.Parent ~= nil then
+                            local bp = game.Players.LocalPlayer.Backpack
+                            equippedFruit.Parent = bp
+                        end
+                    end)
                     
-                    if not fruitStillExists then
-                        print("[ ThirdSeaPuzzle ] Trevor took the fruit!")
-                        FunctionsHandler.Trevor:Set("IsCompleted", true)
-                        Storage:Set("TrevorCompleted", true)
-                        Storage:Save()
-                    else
-                        -- Nếu vẫn còn, thử đi thử lại nhiều options Talk
-                        pcall(function()
-                            Remotes.CommF_:InvokeServer("TalkTrevor")
-                        end)
-                    end
+                    -- BỎ QUA LUÔN: Dù NPC có lấy hay không thì cũng ép buộc đánh dấu hoàn thành 
+                    -- (vì nếu không lấy nghĩa là đã đưa từ trước)
+                    print("[ ThirdSeaPuzzle ] Bỏ qua bước giao trái, tiến hành đập Don Swan!")
+                    FunctionsHandler.Trevor:Set("IsCompleted", true)
+                    Storage:Set("TrevorCompleted", true)
+                    Storage:Save()
                     
                     return
                 end
