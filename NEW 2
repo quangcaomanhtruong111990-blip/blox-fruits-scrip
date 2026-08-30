@@ -1,6 +1,6 @@
 -- ====================================================
--- Cyndral Kaitun Script v1.0.1 (Sea 3 Optimized & Anti-Crash)
--- Updated: 2026-08-30 | Anti-Memory Leak & Safe ErrorPrompt Handler
+-- Cyndral Kaitun Script v1.0.2 (Sea 3 Stable & Smooth Flight)
+-- Updated: 2026-08-30 | Fixed Submarine Remote Spam & Sea 2-like Flight Speed
 -- ====================================================
 Config =
         Config or
@@ -2269,7 +2269,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 end
             end
         
-            -- Kiểm tra di chuyển sang Submerged Island (Sea 3)
+            -- Kiểm tra di chuyển sang Submerged Island (Sea 3) với Cooldown chống spam
             if SeaIndex == 3 and (TargetCFrame.Position - Vector3.new(11256, -2138, 9888)).Magnitude < (CurrentDist - 700) then
                 local SubmarinePos = CFrame.new(-16269, 23, 1371)
                 if (RootPart.Position - SubmarinePos.Position).Magnitude > 60 then
@@ -2277,9 +2277,12 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     TweenController.Create(SubmarinePos)
                     return
                 end
-                pcall(function()
-                    require(game.ReplicatedStorage.Modules.Net):RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
-                end)
+                if not TweenController._lastSubmarineInvoke or (os.time() - TweenController._lastSubmarineInvoke > 5) then
+                    TweenController._lastSubmarineInvoke = os.time()
+                    pcall(function()
+                        require(game.ReplicatedStorage.Modules.Net):RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
+                    end)
+                end
                 TweenController._isCreating = false
                 return
             end
@@ -2290,9 +2293,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
-            -- Giảm tốc độ bay chậm lại để tránh bị văng/kick
-            local Speed = (CurrentDist < 20) and 20 or 60
+            -- Tốc độ bay mượt mà, ổn định như Sea 2 (tránh quá chậm gây đơ hoặc quá nhanh gây lỗi)
+            local Speed = (CurrentDist < 50) and 50 or 300
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
