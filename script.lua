@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "SANGBLOX"
+        NameHub.Text = (Config.Configuration and Config.Configuration.HubName) or _G.HubName or "SANGBLOX"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2193,6 +2193,48 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         
         -- TweenController
         
+        local noclipConnection = nil
+        local function setNoclip(enabled)
+            if enabled then
+                if not noclipConnection then
+                    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+                        local player = game.Players.LocalPlayer
+                        if player.Character then
+                            for _, part in pairs(player.Character:GetDescendants()) do
+                                if part:IsA("BasePart") and part.CanCollide then
+                                    part.CanCollide = false
+                                end
+                            end
+                        end
+                    end)
+                end
+            else
+                if noclipConnection then
+                    noclipConnection:Disconnect()
+                    noclipConnection = nil
+                end
+                local player = game.Players.LocalPlayer
+                if player.Character then
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end
+
+        local function forceUnsit()
+            local character = game.Players.LocalPlayer.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    if humanoid.Sit then humanoid.Sit = false end
+                    if humanoid.PlatformStand then humanoid.PlatformStand = false end
+                end
+            end
+        end
+        
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
@@ -2215,23 +2257,23 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         
             TweenController._isCreating = true
         
-            -- 3. XỬ LÝ NOCLIP (Mượt hơn)
-            pcall(function()
-                for _, part in ipairs(Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
-                end
-            end)
+            -- 3. XỬ LÝ NOCLIP (Native Stepped)
+            setNoclip(true)
+            forceUnsit()
         
-            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity)
-            local head = Character:FindFirstChild("Head")
-            if head and not head:FindFirstChild("eltrul") then
+            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity trên HRP an toàn hơn)
+            if not RootPart:FindFirstChild("AntiFallHover") then
                 local bv = Instance.new("BodyVelocity")
-                bv.Name = "eltrul"
-                bv.MaxForce = Vector3.new(0, math.huge, 0)
+                bv.Name = "AntiFallHover"
+                bv.MaxForce = Vector3.new(9e5, 9e5, 9e5)
                 bv.Velocity = Vector3.zero
-                bv.Parent = head
+                bv.Parent = RootPart
+            end
+            
+            -- Xóa eltrul cũ nếu còn
+            local head = Character:FindFirstChild("Head")
+            if head and head:FindFirstChild("eltrul") then
+                head.eltrul:Destroy()
             end
         
             -- 5. LOGIC DI CHUYỂN ĐẶC BIỆT (Sea 3 Submarine / Portals)
@@ -2263,7 +2305,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
-            local Speed = (CurrentDist < 20) and 20 or 95
+            -- Giảm tốc độ bay chậm lại để tránh bị văng/kick
+            local Speed = (CurrentDist < 20) and 20 or 60
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2410,7 +2453,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         local lastFuncsAttackTime = 0
         function Funcs:Attack()
             local now = os.clock()
-            if now - lastFuncsAttackTime < 0.12 then
+            if now - lastFuncsAttackTime < 0.225 then
                 return
             end
             lastFuncsAttackTime = now
@@ -2437,8 +2480,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 [2] = {},
                 [4] = "078da341"
             }
+            RegisterAttack:FireServer(0)
             for r, v in pairs(bladehits) do
-                RegisterAttack:FireServer(0)
                 local headOrPart = v:FindFirstChild("Head") or v.PrimaryPart
                 if headOrPart then
                     if not args[1] then
@@ -2462,7 +2505,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
-            while task.wait(0.12) do
+            while task.wait(0.225) do
                 if (os.time() - (_G.FastAttack or 0)) <= 1 then
                     pcall(
                         function()
@@ -2487,6 +2530,23 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             pcall(
                 function()
                     _G.FastAttack = os.time()
+                    
+                    if typeof(MonResult) == "Instance" and MonResult:IsA("Model") then
+                        local character = game.Players.LocalPlayer.Character
+                        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                        
+                        local mobHum = MonResult:FindFirstChild("Humanoid")
+                        local mobHrp = MonResult:FindFirstChild("HumanoidRootPart")
+
+                        if not mobHrp or not mobHum or mobHum.Health <= 0 then return end
+                        
+                        local now = os.clock()
+                        if now - lastFuncsAttackTime >= 0.225 then
+                            lastFuncsAttackTime = now
+                            if RegisterAttack then RegisterAttack:FireServer(0) end
+                            if RegisterHit then RegisterHit:FireServer(mobHrp, {mobHum}) end
+                        end
+                    end
                 end
             )
         end
@@ -2683,8 +2743,9 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                             break
                         end
 
+                        -- Hover slightly above the mob, no circling
                         TweenController.Create(
-                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 18, 0)
+                            MobHumanoidRootPart.CFrame * CFrame.new(0, 18, 0)
                         )
 
                         if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 18, 0)) < 150 then
@@ -4875,125 +4936,355 @@ FunctionsHandler = {
             "Start",
             function()
                 alert("[ Cyndral ]", "Pulling fruit for trevor...")
+                
+                local char = game.Players.LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                SetTask("MainTask", "Bay từ từ tới biệt thự tìm Trevor")
+                local TargetPos = CFrame.new(-335.9, 331.9, 646.6) -- Default Mansion
+                
+                local function findTrevor()
+                    for _, v in pairs(workspace:GetDescendants()) do
+                        if v:IsA("Model") and string.lower(v.Name) == "trevor" then
+                            local p = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart or v:FindFirstChildOfClass("BasePart")
+                            if p then return p.CFrame + Vector3.new(0, 0, 5) end
+                        end
+                    end
+                    return nil
+                end
+
+                local trevorCFrame = findTrevor()
+                if trevorCFrame then TargetPos = trevorCFrame end
+
+                if CaculateDistance(TargetPos) > 10 then
+                    repeat
+                        task.wait()
+                        -- Dò lại lỡ map mới load ra Trevor
+                        local tcf = findTrevor()
+                        if tcf then TargetPos = tcf end
+                        TweenController.Create(TargetPos)
+                    until CaculateDistance(TargetPos) <= 15
+                end
+                
+                -- Đứng lại đàng hoàng
+                hrp.CFrame = TargetPos
+                TweenController.Create(TargetPos) -- Cancel current tween
+                task.wait(1.5)
+
                 local Fruit = FunctionsHandler.Trevor:Get("Fruit")
                 FunctionsHandler.Trevor:Set("Fruit", nil)
                 if Fruit and not table.find(ScriptStorage.IgnoreStoreFruits, Fruit.Name) then
                     table.insert(ScriptStorage.IgnoreStoreFruits, Fruit.Name)
                 end
                 
+                SetTask("MainTask", "Đang lấy trái ác quỷ cúng Trevor...")
                 FunctionsHandler.Trevor:Set("IsLoadingFruit", true)
                 
+                -- Lấy từ kho ra
                 Remotes.CommF_:InvokeServer("LoadFruit", Fruit.Name)
-                task.wait(1) 
+                task.wait(1.5) 
+                
+                -- Cầm lên tay
                 FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Fruit.Name))
-                task.wait(0.5) 
+                task.wait(1) 
                 FunctionsHandler.Trevor:Set("IsLoadingFruit", false)
 
+                SetTask("MainTask", "Đang nói chuyện với Trevor...")
                 Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                task.wait(0.5)
                 Remotes.CommF_:InvokeServer("TalkTrevor", "2")
+                task.wait(0.5)
                 Remotes.CommF_:InvokeServer("TalkTrevor", "3")
 
-                task.wait(1)
-                FunctionsHandler.Trevor:Set("IsCompleted", true)
-                Storage:Set("TrevorCompleted", true)
+                task.wait(1.5)
+                
+                -- Verify if successfully completed
+                local tRes = nil
+                pcall(function()
+                    tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                end)
+                if tRes == 1 or tRes == "1" or tRes == true then
+                    FunctionsHandler.Trevor:Set("IsCompleted", true)
+                    Storage:Set("TrevorCompleted", true)
+                    Storage:Save()
+                    alert("[ Cyndral ]", "Giao trái thành công cho Trevor!")
+                else
+                    alert("[ Cyndral ]", "Giao trái thất bại, thử lại sau.")
+                end
             end
         )
 
         print(4)
+                        local MillionFruits = {
+            "Quake-Quake", "Love-Love", "Spider-Spider", "Sound-Sound", "Phoenix-Phoenix",
+            "Portal-Portal", "Rumble-Rumble", "Pain-Pain", "Blizzard-Blizzard", "Gravity-Gravity",
+            "Mammoth-Mammoth", "T-Rex-T-Rex", "Dough-Dough", "Shadow-Shadow", "Venom-Venom",
+            "Control-Control", "Spirit-Spirit", "Dragon-Dragon", "Leopard-Leopard", "Kitsune-Kitsune"
+        }
+
+        local function GetMillionFruit()
+            local player = game.Players.LocalPlayer
+            local char = player.Character
+            local bp = player.Backpack
+            
+            -- Khóa tạm thời hàm cất trái ác quỷ
+            if FunctionsHandler.Trevor then
+                FunctionsHandler.Trevor:Set("IsLoadingFruit", true)
+            end
+
+            for _, item in ipairs(char:GetChildren()) do
+                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                    if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
+                        table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
+                    end
+                    return true
+                end
+            end
+            for _, item in ipairs(bp:GetChildren()) do
+                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                    if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
+                        table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
+                    end
+                    item.Parent = char
+                    return true
+                end
+            end
+
+            for _, fruitName in ipairs(MillionFruits) do
+                pcall(function()
+                    Remotes.CommF_:InvokeServer("LoadFruit", fruitName)
+                end)
+                task.wait(0.1)
+                for _, item in ipairs(bp:GetChildren()) do
+                    if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                        if not table.find(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name) then
+                            table.insert(ScriptStorage.IgnoreStoreFruits, item:GetAttribute("OriginalName") or item.Name)
+                        end
+                        item.Parent = char
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+
         -- Third Sea Puzzle
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Refresh",
             function()
                 if ScriptStorage.PlayerData.Level < 1500 or SeaIndex ~= 2 then
-                    return nil
+                    return nil -- SKIP THIS TASK
                 end
-
-                local zCheck = nil
-                pcall(function()
-                    zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
-                end)
-                if zCheck and zCheck ~= -1 and zCheck ~= "nil" and zCheck ~= 0 and zCheck ~= "0" then
-                    return true
-                end
-
-                if Storage:Get("SwanDefeated") then
-                    return true
-                end
-
-                local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
-                if not tDone then
-                    local tRes = nil
-                    pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
-                    if tRes == 1 or tRes == "1" or tRes == true then
-                        tDone = true
-                        FunctionsHandler.Trevor:Set("IsCompleted", true)
-                        Storage:Set("TrevorCompleted", true)
-                    end
-                end
-
-                if tDone then
-                    local swan = ScriptStorage.Enemies["Don Swan"]
-                    if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
-                        return nil
-                    end
-                end
-
-                return nil
+                return true -- RUN THIS TASK
             end
         )
 
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Start",
             function()
+                -----------------------------------------------------------------
+                -- BƯỚC 1: NHIỆM VỤ TREVOR (MỞ CỔNG MANSION)
+                -----------------------------------------------------------------
+                local tDone = FunctionsHandler.Trevor:Get("IsCompleted") or Storage:Get("TrevorCompleted")
+                
+                -- Check if Don Swan is already accessible / defeated (Bypass Trevor completely)
+                local swanDefeated = Storage:Get("SwanDefeated")
+                if not swanDefeated then
+                    local zProgCheck = nil
+                    pcall(function() zProgCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check") end)
+                    if zProgCheck and zProgCheck ~= -1 and zProgCheck ~= "nil" and zProgCheck ~= 0 and zProgCheck ~= "0" then
+                        Storage:Set("SwanDefeated", true)
+                        Storage:Save()
+                        swanDefeated = true
+                    end
+                end
+                
+                if swanDefeated then
+                    tDone = true
+                    FunctionsHandler.Trevor:Set("IsCompleted", true)
+                    Storage:Set("TrevorCompleted", true)
+                end
+
+                if not tDone then
+                    -- Verify via remote before attempting anything
+                    local tRes = nil
+                    pcall(function() tRes = Remotes.CommF_:InvokeServer("TalkTrevor", "1") end)
+                    if tRes == 1 or tRes == "1" or tRes == true or tRes == 3 or tRes == "3" then
+                        tDone = true
+                        FunctionsHandler.Trevor:Set("IsCompleted", true)
+                        Storage:Set("TrevorCompleted", true)
+                        Storage:Save()
+                    end
+                end
+
+                if not tDone then
+                    SetTask("MainTask", "Auto Third Sea - Getting Fruit >= 1M")
+                    local hasFruit = GetMillionFruit()
+                    
+                    if not hasFruit then
+                        SetTask("MainTask", "Auto Third Sea - Không có Trái >= 1M. Đang chờ...")
+                        return
+                    end
+                    
+                    SetTask("MainTask", "Auto Third Sea - Flying to Trevor")
+                    local TargetPos = CFrame.new(-335.9, 331.9, 646.6)
+                    
+                    -- Dò vị trí Trevor chuẩn xác để không kẹt tường
+                    for _, v in pairs(workspace:GetDescendants()) do
+                        if v:IsA("Model") and string.lower(v.Name) == "trevor" then
+                            local p = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart
+                            if p then 
+                                TargetPos = p.CFrame * CFrame.new(0, 0, 5) 
+                                break
+                            end
+                        end
+                    end
+                    
+                    if CaculateDistance(TargetPos) > 3 then
+                        TweenController.Create(TargetPos)
+                        return
+                    end
+                    
+                    SetTask("MainTask", "Auto Third Sea - Holding Fruit & Talking to Trevor")
+                    
+                    local equippedFruit = nil
+                    
+                    pcall(function()
+                        local char = game.Players.LocalPlayer.Character
+                        local bp = game.Players.LocalPlayer.Backpack
+                        if char and bp then
+                            for _, tool in ipairs(char:GetChildren()) do
+                                if tool:IsA("Tool") and not (tool.Name:find("Fruit") or tool.Name:find("Trái")) then
+                                    tool.Parent = bp
+                                end
+                            end
+                            for _, item in ipairs(bp:GetChildren()) do
+                                if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                                    item.Parent = char
+                                    equippedFruit = item
+                                    break
+                                end
+                            end
+                            if not equippedFruit then
+                                for _, item in ipairs(char:GetChildren()) do
+                                    if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
+                                        equippedFruit = item
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    
+                    task.wait(0.5) 
+                    
+                    pcall(function()
+                        Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                        task.wait(0.2)
+                        Remotes.CommF_:InvokeServer("TalkTrevor", "2")
+                        task.wait(0.2)
+                        Remotes.CommF_:InvokeServer("TalkTrevor", "3")
+                        task.wait(0.2)
+                        Remotes.CommF_:InvokeServer("TalkTrevor", 1)
+                        Remotes.CommF_:InvokeServer("TalkTrevor", 2)
+                        Remotes.CommF_:InvokeServer("TalkTrevor", 3)
+                        task.wait(0.2)
+                        Remotes.CommF_:InvokeServer("TalkTrevor")
+                    end)
+                    
+                    if FunctionsHandler.Trevor then
+                        FunctionsHandler.Trevor:Set("IsLoadingFruit", false)
+                    end
+                    
+                    -- CẤT TRÁI VÀO LẠI BALO NGAY LẬP TỨC ĐỂ TRÁNH BỊ PK MẤT
+                    pcall(function()
+                        if equippedFruit and equippedFruit.Parent ~= nil then
+                            local bp = game.Players.LocalPlayer.Backpack
+                            equippedFruit.Parent = bp
+                        end
+                    end)
+                    
+                    -- BỎ QUA LUÔN: Dù NPC có lấy hay không thì cũng ép buộc đánh dấu hoàn thành 
+                    -- (vì nếu không lấy nghĩa là đã đưa từ trước)
+                    print("[ ThirdSeaPuzzle ] Bỏ qua bước giao trái, tiến hành đập Don Swan!")
+                    FunctionsHandler.Trevor:Set("IsCompleted", true)
+                    Storage:Set("TrevorCompleted", true)
+                    Storage:Save()
+                    
+                    return
+                end
+
+                -----------------------------------------------------------------
+                -- BƯỚC 2: TIÊU DIỆT DON SWAN
+                -----------------------------------------------------------------
+                local swanDefeated = Storage:Get("SwanDefeated")
+                if not swanDefeated then
+                    local zProgCheck = nil
+                    pcall(function() zProgCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check") end)
+                    if zProgCheck and zProgCheck ~= -1 and zProgCheck ~= "nil" and zProgCheck ~= 0 and zProgCheck ~= "0" then
+                        Storage:Set("SwanDefeated", true)
+                        Storage:Save()
+                        swanDefeated = true
+                    end
+                end
+
+                if not swanDefeated then
+                    SetTask("MainTask", "Auto Third Sea - Defeating Don Swan")
+                    local swanPos = CFrame.new(-385, 332, 672)
+                    
+                    local swan = ScriptStorage.Enemies["Don Swan"]
+                    if swan and swan:FindFirstChild("Humanoid") and swan.Humanoid.Health > 0 then
+                        CombatController.Attack({"Don Swan"})
+                    else
+                        if CaculateDistance(swanPos) > 15 then
+                            TweenController.Create(swanPos)
+                        else
+                            SetTask("MainTask", "Auto Third Sea - Waiting for Don Swan")
+                        end
+                    end
+                    return
+                end
+
+                -----------------------------------------------------------------
+                -- BƯỚC 3 & 4: NÓI CHUYỆN VỚI KING RED HEAD, ĐÁNH RIP_INDRA & ĐI SEA 3
+                -----------------------------------------------------------------
                 local zProgress = nil
                 pcall(function()
                     zProgress = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
                 end)
-                print("[ ThirdSeaPuzzle ] ZQuestProgress Check:", tostring(zProgress))
-
+                
                 if zProgress == 0 or zProgress == "0" or zProgress == nil or zProgress == -1 then
                     SetTask("MainTask", "Auto Third Sea - Talking to King Red Head")
-
-                    local startTry = os.time()
-                    repeat
-                        pcall(function()
-                            Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
-                        end)
-                        task.wait(1)
-                        local zCheck = nil
-                        pcall(function()
-                            zCheck = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
-                        end)
-                        if zCheck ~= 0 and zCheck ~= "0" and zCheck ~= nil and zCheck ~= -1 then
-                            print("[ ThirdSeaPuzzle ] ZQuestProgress updated:", tostring(zCheck))
-                            break
-                        end
-                    until CaculateDistance(Vector3.new(0, 0, 0)) > 20000 or (os.time() - startTry > 10)
-
-                    SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
-                    local startFight = os.time()
-                    repeat
-                        pcall(function()
-                            CombatController.Attack({"rip_indra", "rip_indra True Form"})
-                        end)
-                        task.wait(0.5)
-
-                        local checkProg = nil
-                        pcall(function()
-                            checkProg = Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
-                        end)
-                        if checkProg ~= 0 and checkProg ~= "0" and checkProg ~= nil and checkProg ~= -1 then
-                            print("[ ThirdSeaPuzzle ] rip_indra defeated!")
-                            break
-                        end
-                    until os.time() - startFight > 60
+                    local kingPos = CFrame.new(-1795, 303, -2900)
+                    if CaculateDistance(kingPos) > 15 then
+                        TweenController.Create(kingPos)
+                        return
+                    end
+                    
+                    pcall(function()
+                        Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
+                    end)
+                    return
                 end
 
-                SetTask("MainTask", "Sea Travel | Teleporting to Third Sea (Zou)")
-                pcall(function()
-                    Remotes.CommF_:InvokeServer("TravelZou")
-                end)
-                task.wait(2)
+                local indra = ScriptStorage.Enemies["rip_indra True Form"] or ScriptStorage.Enemies["rip_indra"]
+                if indra and indra:FindFirstChild("Humanoid") and indra.Humanoid.Health > 0 then
+                    SetTask("MainTask", "Auto Third Sea - Defeating rip_indra")
+                    CombatController.Attack({"rip_indra", "rip_indra True Form"})
+                    return
+                end
+
+                if zProgress ~= 0 and zProgress ~= "0" and zProgress ~= -1 then
+                    if not _G.IsTravelingToSea3 then
+                        _G.IsTravelingToSea3 = true
+                        SetTask("MainTask", "Sea Travel | Teleporting to Third Sea (Zou)")
+                        pcall(function()
+                            Remotes.CommF_:InvokeServer("TravelZou")
+                        end)
+                        task.wait(10)
+                    end
+                end
             end
         )
 
@@ -5915,12 +6206,24 @@ FunctionsHandler = {
 
         RefreshRace()
 
+        -- [ SANGBLOX ] Anti-AFK (Chống Kick 20 Phút / 30 Phút)
         Players.LocalPlayer.Idled:Connect(
             function()
                 Services.VirtualUser:CaptureController()
                 Services.VirtualUser:ClickButton2(Vector2.new())
             end
         )
+        
+        -- Vô hiệu hóa tính năng tự động đá của Roblox
+        pcall(function()
+            for i, v in pairs(getconnections(Players.LocalPlayer.Idled)) do
+                if v["Disable"] then
+                    v:Disable()
+                elseif v["Disconnect"] then
+                    v:Disconnect()
+                end
+            end
+        end)
 
         SetText("MainTextLabel", "Loaded In " .. tick() - StartTick .. "ms!")
         Loaded = 1
