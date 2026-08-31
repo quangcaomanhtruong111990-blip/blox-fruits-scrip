@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sangblox v2.0.1"
+        NameHub.Text = "sangblox v2.0.2"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1608,7 +1608,6 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     
         Portals =
             (
-           
                 {
             {
                 Vector3.new(-7894.6201171875, 5545.49169921875, -380.246346191406),
@@ -1622,8 +1621,12 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 Vector3.new(923.21252441406, 126.9760055542, 32852.83203125),
                 Vector3.new(-6508.5581054688, 89.034996032715, -132.83953857422)
             },
-            {}
-        })[SeaIndex]
+            {
+                Vector3.new(-5058.77, 314.51, -3155.88),   -- Castle On The Sea
+                Vector3.new(5756.83, 610.42, -253.92),    -- Hydra Island
+                Vector3.new(-12463.87, 374.91, -7523.77)  -- Mansion (Floating Turtle)
+            }
+        })[SeaIndex] or {}
 
         BossesOrder = {
             "Awakened Ice Admiral", 
@@ -1989,18 +1992,31 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
         end
         Noclipping = Services.RunService.Stepped:Connect(NoclipLoop)
+        local LastestPortalUse = 0
         function GetPortal(Position)
+            if not Portals or #Portals == 0 then return end
+            if os.time() - LastestPortalUse < 1.5 then return end
+            local TargetPos = typeof(Position) == "CFrame" and Position.Position or Position
+            local Character = game.Players.LocalPlayer.Character
+            if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
+            local CurrentDist = (Character.HumanoidRootPart.Position - TargetPos).Magnitude
+            if CurrentDist < 1600 then return end
+
             local Nearest, Current = 9e9, nil
-            for _, Portal in Portals do
-                local Dist1 = CaculateDistance(Portal, Position)
-                if Dist1 < (CaculateDistance(Position) - 300) and Dist1 < Nearest then
+            for _, Portal in ipairs(Portals) do
+                local Dist1 = (Portal - TargetPos).Magnitude
+                if Dist1 < (CurrentDist - 700) and Dist1 < Nearest then
                     Nearest = Dist1
                     Current = Portal
                 end
             end
             if Current then
-                Remotes.CommF_:InvokeServer("requestEntrance", Current)
-                return task.wait()
+                LastestPortalUse = os.time()
+                pcall(function()
+                    Remotes.CommF_:InvokeServer("requestEntrance", Current)
+                    task.wait(0.3)
+                end)
+                return true
             end
         end
         function GetEntries(Position)
@@ -2092,14 +2108,12 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             }
             game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
         end
-        
-        -- TweenController
-        
+        local CurrentTweenTarget = nil
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
             if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
-            if not Position or TweenDebounce or TweenController._isCreating then return end
+            if not Position or TweenDebounce then return end
         
             -- Chuyển đổi Position sang CFrame nếu cần
             local TargetCFrame = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
@@ -2107,13 +2121,96 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             TargetCFrame = CFrame.new(TargetCFrame.Position)
         
             local RootPart = Character.HumanoidRootPart
-            local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
+            local TargetPos = TargetCFrame.Position
+            local CurrentDist = (RootPart.Position - TargetPos).Magnitude
         
-            -- 2. CHỐNG GIẬT (Smarter Check)
-            -- Nếu đang có Tween chạy và mục tiêu mới quá gần mục tiêu cũ, hoặc nhân vật đã gần đích -> Bỏ qua
-            if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
-                if CurrentDist < 5 then return end -- Đã đủ gần, không cần tạo thêm
+            -- Nếu đã rất gần (dưới 4 studs), hủy tween và dừng lại
+            if CurrentDist <= 4 then
+                if TweenInstance then
+                    TweenInstance:Cancel()
+                    TweenInstance = nil
+                end
+                CurrentTweenTarget = nil
+                return
             end
+
+            -- 2. CHỐNG GIẬT (Anti-Jitter / Anti-Stutter):
+            -- Nếu đang có Tween chạy về mục tiêu tương tự (lệch < 15 studs), KHÔNG hủy và tạo lại Tween liên tục
+            if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
+                if CurrentTweenTarget and (CurrentTweenTarget - TargetPos).Magnitude < 15 then
+                    return
+                end
+            end
+        
+            -- 3. XỬ LÝ NOCLIP (Mượt hơn)
+            pcall(function()
+                for _, part in ipairs(Character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end)
+        
+            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity)
+            local head = Character:FindFirstChild("Head")
+            if head and not head:FindFirstChild("eltrul") then
+                local bv = Instance.new("BodyVelocity")
+                bv.Name = "eltrul"
+                bv.MaxForce = Vector3.new(0, math.huge, 0)
+                bv.Velocity = Vector3.zero
+                bv.Parent = head
+            end
+        
+            -- 5. DÙNG CỔNG DỊCH CHUYỂN TỨC THỜI (PORTAL FAST TRAVEL CHO CẢ SEA 3, SEA 2, SEA 1)
+            if CurrentDist > 1600 then
+                local usedPortal = GetPortal(TargetPos)
+                if usedPortal and Character and Character:FindFirstChild("HumanoidRootPart") then
+                    RootPart = Character.HumanoidRootPart
+                    CurrentDist = (RootPart.Position - TargetPos).Magnitude
+                end
+            end
+        
+            -- Kiểm tra di chuyển sang Submerged Island (Sea 3)
+            if SeaIndex == 3 and (TargetPos - Vector3.new(11256, -2138, 9888)).Magnitude < (CurrentDist - 700) then
+                local SubmarinePos = CFrame.new(-16269, 23, 1371)
+                if (RootPart.Position - SubmarinePos.Position).Magnitude > 60 then
+                    TweenController.Create(SubmarinePos)
+                    return
+                end
+                pcall(function()
+                    require(game.ReplicatedStorage.Modules.Net):RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
+                end)
+                return
+            end
+        
+            -- 6. TỐC ĐỘ BAY MƯỢT MÀ (CHỐNG GIẬT LAG & LOAD KỊP CHUNK BẢN ĐỒ)
+            -- Gần (< 25 studs): 30
+            -- Tầm trung (25 - 150 studs): 120 (mượt, ổn định khi farm quái cùng đảo)
+            -- Tầm xa (> 150 studs): 160 (tốc độ an toàn tuyệt đối, game load map kịp 100%, không bị giật lag/văng)
+            local Speed = 160
+            if CurrentDist < 25 then
+                Speed = 30
+            elseif CurrentDist < 150 then
+                Speed = 120
+            else
+                Speed = 160
+            end
+
+            local Time = CurrentDist / Speed
+        
+            if TweenInstance then
+                TweenInstance:Cancel()
+            end
+        
+            CurrentTweenTarget = TargetPos
+            TweenInstance = Services.TweenService:Create(
+                RootPart,
+                TweenInfo.new(Time, Enum.EasingStyle.Linear),
+                {CFrame = TargetCFrame}
+            )
+            
+            TweenInstance:Play()
+        end
         
             TweenController._isCreating = true
         
