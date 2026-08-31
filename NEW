@@ -211,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove v1.01"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3897,14 +3897,19 @@ FunctionsHandler = {
                     return
                 end
 
-                local Response = Remotes.CommF_:InvokeServer("DressrosaQuestProgress")
-                print(959, Response.TalkedDetective, Response.KilledIceBoss)
-                if not Response.TalkedDetective then
-                    Result = 1
-                elseif not Response.KilledIceBoss then
-                    Result = 2
-                else
-                    FunctionsHandler.SecondSeaPuzzle:Set("IsCompleted", true)
+                local Result = nil
+                local ok, Response = pcall(function()
+                    return Remotes.CommF_:InvokeServer("DressrosaQuestProgress")
+                end)
+                if ok and type(Response) == "table" then
+                    print(959, Response.TalkedDetective, Response.KilledIceBoss)
+                    if not Response.TalkedDetective then
+                        Result = 1
+                    elseif not Response.KilledIceBoss then
+                        Result = 2
+                    else
+                        FunctionsHandler.SecondSeaPuzzle:Set("IsCompleted", true)
+                    end
                 end
 
                 FunctionsHandler.SecondSeaPuzzle:Set("CurrentProgressLevel", Result)
@@ -3923,8 +3928,7 @@ FunctionsHandler = {
 
                 FunctionsHandler.SecondSeaPuzzle:Set("CurrentProgressLevel", nil)
                 if not Progress then
-                    FunctionsHandler.SecondSeaPuzzle.Methods.Refresh:Call()
-                    return FunctionsHandler.SecondSeaPuzzle.Methods.Start:Call()
+                    return
                 elseif Progress == 1 then
                     SetTask("MainTask", "Auto Second Sea - Talk To Detective")
                     Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Detective")
@@ -3957,20 +3961,29 @@ FunctionsHandler = {
                     return
                 end
 
-                if ScriptStorage.PlayerData.Level < 850 or ScriptStorage.Backpack["Warrior Helmet"] then
+                if ScriptStorage.PlayerData.Level < 850 or ScriptStorage.PlayerData.Level >= 1500 then
                     return
                 end
 
-                local Response = Remotes.CommF_:InvokeServer("BartiloQuestProgress")
+                if ScriptStorage.Backpack["Warrior Helmet"] or (ScriptStorage.Inventory and ScriptStorage.Inventory["Warrior Helmet"]) or (ScriptStorage.Accessories and ScriptStorage.Accessories["Warrior Helmet"]) then
+                    return
+                end
 
-                if not Response.KilledBandits then
-                    Result = 1
-                elseif not Response.KilledSpring then
-                    if ScriptStorage.Enemies.Jeremy then
-                        Result = 2
+                local Result = nil
+                local ok, Response = pcall(function()
+                    return Remotes.CommF_:InvokeServer("BartiloQuestProgress")
+                end)
+
+                if ok and type(Response) == "table" then
+                    if not Response.KilledBandits then
+                        Result = 1
+                    elseif not Response.KilledSpring then
+                        if ScriptStorage.Enemies.Jeremy then
+                            Result = 2
+                        end
+                    elseif not Response.DidPlates then
+                        Result = 3
                     end
-                elseif not Response.DidPlates then
-                    Result = 3
                 end
 
                 FunctionsHandler.ColosseumPuzzle:Set("CurrentProgressLevel", Result)
@@ -3988,8 +4001,7 @@ FunctionsHandler = {
                 FunctionsHandler.ColosseumPuzzle:Set("CurrentProgressLevel", nil)
                 print("Progress", Progress)
                 if not Progress then
-                    FunctionsHandler.ColosseumPuzzle.Methods.Refresh:Call()
-                    return FunctionsHandler.ColosseumPuzzle.Methods.Start:Call()
+                    return
                 elseif Progress == 1 then
                     SetTask("MainTask", "Auto Bartilo Quest - Defeating 50x Swan Pirate")
                     local CurrentQuest, RawText = QuestManager:GetCurrentClaimQuest()
