@@ -67,7 +67,9 @@ function CheckKick(v)
         v:Destroy()
     end
 end
--- print override removed
+print = function()
+    
+end
 repeat
     task.wait() 
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
@@ -88,7 +90,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
         end
     )
-   -- -- print override removed
+   -- print = function() end
     local StartTime = os.time()
 
     local Traces = {}
@@ -101,7 +103,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 {
                     title = GameName,
                     description = game.PlaceId .. " | " .. game.JobId,
-                    color = 0x5865F2,
+                    color = 15642286,
                     fields = {
                         {
                             name = "Error Details",
@@ -229,7 +231,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sangblox v2"
+        NameHub.Text = "kunblox.net"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -704,16 +706,14 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         Interface.ToggleUI = ToggleUI
         Interface.BlurManager = blurEffect
 
-        local Fluent = nil
-        pcall(function()
-            if isfile and readfile and isfile("fluent.lua") then
-                Fluent = loadstring(readfile("fluent.lua"))()
-            else
-                local source = game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
-                if writefile then pcall(function() writefile("fluent.lua", source) end) end
-                Fluent = loadstring(source)()
-            end
-        end)
+        if not isfile("fluent.lua") then
+            writefile(
+                "fluent.lua",
+                game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
+            )
+        end
+
+        local Fluent = loadstring(readfile("fluent.lua"))()
         local Animation = Instance.new("Animation")
         Animation.AnimationId = "http://www.roblox.com/asset/?id=1elutruahuabuahd"
 
@@ -804,13 +804,9 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             Interface = Interface,
             NPCs = {}
         }
-        pcall(function()
-            if hookfunction and game.ReplicatedStorage:FindFirstChild("Reparent") then
-                hookfunction(require(game.ReplicatedStorage.Reparent).Unparent, newcclosure(function()
-                    return function(...) end
-                end))
-            end
-        end) 
+        hookfunction(require(game.ReplicatedStorage.Reparent).Unparent, newcclosure(function()
+            return function(...) end
+        end)) 
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
         Character = LocalPlayer.Character
@@ -1100,9 +1096,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         function RefreshInventory()
             ScriptStorage.Backpack2 = {}
-            local inv = Remotes.CommF_:InvokeServer("getInventory")
-            if type(inv) ~= "table" then inv = {} end
-            for _, Value in inv do
+            for _, Value in Remotes.CommF_:InvokeServer("getInventory") do
                 if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
                 table.find(Config.Items.Eatlist, Value.Name) then 
                     warn("Load fruit", Value.Name)
@@ -1869,8 +1863,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         local NpcList = require(game.ReplicatedStorage.GuideModule).Data.NPCList
 
         repeat
-            task.wait(0.5)
-        until game:IsLoaded() and (game.Players.LocalPlayer:FindFirstChild("Data") or game.Players.LocalPlayer:FindFirstChild("DataLoaded")) and ScriptStorage
+            task.wait()
+        until game.Players.LocalPlayer.DataLoaded and ScriptStorage
 
         QuestManager.Quests = require(game.ReplicatedStorage.Quests)
 
@@ -1960,15 +1954,10 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         end
 
         ScriptStorage.MobRegions = {}
-        pcall(function()
-            local fortFolder = game:GetService("ReplicatedStorage"):FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
-            if fortFolder then
-                for _, Region in fortFolder:GetChildren() do
-                    ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
-                    table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
-                end
-            end
-        end)
+        for _, Region in game:GetService("ReplicatedStorage").FortBuilderReplicatedSpawnPositionsFolder:GetChildren() do
+            ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
+            table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
+        end
 
         TweenController = {}
         local LastestTeleportToHomePoint = 0
@@ -2164,8 +2153,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (140)
-            local Speed = (CurrentDist < 18) and 25 or 140
+            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (100)
+            local Speed = (CurrentDist < 18) and 25 or 100
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -5212,22 +5201,20 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         local old
 
-        pcall(function()
-            if hookfunction and game.ReplicatedStorage:FindFirstChild("Notification") then
-                old = hookfunction(
-                    require(game.ReplicatedStorage.Notification).new,
-                    newcclosure(function(a, b)
-                        v21 = tostring(tostring(a or "") .. tostring(b or "")) or ""
-                        if getgenv().NotificationCallBack then
-                            getgenv().NotificationCallBack(v21)
-                        end
-                        return {
-                            Display = function() end  
-                        }
-                    end)
-                )
+        old =
+            hookfunction(
+            require(game.ReplicatedStorage.Notification).new,
+           newcclosure(function(a, b)
+                v21 = tostring(tostring(a or "") .. tostring(b or "")) or ""
+
+                getgenv().NotificationCallBack(v21)
+
+                return {
+                    Display = function() end  
+                }
+                --return old(a, b)
             end
-        end)
+        ))
 
      
         if SeaIndex ~= 1 then
@@ -5622,24 +5609,24 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             end
             for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
-                if not Task or not Task.Initalized then
+                if not Task.Initalized then
                     if not LogCache[TaskName] then
-                        print("[ Debug ] Task", TaskName, "is not registered yet")
+                        print("[ Debug ] Task", Name, "is not registered yet")
                         LogCache[TaskName] = true
                     end
                 else
-                    local Refresh = Task.Methods and Task.Methods.Refresh
-                    local Start = Task.Methods and Task.Methods.Start
+                    local Refresh = Task.Methods.Refresh
+                    local Start = Task.Methods.Start
 
-                    if Refresh and Start then
-                        local RefreshValue = Refresh:Call(false)
+                    if Refresh then
+                        local RefreshValue = Refresh:Call(ParsingTimes < 100)
 
                         ParsingTimes = ParsingTimes + 1
-                        if RefreshValue then
+                        if RefreshValue and ParsingTimes > 100 then
+                            CurrentTask = CurrentTask ~= TaskName
+
                             CurrentTask = TaskName
-                            if ScriptStorage.Interface and ScriptStorage.Interface.SetText then
-                                ScriptStorage.Interface.SetText("DebugLine", TaskName)
-                            end
+                            ScriptStorage.Interface.SetText("DebugLine", TaskName)
                             Start:Call(RefreshValue)
                             return
                         end
@@ -5746,12 +5733,9 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         end
         
          function getcandies()
-            local inv = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
-            if type(inv) == "table" then
-                for i,v in inv do
-                    if type(v) == "table" and v.Name == "Candy" then 
-                        return v.Count or 0
-                    end
+            for i,v in game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory") do
+                if v.Name ==  "Candy" then 
+                    return v.Count
                 end
             end
             return 0
@@ -5817,7 +5801,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                             end
                         end
                     else
-                        warn("error: Remotes or CommF_ not found")
+                        warn("error: " .. tostring(result))
                     end
                 end)
                 
