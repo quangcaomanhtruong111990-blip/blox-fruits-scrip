@@ -68,9 +68,17 @@ function CheckKick(v)
     end
 end
 -- print restored
+pcall(function()
+    local remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5)
+    if remotes then
+        local commF = remotes:WaitForChild("CommF_", 5)
+        if commF then
+            commF:InvokeServer("SetTeam", Config.Team or "Pirates")
+        end
+    end
+end)
 repeat
-    task.wait() 
-    game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
+    task.wait(1)
 until game.Players.LocalPlayer.Character
 game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
     if os.time() >= 1756319996 then
@@ -211,7 +219,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.04"
+        NameHub.Text = "sanglove v1.05"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
