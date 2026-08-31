@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove v1.01"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1868,6 +1868,85 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             return Id .. "-" .. Id
         end
 
+        
+        -- Safe entity position extractor (Model, BasePart, Pivot, CFrame, Vector3)
+        local function SafeGetCFrame(entity)
+            if not entity then return nil end
+            if typeof(entity) == "CFrame" then return entity end
+            if typeof(entity) == "Vector3" then return CFrame.new(entity) end
+            if typeof(entity) == "Instance" then
+                if entity:IsA("BasePart") then
+                    return entity.CFrame
+                elseif entity:IsA("Model") then
+                    if entity.PrimaryPart then
+                        return entity.PrimaryPart.CFrame
+                    end
+                    local hrp = entity:FindFirstChild("HumanoidRootPart") or entity:FindFirstChild("Head") or entity:FindFirstChild("Torso") or entity:FindFirstChild("UpperTorso")
+                    if hrp and hrp:IsA("BasePart") then
+                        return hrp.CFrame
+                    end
+                    local ok, piv = pcall(function() return entity:GetPivot() end)
+                    if ok and piv then return piv end
+                    local ok2, cf = pcall(function() return entity:GetModelCFrame() end)
+                    if ok2 and cf then return cf end
+                end
+            end
+            return nil
+        end
+
+        local function SafeGetPosition(entity)
+            local cf = SafeGetCFrame(entity)
+            return cf and cf.Position or nil
+        end
+
+        -- Fallback NPC coordinates database for all Seas
+        local QuestNPCFallback = {
+            -- Sea 1
+            ["BanditQuest1"] = Vector3.new(1059, 16, 1549),
+            ["JungleQuest"] = Vector3.new(-1598, 37, 153),
+            ["BuggyQuest1"] = Vector3.new(-1140, 4, 3828),
+            ["DesertQuest"] = Vector3.new(894, 6, 4388),
+            ["SnowQuest"] = Vector3.new(1385, 87, -1298),
+            ["MarineQuest2"] = Vector3.new(-5035, 28, 4324),
+            ["SkyQuest"] = Vector3.new(-4840, 718, -2620),
+            ["ColosseumQuest"] = Vector3.new(-1580, 7, -2980),
+            ["MagmaQuest"] = Vector3.new(-5315, 12, 8515),
+            ["FishmanQuest"] = Vector3.new(61160, 18, 1565),
+            ["FountainQuest"] = Vector3.new(5258, 38, 4050),
+            -- Sea 2
+            ["Area1Quest"] = Vector3.new(-424, 73, 1836),
+            ["Area2Quest"] = Vector3.new(634, 73, 918),
+            ["MarineQuest"] = Vector3.new(-2443, 73, -3217),
+            ["ZombieQuest"] = Vector3.new(-5492, 48, -794),
+            ["SnowMountainQuest"] = Vector3.new(606, 401, -5371),
+            ["IceSideQuest"] = Vector3.new(5779, 28, -6763),
+            ["FireSideQuest"] = Vector3.new(-5430, 15, -5295),
+            ["ShipQuest1"] = Vector3.new(1038, 125, 32911),
+            ["ShipQuest2"] = Vector3.new(967, 125, 33283),
+            ["ForgottenQuest"] = Vector3.new(-3054, 237, -10146),
+            -- Sea 3
+            ["PortTownQuest"] = Vector3.new(-290, 7, 5330),
+            ["HydraQuest1"] = Vector3.new(5258, 604, 346),
+            ["HydraQuest2"] = Vector3.new(5760, 602, 199),
+            ["GreatTreeQuest"] = Vector3.new(2284, 25, -6768),
+            ["FloatingTurtleQuest1"] = Vector3.new(-13274, 531, -7579),
+            ["FloatingTurtleQuest2"] = Vector3.new(-12683, 391, -9901),
+            ["FloatingTurtleQuest3"] = Vector3.new(-11993, 332, -8846),
+            ["HauntedQuest1"] = Vector3.new(-9516, 142, 5536),
+            ["HauntedQuest2"] = Vector3.new(-9516, 142, 5536),
+            ["NutsIslandQuest"] = Vector3.new(-2104, 38, -10194),
+            ["IceCreamIslandQuest"] = Vector3.new(-900, 65, -10965),
+            ["CakeQuest1"] = Vector3.new(-2021, 38, -12025),
+            ["CakeQuest2"] = Vector3.new(-1927, 38, -12850),
+            ["ChocQuest1"] = Vector3.new(231, 23, -12199),
+            ["ChocQuest2"] = Vector3.new(151, 23, -12774),
+            ["CandyQuest1"] = Vector3.new(-1150, 14, -14445),
+            ["TikiQuest1"] = Vector3.new(-16106, 9, 438),
+            ["TikiQuest2"] = Vector3.new(-16450, 9, 438),
+            ["SubmergedQuest1"] = Vector3.new(-16335, 11, 1465),
+            ["SubmergedQuest2"] = Vector3.new(-16335, 11, 1465)
+        }
+
         local QuestManager = {
             CurrentLevel = 2,
             DoubleQuest = true,
@@ -1881,13 +1960,9 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             }
         }
 
-        local NpcList = require(game.ReplicatedStorage.GuideModule).Data.NPCList
-
-        repeat
-            task.wait()
-        until game.Players.LocalPlayer.DataLoaded and ScriptStorage
-
-        QuestManager.Quests = require(game.ReplicatedStorage.Quests)
+        pcall(function()
+            QuestManager.Quests = require(game.ReplicatedStorage.Quests)
+        end)
 
         function QuestManager.Set(Self, Index, Value)
             Self[Index] = Value
@@ -1915,18 +1990,27 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
                 end
 
+                if not QuestManager.Quests then
+                    pcall(function()
+                        QuestManager.Quests = require(game.ReplicatedStorage.Quests)
+                    end)
+                end
+
+                local PlayerLevel = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
                 local QuestLevelFlag = 0
-                local CurrentQuestData = nil
+                local SelectedQuestData = nil
+                local SelectedQuestId = nil
 
                 if QuestManager and QuestManager.Quests then
                     for QuestID, QuestDatas in pairs(QuestManager.Quests) do
                         if not QuestManager.BlacklistedQuestIds or not QuestManager.BlacklistedQuestIds[QuestID] then
-                            if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq and ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then
-                                if QuestDatas[1].LevelReq >= QuestLevelFlag and QuestDatas[1].LevelReq <= ScriptStorage.PlayerData.Level then
-                                    QuestLevelFlag = QuestDatas[1].LevelReq
-                                    CurrentQuestData = QuestDatas
-                                    Self.CurrentQuestId = QuestID
-                                    if ScriptStorage.PlayerData.Level >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
+                            if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq then
+                                local req = QuestDatas[1].LevelReq
+                                if req >= QuestLevelFlag and req <= PlayerLevel then
+                                    QuestLevelFlag = req
+                                    SelectedQuestData = QuestDatas
+                                    SelectedQuestId = QuestID
+                                    if PlayerLevel >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
                                         break
                                     end
                                 end
@@ -1935,73 +2019,151 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
                 end
 
-                if CurrentQuestData and #CurrentQuestData > 0 then
-                    local LastQuest = CurrentQuestData[#CurrentQuestData]
-                    if LastQuest and LastQuest.Task then
-                        for _, Count in pairs(LastQuest.Task) do
-                            if Count == 1 then
-                                table.remove(CurrentQuestData, #CurrentQuestData)
+                Self.CurrentQuestId = SelectedQuestId
+
+                -- Clone and sanitize quest data (filter boss quests without destroying structure)
+                local CleanQuests = {}
+                if SelectedQuestData then
+                    for idx, qData in ipairs(SelectedQuestData) do
+                        local isBoss = false
+                        if qData.Task then
+                            for _, count in pairs(qData.Task) do
+                                if count == 1 then
+                                    isBoss = true
+                                end
                             end
                         end
+                        if not isBoss or #SelectedQuestData == 1 then
+                            table.insert(CleanQuests, qData)
+                        end
                     end
+                    if #CleanQuests == 0 then
+                        CleanQuests = SelectedQuestData
+                    end
+                end
 
-                    local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
-                    if guideModule then
-                        local okModule, guideData = pcall(function() return require(guideModule) end)
-                        if okModule and guideData and guideData.Data and guideData.Data.NPCList then
-                            for i, v in pairs(guideData.Data.NPCList) do
-                                if v and v.Levels and CurrentQuestData[#CurrentQuestData] then
-                                    for _, v1 in pairs(v.Levels) do
-                                        if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
-                                            Self.CurrentNpc = i.CFrame
+                Self.CurrentQuests = CleanQuests
+
+                -- Resolve NPC Position accurately and safely
+                local foundNpcPos = nil
+                local targetLevelReq = (CleanQuests[#CleanQuests] and CleanQuests[#CleanQuests].LevelReq) or QuestLevelFlag
+
+                -- Step 1: Check GuideModule
+                local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
+                if guideModule then
+                    local okModule, guideData = pcall(function() return require(guideModule) end)
+                    if okModule and guideData and guideData.Data and guideData.Data.NPCList then
+                        for npcKey, npcInfo in pairs(guideData.Data.NPCList) do
+                            if npcInfo and npcInfo.Levels then
+                                for _, lvl in pairs(npcInfo.Levels) do
+                                    if lvl == targetLevelReq then
+                                        -- npcKey can be Model, BasePart or name
+                                        local cf = SafeGetCFrame(npcKey)
+                                        if cf then
+                                            foundNpcPos = cf.Position
+                                            break
                                         end
                                     end
                                 end
                             end
+                            if foundNpcPos then break end
                         end
                     end
                 end
 
-                Self.CurrentQuests = CurrentQuestData
+                -- Step 2: Check workspace.NPCs or ReplicatedStorage.NPCs
+                if not foundNpcPos and SelectedQuestId then
+                    local npcGiver = workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild(SelectedQuestId .. " Giver")
+                    if not npcGiver and game.ReplicatedStorage:FindFirstChild("NPCs") then
+                        npcGiver = game.ReplicatedStorage.NPCs:FindFirstChild(SelectedQuestId .. " Giver")
+                    end
+                    if npcGiver then
+                        foundNpcPos = SafeGetPosition(npcGiver)
+                    end
+                end
+
+                -- Step 3: Fallback database
+                if not foundNpcPos and SelectedQuestId and QuestNPCFallback[SelectedQuestId] then
+                    foundNpcPos = QuestNPCFallback[SelectedQuestId]
+                end
+
+                Self.CurrentNpc = foundNpcPos
             end)
         end
 
         function QuestManager.GetCurrentQuest(Self)
-            local QuestIndex =
-                Self.CurrentQuests[Self.CurrentLevel] and
-                Self.CurrentQuests[Self.CurrentLevel].LevelReq <= ScriptStorage.PlayerData.Level and
-                Self.CurrentLevel or
-                1
-
-            --print(Self.CurrentQuests[QuestIndex], Self.CurrentQuests[QuestIndex].NameMon)
-
-            for Name in Self.CurrentQuests[QuestIndex].Task do
-                return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, Self.CurrentQuests[QuestIndex].Name
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                Self:RefreshQuest()
             end
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                return "Bandit", Vector3.new(1059, 16, 1549), "BanditQuest1", 1, "Bandit"
+            end
+
+            local PlayerLevel = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+            local QuestIndex = 1
+
+            if Self.CurrentLevel and Self.CurrentQuests[Self.CurrentLevel] and Self.CurrentQuests[Self.CurrentLevel].LevelReq <= PlayerLevel then
+                QuestIndex = Self.CurrentLevel
+            else
+                QuestIndex = 1
+            end
+
+            local activeQuest = Self.CurrentQuests[QuestIndex] or Self.CurrentQuests[1]
+            if not activeQuest then
+                return "Bandit", Vector3.new(1059, 16, 1549), "BanditQuest1", 1, "Bandit"
+            end
+
+            local mobName = activeQuest.Name or "Bandit"
+            if activeQuest.Task then
+                for Name, _ in pairs(activeQuest.Task) do
+                    mobName = Name
+                    break
+                end
+            end
+
+            local npcPos = Self.CurrentNpc or (QuestNPCFallback[Self.CurrentQuestId] or Vector3.new(1059, 16, 1549))
+            return mobName, npcPos, Self.CurrentQuestId or "BanditQuest1", QuestIndex, activeQuest.Name or mobName
         end
 
         function QuestManager.MarkAsCompleted(Self)
-            Self.CurrentLevel = Self.CurrentLevel == 2 and 1 or 2
+            Self.CurrentLevel = (Self.CurrentLevel == 2 and 1) or 2
         end
 
         function QuestManager.AbandonQuest()
-            print("Abandon quest")
-            Remotes.CommF_:InvokeServer("AbandonQuest")
+            pcall(function()
+                Remotes.CommF_:InvokeServer("AbandonQuest")
+            end)
         end
 
         function QuestManager.GetCurrentClaimQuest(RawResponse)
-            local QuestTitle =
-                game.Players.LocalPlayer.PlayerGui.Main.Quest.Visible and
-                game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text:gsub(
-                    "%s*Defeat%s*(%d*)%s*(.-)%s*%b()",
-                    "%2"
-                )
-            return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
+            local success, res = pcall(function()
+                local lp = game:GetService("Players").LocalPlayer
+                if not lp or not lp:FindFirstChild("PlayerGui") then return nil, nil end
+                local mainGui = lp.PlayerGui:FindFirstChild("Main")
+                if not mainGui then return nil, nil end
+                local questGui = mainGui:FindFirstChild("Quest")
+                if not questGui or not questGui.Visible then return nil, nil end
+                local container = questGui:FindFirstChild("Container")
+                local titleObj = container and container:FindFirstChild("QuestTitle") and container.QuestTitle:FindFirstChild("Title")
+                if not titleObj or not titleObj.Text then return nil, nil end
+                local rawText = titleObj.Text
+                local parsed = rawText:gsub("%s*Defeat%s*(%d*)%s*(.-)%s*%b()", "%2")
+                if type(parsed) == "string" then
+                    parsed = string.gsub(parsed, "Military ", "Mil. ")
+                end
+                return parsed, rawText
+            end)
+            if success and res then
+                return res
+            end
+            return nil, nil
         end
 
         function QuestManager.StartQuest(QuestId, QuestLevel)
-            return Remotes.CommF_:InvokeServer("StartQuest", QuestId, QuestLevel)
+            if not QuestId then return end
+            return Remotes.CommF_:InvokeServer("StartQuest", QuestId, QuestLevel or 1)
         end
+
 
         ScriptStorage.MobRegions = {}
         for _, Region in game:GetService("ReplicatedStorage").FortBuilderReplicatedSpawnPositionsFolder:GetChildren() do
@@ -3298,40 +3460,74 @@ FunctionsHandler = {
                 elseif Level == 3 then
                     SetTask("MainTask", "Level Farming | Skip Mode | Floor " .. Level)
                     CombatController.Attack({"Royal Soldier", "Royal Squad"})
-                elseif Level == 4 then
+                                elseif Level == 4 then
                     local MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
                     CurrentClaimQuest1 = GetCurrentClaimQuest()
+
+                    local function NormalizeQuestName(str)
+                        if not str or type(str) ~= "string" then return "" end
+                        local s = str:lower()
+                        s = s:gsub("military%s*", "mil. ")
+                        s = s:gsub("pirates?", "")
+                        s = s:gsub("bandits?", "")
+                        s = s:gsub("[%s%p]", "")
+                        return s
+                    end
+
                     if CurrentClaimQuest1 then
-                        if CurrentClaimQuest1 ~= QuestTitle and CurrentClaimQuest1 ~= (QuestTitle .. "s") then
-                            AbandonedCount = AbandonedCount and AbandonedCount + 1 or 0
-                            if AbandonedCount > 20 then 
-                            game.Players.LocalPlayer:Kick("Rejoining...")
+                        local normCurrent = NormalizeQuestName(CurrentClaimQuest1)
+                        local normTitle = NormalizeQuestName(QuestTitle)
+                        local normMon = NormalizeQuestName(MonName)
+
+                        local isMatch = (normCurrent == normTitle) or (normCurrent == normMon)
+                                     or (string.find(normCurrent, normTitle, 1, true) ~= nil)
+                                     or (string.find(normTitle, normCurrent, 1, true) ~= nil)
+                                     or (string.find(normCurrent, normMon, 1, true) ~= nil)
+
+                        if not isMatch then
+                            AbandonedCount = (AbandonedCount or 0) + 1
+                            if AbandonedCount > 25 then
+                                AbandonedCount = 0
+                                pcall(function()
+                                    if Hop then Hop("Rejoin") end
+                                end)
                             end
-                            alert("Abandon Quest", CurrentClaimQuest1 or '' .. ' / ' .. QuestTitle or '')
+                            alert("Abandon Quest", tostring(CurrentClaimQuest1 or "") .. " / " .. tostring(QuestTitle or ""))
                             return QuestManager.AbandonQuest()
+                        else
+                            AbandonedCount = 0
                         end
                     else
                         if not NpcPosition then
-                            return QuestManager:RefreshQuest() and Report("failed to get npc position quest 528")
-                        end
-                        TweenController.Create(NpcPosition + Vector3.new(0, 5, 3))
-                        SetTask("MainTask", "Level Farming | " .. MonName .. " | Claiming Quest")
-                        if CaculateDistance(NpcPosition) > 10 then
-                            return
+                            QuestManager:RefreshQuest()
+                            NpcPosition = QuestManager.CurrentNpc or QuestNPCFallback[QuestId]
                         end
 
-                        task.wait(2)
-                        LevelFarmTTL = 0
-                        QuestManager.StartQuest(QuestId, QuestIndex)
-                        task.wait(1)
+                        if NpcPosition then
+                            local targetVec = (typeof(NpcPosition) == "CFrame" and NpcPosition.Position) or (typeof(NpcPosition) == "Vector3" and NpcPosition) or Vector3.zero
+                            local dist = CaculateDistance(targetVec)
+
+                            if dist > 15 then
+                                TweenController.Create(targetVec + Vector3.new(0, 5, 3))
+                                SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Claiming Quest")
+                                return
+                            end
+
+                            task.wait(0.5)
+                            LevelFarmTTL = 0
+                            QuestManager.StartQuest(QuestId, QuestIndex)
+                            task.wait(0.8)
+                        else
+                            return QuestManager:RefreshQuest() and Report("Searching NPC Position...")
+                        end
                     end
 
-                    SetTask("MainTask", "Level Farming | " .. MonName .. " | Defeating Enemies")
+                    SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Defeating Enemies")
                     local AttackTime1 = os.time()
                     CombatController.Attack(MonName)
                     LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
                     if LevelFarmTTL > 160 then
-                    -- Hop("Level TTL is bigger than 160, hop")
+                        -- Hop("Level TTL is bigger than 160, hop")
                     end
                 end
             end
