@@ -68,17 +68,9 @@ function CheckKick(v)
     end
 end
 -- print restored
-pcall(function()
-    local remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5)
-    if remotes then
-        local commF = remotes:WaitForChild("CommF_", 5)
-        if commF then
-            commF:InvokeServer("SetTeam", Config.Team or "Pirates")
-        end
-    end
-end)
 repeat
-    task.wait(1)
+    task.wait() 
+    game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
 until game.Players.LocalPlayer.Character
 game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
     if os.time() >= 1756319996 then
@@ -219,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.10"
+        NameHub.Text = "sanglove v1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2698,99 +2690,99 @@ CombatController = {
                     local Count, Debounce = 0, os.time()
                     local Count2, Debounce = 0, os.time()
                     -- Optimize: Add delay to reduce FPS impact
---                     while task.wait(0.1) do
---                         if _G.Stop then
---                             return
---                         end
--- 
---                         -- Cache lại InCombat mỗi lần loop để kiểm tra trạng thái combat
---                         if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
---                             TweenController.Create(Vector3.new(0, 0, 0))
---                             return
---                         end
--- 
---                         local MobHumanoid = MonResult:FindFirstChild("Humanoid")
---                         local MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart")
--- 
---                         if not MobHumanoid or MobHumanoid.Health <= 0 then
---                             if MonResult.Name == "Don Swan" then
---                                 Storage:Set("SwanDefeated", true)
---                                 
---                             end
---                             break
---                         end
--- 
---                         TweenController.Create(
---                             CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
---                         )
--- 
---                         if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
---                             CombatController.Grab(Child or "")
---                             if MonResult.Name ~= "Core" then
---                                 if
---                                     ScriptStorage.PlayerData.Level > 100 and
---                                         Count2 >= CombatController.MAX_ATTACK_DURATION_2 and
---                                         MobHumanoid.Health - MobHumanoid.MaxHealth == 0
---                                  then
---                                     SetTask(
---                                         "SubTask",
---                                         "Hop Server - Mob Health Unchanged ( " ..
---                                             MobHumanoid.Health .. " / " .. MobHumanoid.MaxHealth .. ")"
---                                     )
---                                     alert("Stuck", "Mob health unchanged")
---                                     _G.Stop = true
---                                     SafeRejoinOrHop("Rejoin")
--- 
---                                 end
--- 
---                               
---                                 if
---                                     Count >= CombatController.MAX_ATTACK_DURATION and
---                                         MobHumanoid.Health - MobHumanoid.MaxHealth == 0
---                                  then
---                                     Count = 0
--- 
---                                     local OldPosition = MonResult:GetAttribute("OldPosition")
--- 
---                                     if OldPosition then
---                                         MonResult:SetPrimaryPartCFrame(CFrame.new(OldPosition))
---                                         MonResult:SetAttribute("IgnoreGrab", true)
---                                         MonResult:SetAttribute(
---                                             "FailureCount",
---                                             (MonResult:GetAttribute("FailureCount") or 0) + 1
---                                         )
---                                         alert(
---                                             "Failed to attack",
---                                             "Returning to the old position ( #" ..
---                                                 MonResult:GetAttribute("FailureCount") .. " )"
---                                         )
---                                        MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
---                                         task.wait()
--- 
---                                         return
---                                     end
---                                 end
---                             end
---                          
---                             FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
---                                     ScriptStorage.ForceToUseSword and "Sword" or "Melee"
---                                 )
--- 
---                             AttackController:Attack(MonResult)
---                             if os.time() ~= Debounce then
---                                 Debounce = os.time()
--- 
---                                 Count = Count + 1
---                                 Count2 = Count2 + 1
---                             end
---                             if Count > 30 and MonResult.Name ~= "Core" then
---                                 alert("Take more than 30s to attack, cancelling")
---                                 break
---                             end
---                        
---                         end
---                     end
---                 elseif not NearbyHit then
+                    while task.wait(0.1) do
+                        if _G.Stop then
+                            return
+                        end
+
+                        -- Cache lại InCombat mỗi lần loop để kiểm tra trạng thái combat
+                        if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
+                            TweenController.Create(Vector3.new(0, 0, 0))
+                            return
+                        end
+
+                        local MobHumanoid = MonResult:FindFirstChild("Humanoid")
+                        local MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart")
+
+                        if not MobHumanoid or MobHumanoid.Health <= 0 then
+                            if MonResult.Name == "Don Swan" then
+                                Storage:Set("SwanDefeated", true)
+                                
+                            end
+                            break
+                        end
+
+                        TweenController.Create(
+                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
+                        )
+
+                        if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
+                            CombatController.Grab(Child or "")
+                            if MonResult.Name ~= "Core" then
+                                if
+                                    ScriptStorage.PlayerData.Level > 100 and
+                                        Count2 >= CombatController.MAX_ATTACK_DURATION_2 and
+                                        MobHumanoid.Health - MobHumanoid.MaxHealth == 0
+                                 then
+                                    SetTask(
+                                        "SubTask",
+                                        "Hop Server - Mob Health Unchanged ( " ..
+                                            MobHumanoid.Health .. " / " .. MobHumanoid.MaxHealth .. ")"
+                                    )
+                                    alert("Stuck", "Mob health unchanged")
+                                    _G.Stop = true
+                                    SafeRejoinOrHop("Rejoin")
+
+                                end
+
+                              
+                                if
+                                    Count >= CombatController.MAX_ATTACK_DURATION and
+                                        MobHumanoid.Health - MobHumanoid.MaxHealth == 0
+                                 then
+                                    Count = 0
+
+                                    local OldPosition = MonResult:GetAttribute("OldPosition")
+
+                                    if OldPosition then
+                                        MonResult:SetPrimaryPartCFrame(CFrame.new(OldPosition))
+                                        MonResult:SetAttribute("IgnoreGrab", true)
+                                        MonResult:SetAttribute(
+                                            "FailureCount",
+                                            (MonResult:GetAttribute("FailureCount") or 0) + 1
+                                        )
+                                        alert(
+                                            "Failed to attack",
+                                            "Returning to the old position ( #" ..
+                                                MonResult:GetAttribute("FailureCount") .. " )"
+                                        )
+                                       MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
+                                        task.wait()
+
+                                        return
+                                    end
+                                end
+                            end
+                         
+                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
+                                    ScriptStorage.ForceToUseSword and "Sword" or "Melee"
+                                )
+
+                            AttackController:Attack(MonResult)
+                            if os.time() ~= Debounce then
+                                Debounce = os.time()
+
+                                Count = Count + 1
+                                Count2 = Count2 + 1
+                            end
+                            if Count > 30 and MonResult.Name ~= "Core" then
+                                alert("Take more than 30s to attack, cancelling")
+                                break
+                            end
+                       
+                        end
+                    end
+                elseif not NearbyHit then
                     if (os.time() - LastFound) > 200 then
                         alert("KUN", "Error while farming, rejoin")
                         SafeRejoinOrHop("Rejoin")
@@ -6078,16 +6070,7 @@ FunctionsHandler = {
                             local Elapsed = os.time() - StartTime
                             local TotalElapsed = Elapsed + OldSessionTime
 
-                            if os.time() % 30 == 0 then
-                                pcall(function()
-                                    writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
-                                end)
-                            end
-                            if os.time() % 60 == 0 then
-                                pcall(function()
-                                    collectgarbage("collect")
-                                end)
-                            end
+                            writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
 
                             if ScriptStorage.Interface then
                                 SetText(
@@ -6104,18 +6087,61 @@ FunctionsHandler = {
             
         )
 
+        -- Cấu hình thời gian
+        local CHECK_INTERVAL = 60 -- Kiểm tra mỗi 1 phút để đảm bảo không lỡ nhịp
+        local lastBuy = 0
+
+        task.spawn(function()
+            while true do
+                pcall(function()
+                    -- 1. Kiểm tra sự tồn tại của Remotes
+                    if Remotes and Remotes.CommF_ then
+                        
+                        -- 2. Gọi hàm cộng điểm (nếu có)
+                        if type(AddPoint) == "function" then
+                            AddPoint()
+                        end
+
+                        -- 3. Thực hiện mua trái ác quỷ
+                        -- Blox Fruits trả về thông tin thời gian nếu chưa đủ 2 tiếng
+                        local result = Remotes.CommF_:InvokeServer("Cousin", "Buy")
+                        
+                        if result then
+                            print("[Random Fruit] Kết quả: ", tostring(result))
+                            
+                            -- Nếu mua thành công hoặc thông báo liên quan đến thời gian
+                            -- Bạn có thể thêm logic cất trái ác quỷ vào kho ở đây
+                            if string.find(tostring(result), "Unboxed") or string.find(tostring(result), "Eat") then
+                                print("success: " .. tostring(result))
+                            end
+                        end
+                    else
+                        warn("error: " .. tostring(result))
+                    end
+                end)
+                
+                task.wait(CHECK_INTERVAL)
+            end
+        end)
+
        
-        while task.wait(0.3) do
-            -- Throttled main loop to prevent PC/Executor crash and console spam
+        while task.wait() do
+            --[[
+            if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
+                SendDataDelay = os.time() 
+                pcall(SendData)
+            end ]]
+             print(0)
             local success, response = xpcall(RefreshTasksData, debug.traceback)
+            print(1)
+            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
             if not IsInRaid then
-                pcall(function()
-                    FunctionsHandler.MeleesController.Methods.Start:Call()
-                end)
+                FunctionsHandler.MeleesController.Methods.Start:Call()
             end
-            if not success and response then
-                -- Report(response) -- Suppress non-fatal error spam
+            print(2)
+            if not success then
+                Report(response)
             end
         end
 
