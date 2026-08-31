@@ -211,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.01"
+        NameHub.Text = "sanglove v1.02"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1980,17 +1980,24 @@ ScriptStorage = {
         end
 
         function QuestManager.GetCurrentQuest(Self)
-            local QuestIndex =
-                Self.CurrentQuests[Self.CurrentLevel] and
-                Self.CurrentQuests[Self.CurrentLevel].LevelReq <= ScriptStorage.PlayerData.Level and
-                Self.CurrentLevel or
-                1
-
-            --print(Self.CurrentQuests[QuestIndex], Self.CurrentQuests[QuestIndex].NameMon)
-
-            for Name in Self.CurrentQuests[QuestIndex].Task do
-                return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, Self.CurrentQuests[QuestIndex].Name
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                pcall(function() Self:RefreshQuest() end)
             end
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                return nil, nil, nil, nil, nil
+            end
+
+            local pLevel = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+            local QuestIndex = (Self.CurrentQuests[Self.CurrentLevel] and Self.CurrentQuests[Self.CurrentLevel].LevelReq <= pLevel) and Self.CurrentLevel or 1
+            local qData = Self.CurrentQuests[QuestIndex] or Self.CurrentQuests[1]
+            if not qData or not qData.Task or type(qData.Task) ~= "table" then
+                return nil, nil, nil, nil, nil
+            end
+
+            for Name, _ in pairs(qData.Task) do
+                return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, qData.Name
+            end
+            return nil, nil, nil, nil, nil
         end
 
         function QuestManager.MarkAsCompleted(Self)
@@ -2017,19 +2024,35 @@ ScriptStorage = {
         end
 
         ScriptStorage.MobRegions = {}
-        for _, Region in game:GetService("ReplicatedStorage").FortBuilderReplicatedSpawnPositionsFolder:GetChildren() do
-            ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
-            table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
-        end
+        pcall(function()
+            local folder = game:GetService("ReplicatedStorage"):FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
+            if folder then
+                for _, Region in pairs(folder:GetChildren()) do
+                    if Region and Region:IsA("BasePart") then
+                        ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
+                        table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
+                    end
+                end
+            end
+        end)
 
         TweenController = {}
         local LastestTeleportToHomePoint = 0
         local Entries = {}
-        for _, NPC in game.ReplicatedStorage.NPCs:GetChildren() do
-            if NPC.Name == "Set Home Point" then
-                table.insert(Entries, NPC:GetModelCFrame())
+        pcall(function()
+            local npcsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("NPCs") or workspace:FindFirstChild("NPCs")
+            if npcsFolder then
+                for _, NPC in pairs(npcsFolder:GetChildren()) do
+                    if NPC.Name == "Set Home Point" then
+                        if NPC:IsA("Model") and NPC.PrimaryPart then
+                            table.insert(Entries, NPC:GetModelCFrame())
+                        elseif NPC:IsA("BasePart") then
+                            table.insert(Entries, NPC.CFrame)
+                        end
+                    end
+                end
             end
-        end
+        end)
         local function NoclipLoop()
             speaker = LocalPlayer
             if speaker.Character ~= nil then
@@ -3852,7 +3875,7 @@ FunctionsHandler = {
                                             if ((Melee == "Death Step" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyDeathStep", true) ==  3)  or
                                             (Melee == "Sharkman Karate" and
                                             type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "string" or (
-                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
+                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex == 1 then
                                                 alert("Go Back To Second Sea", "Water Key / Library Key")
 
                                                 Remotes.CommF_:InvokeServer("TravelDressrosa")
@@ -5009,27 +5032,22 @@ FunctionsHandler = {
         FunctionsHandler.ThirdSeaPuzzle:RegisterMethod(
             "Start",
             function()
+                if SeaIndex ~= 2 then return end
                 local State = FunctionsHandler.ThirdSeaPuzzle:Get("State")
 
                 alert("1093", "start")
                 if State then
                     alert("1095", "case test")
+                    local beginT = tick()
                     repeat
                         task.wait(1)
                         alert("1096", "fire")
                         print("StartResponse", Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin"))
-                    until CaculateDistance(Vector3.new(0, 0, 0)) > 20000
-
-                    task.spawn(
-                        function()
-                            alert("1102", "rejoin")
-                            task.wait(30)
-                            SafeRejoinOrHop("Rejoin")
-                       end
-                    )
+                    until CaculateDistance(Vector3.new(0, 0, 0)) > 20000 or tick() - beginT > 10
 
                     alert("attack")
-                    while task.wait() do
+                    local attT = tick()
+                    while task.wait() and tick() - attT < 60 and SeaIndex == 2 do
                         CombatController.Attack("rip_indra")
                     end
                 end
@@ -6025,9 +6043,14 @@ FunctionsHandler = {
         end
         
          function getcandies()
-            for i,v in game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory") do
-                if v.Name ==  "Candy" then 
-                    return v.Count
+            local ok, inv = pcall(function()
+                return game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
+            end)
+            if ok and type(inv) == "table" then
+                for _, v in pairs(inv) do
+                    if type(v) == "table" and v.Name == "Candy" then 
+                        return v.Count or 0
+                    end
                 end
             end
             return 0
