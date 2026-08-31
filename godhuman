@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.04"
+        NameHub.Text = "sanglove v1.05"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1126,7 +1126,10 @@ ScriptStorage = {
             pcall(function()
                 ScriptStorage.Backpack2 = {}
                 if not Remotes or not Remotes.CommF_ then return end
-                local inv = Remotes.CommF_:InvokeServer("getInventory")
+                
+                -- 1. Quét các vật phẩm & nguyên liệu thông thường
+                local inv = nil
+                pcall(function() inv = Remotes.CommF_:InvokeServer("getInventory") end)
                 if type(inv) == "table" then
                     for _, Value in pairs(inv) do
                         if type(Value) == "table" and Value.Name then
@@ -1141,8 +1144,21 @@ ScriptStorage = {
                             ScriptStorage.Backpack2[Value.Name] = Value
                         end
                     end
-                    ScriptStorage.Backpack = ScriptStorage.Backpack2
                 end
+
+                -- 2. Quét toàn bộ Trái Ác Quỷ lưu trữ trong Treasure Inventory (getInventoryFruits)
+                local fruits = nil
+                pcall(function() fruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
+                if type(fruits) == "table" then
+                    for _, Value in pairs(fruits) do
+                        if type(Value) == "table" and Value.Name then
+                            Value.Type = "Blox Fruit"
+                            ScriptStorage.Backpack2[Value.Name] = Value
+                        end
+                    end
+                end
+
+                ScriptStorage.Backpack = ScriptStorage.Backpack2
             end)
         end
 
