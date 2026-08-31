@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.03"
+        NameHub.Text = "sanglove v1.04"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -4239,13 +4239,48 @@ FunctionsHandler = {
         FunctionsHandler.RaidController:RegisterMethod(
             "GetRaidableFruit",
             function()
-                for _, Fruit in ScriptStorage.Backpack do
-                    if string.find(FruitIdToName(Fruit.Name), " Fruit") then
-                        if Fruit.Value and Fruit.Value < 1000000 then
-                            return Fruit
+                pcall(RefreshInventory)
+                
+                local TrashFruits = {
+                    ["Rocket-Rocket"] = true, ["Spin-Spin"] = true, ["Blade-Blade"] = true, ["Chop-Chop"] = true,
+                    ["Spring-Spring"] = true, ["Bomb-Bomb"] = true, ["Smoke-Smoke"] = true, ["Spike-Spike"] = true,
+                    ["Flame-Flame"] = true, ["Falcon-Falcon"] = true, ["Ice-Ice"] = true, ["Sand-Sand"] = true,
+                    ["Dark-Dark"] = true, ["Diamond-Diamond"] = true, ["Light-Light"] = true, ["Rubber-Rubber"] = true,
+                    ["Barrier-Barrier"] = true, ["Ghost-Ghost"] = true, ["Magma-Magma"] = true, ["Quake-Quake"] = true
+                }
+                
+                local HighFruits = {
+                    "Kitsune", "Dragon", "Leopard", "Spirit", "Control", "Venom", "Shadow", "Dough", 
+                    "T-Rex", "Mammoth", "Gravity", "Blizzard", "Pain", "Rumble", "Portal", "Phoenix", 
+                    "Sound", "Spider", "Love", "Buddha"
+                }
+
+                for _, Fruit in pairs(ScriptStorage.Backpack or {}) do
+                    if type(Fruit) == "table" and Fruit.Name then
+                        local isBloxFruit = (Fruit.Type == "Blox Fruit") or string.find(tostring(Fruit.Name), "-") or string.find(tostring(Fruit.Name), "Fruit")
+                        if isBloxFruit then
+                            local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
+                            local isTrash = TrashFruits[Fruit.Name] or (price > 0 and price < 1000000)
+                            
+                            -- Kiểm tra không nằm trong Eatlist
+                            local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, Fruit.Name)
+                            
+                            -- Kiểm tra không phải trái xịn
+                            local isHighTier = false
+                            for _, hName in ipairs(HighFruits) do
+                                if string.find(tostring(Fruit.Name), hName) then
+                                    isHighTier = true
+                                    break
+                                end
+                            end
+                            
+                            if (isTrash or (price < 1000000 and not isHighTier)) and not isEatList and not isHighTier then
+                                return Fruit
+                            end
                         end
                     end
                 end
+                return nil
             end
         )
 
@@ -5993,7 +6028,7 @@ FunctionsHandler = {
             end
             print(2)
             if not success then
-                Report(response)                                                
+                Report(response)
             end
         end
 
