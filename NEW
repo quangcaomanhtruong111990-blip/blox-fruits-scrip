@@ -165,8 +165,218 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function Report(Message)
-        -- Webhook disabled
+        -- Webhook Discord disabled: No telemetry or data sent externally
     end
+
+    function mmb()
+        local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
+        local Interface = {
+            Instances = {}
+        }
+
+        local isVisible = true
+        local isToggleOpen = false
+        local player = game.Players.LocalPlayer
+
+        repeat
+            task.wait()
+        until game.CoreGui
+
+        local HopGui = Instance.new("ScreenGui")
+        local NameHub = Instance.new("TextLabel")
+        local UIStroke = Instance.new("UIStroke")
+        local StrokeBounty = Instance.new("UIStroke")
+        local Bounty = Instance.new("TextLabel")
+        local ToggleButton = Instance.new("ImageButton")
+        local ToggleContainer = Instance.new("Frame")
+        local ToggleUIStroke = Instance.new("UIStroke")
+        local ToggleIcon = Instance.new("TextLabel")
+
+        -- Create a table to store UI references for blurring
+        local UIReferences = {}
+
+        HopGui.Name = "CyndralDev"
+        HopGui.Parent = game:GetService("CoreGui")
+        HopGui.Enabled = not Config.Configuration.HideGui
+        HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        HopGui.IgnoreGuiInset = true
+
+        NameHub.Name = "NameHub"
+        NameHub.Parent = HopGui
+        NameHub.AnchorPoint = Vector2.new(0.5, 0.5)
+        NameHub.Position = UDim2.new(0.5, 0, 0.3, 0)
+        NameHub.Size = UDim2.new(1, 0, 0, 80)
+        NameHub.BackgroundTransparency = 0.999
+        NameHub.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
+        NameHub.BorderSizePixel = 0
+        NameHub.Font = Enum.Font.FredokaOne
+        NameHub.Text = "sanglove v1"
+
+        local UIStroke = Instance.new("UIStroke")
+        UIStroke.Parent = NameHub
+        UIStroke.Color = Color3.fromRGB(0, 0, 0)
+        UIStroke.Thickness = 1
+
+        NameHub.TextColor3 = Color3.fromRGB(9, 255, 248)
+        NameHub.TextSize = 50
+
+        -- Create Toggle Button Container
+        ToggleContainer.Name = "ToggleContainer"
+        ToggleContainer.Parent = HopGui
+        ToggleContainer.AnchorPoint = Vector2.new(1, 0)
+        ToggleContainer.Position = UDim2.new(1, -20, 0, 20)
+        ToggleContainer.Size = UDim2.new(0, 50, 0, 50)
+        ToggleContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        ToggleContainer.BackgroundTransparency = 0.2
+        ToggleContainer.BorderColor3 = Color3.fromRGB(0, 0, 0)
+        ToggleContainer.BorderSizePixel = 0
+        ToggleContainer.ClipsDescendants = true
+        -- Make it circular
+        local UICorner = Instance.new("UICorner")
+        UICorner.CornerRadius = UDim.new(1, 0)
+        UICorner.Parent = ToggleContainer
+
+        -- Add stroke to toggle container
+        ToggleUIStroke.Parent = ToggleContainer
+        ToggleUIStroke.Color = Color3.fromRGB(9, 255, 248)
+        ToggleUIStroke.Thickness = 2
+
+        -- Create Toggle Button
+        ToggleButton.Name = "ToggleButton"
+        ToggleButton.Parent = ToggleContainer
+        ToggleButton.AnchorPoint = Vector2.new(0.5, 0.5)
+        ToggleButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+        ToggleButton.Size = UDim2.new(1, 0, 1, 0)
+        ToggleButton.BackgroundTransparency = 1
+        ToggleButton.BorderSizePixel = 0
+
+        -- Add toggle icon
+        ToggleIcon.Name = "ToggleIcon"
+        ToggleIcon.Parent = ToggleContainer
+        ToggleIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+        ToggleIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+        ToggleIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
+        ToggleIcon.BackgroundTransparency = 1
+        ToggleIcon.BorderSizePixel = 0
+        ToggleIcon.Font = Enum.Font.GothamBold
+        ToggleIcon.Text = "👁️"
+        ToggleIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleIcon.TextSize = 24
+        ToggleIcon.TextScaled = true
+
+        local function createTextLabel(text, position, isImage)
+            local StrokeBounty = Instance.new("UIStroke")
+            local Bounty = Instance.new("TextLabel")
+            Bounty.Name = "hmph ><"
+            Bounty.Parent = HopGui
+            Bounty.AnchorPoint = Vector2.new(0.5, 0.5)
+            Bounty.Position = position
+            Bounty.Size = UDim2.new(0, 200, 0, 30)
+            Bounty.BackgroundTransparency = 0.999
+            Bounty.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            Bounty.BorderColor3 = Color3.fromRGB(0, 0, 0)
+            Bounty.BorderSizePixel = 0
+            Bounty.Font = Enum.Font.FredokaOne
+            Bounty.Text = text
+            Bounty.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Bounty.TextSize = 13
+            Bounty.RichText = true
+            StrokeBounty.Parent = Bounty
+            StrokeBounty.Color = Color3.fromRGB(0, 0, 0)
+            StrokeBounty.Thickness = 1
+
+            return Bounty
+        end
+
+        MainTextLabel = createTextLabel(" ", UDim2.new(0.5, 0, 0.4, 0))
+
+        Interface.Instances.MainTextLabel = MainTextLabel
+
+        for Index, OrderName in pairs(Orders) do
+            Interface.Instances[OrderName] = createTextLabel("...", UDim2.new(0.5, 0, 0.45 + (.05 * Index), 0))
+        end
+
+        -- Custom blur effect that can blur other UIs
+        local BlurManager = {}
+
+        function BlurManager:Create()
+            -- Create a new transparent frame that covers the screen
+            local blurFrame = Instance.new("Frame")
+            blurFrame.Name = "BlurFrame"
+            blurFrame.Parent = HopGui
+            blurFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            blurFrame.BackgroundTransparency = 1 -- Start fully transparent
+            blurFrame.BorderSizePixel = 0
+            blurFrame.Size = UDim2.new(1, 0, 1, 0)
+            blurFrame.Position = UDim2.new(0, 0, 0, 0)
+            blurFrame.ZIndex = 0 -- Behind everything
+
+            -- Store the reference
+            self.blurFrame = blurFrame
+            self.blurIntensity = 0
+
+            return self
+        end
+
+        function BlurManager:SetIntensity(intensity)
+            -- Clamp intensity between 0 and 0.95 (0.95 is nearly opaque)
+            intensity = math.clamp(intensity, 0, 0.95)
+            self.blurIntensity = intensity
+
+            -- Apply the intensity to our blur frame
+            local tweenService = game:GetService("TweenService")
+            local tweenInfo =
+                TweenInfo.new(
+                0.3, -- Time
+                Enum.EasingStyle.Cubic, -- Easing style
+                Enum.EasingDirection.Out -- Easing direction
+            )
+
+            local tween =
+                tweenService:Create(
+                self.blurFrame,
+                tweenInfo,
+                {
+                    BackgroundTransparency = 1 - intensity
+                }
+            )
+
+            tween:Play()
+
+            -- Also apply the actual blur effect in lighting
+            if not self.blurEffect then
+                self.blurEffect = Instance.new("BlurEffect")
+                self.blurEffect.Name = "CustomBlur"
+                self.blurEffect.Parent = game.Lighting
+                self.blurEffect.Enabled = true
+            end
+
+            local blurSizeTween =
+                tweenService:Create(
+                self.blurEffect,
+                tweenInfo,
+                {
+                    Size = intensity * 30 -- Max blur size is 30
+                }
+            )
+
+            blurSizeTween:Play()
+
+            -- Apply blur to registered UI elements
+            for _, uiElement in pairs(UIReferences) do
+                if uiElement and uiElement.Parent then
+                    local uiTween =
+                        tweenService:Create(
+                        uiElement,
+                        tweenInfo,
+                        {
+                            BackgroundTransparency = uiElement._originalTransparency + (intensity * 0.5)
+                        }
+                    )
+                    uiTween:Play()
+                end
+            end
         end
 
         function BlurManager:RegisterUI(uiElement)
@@ -4043,31 +4253,101 @@ FunctionsHandler = {
                     "Sound", "Spider", "Love", "Buddha"
                 }
 
-                for _, Fruit in pairs(ScriptStorage.Backpack or {}) do
-                    if type(Fruit) == "table" and Fruit.Name then
-                        local isBloxFruit = (Fruit.Type == "Blox Fruit") or string.find(tostring(Fruit.Name), "-") or string.find(tostring(Fruit.Name), "Fruit")
-                        if isBloxFruit then
+                -- 1. Kiểm tra trực tiếp qua getInventoryFruits
+                local directFruits = nil
+                pcall(function() directFruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
+                if type(directFruits) == "table" then
+                    for _, Fruit in pairs(directFruits) do
+                        if type(Fruit) == "table" and Fruit.Name then
+                            local rawName = tostring(Fruit.Name)
                             local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
-                            local isTrash = TrashFruits[Fruit.Name] or (price > 0 and price < 1000000)
-                            
-                            -- Kiểm tra không nằm trong Eatlist
-                            local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, Fruit.Name)
-                            
-                            -- Kiểm tra không phải trái xịn
+                            local isTrash = TrashFruits[rawName] or (price > 0 and price < 1000000)
+                            if not isTrash then
+                                for tName, _ in pairs(TrashFruits) do
+                                    local baseName = string.split(tName, "-")[1]
+                                    if string.find(rawName, baseName) then
+                                        isTrash = true
+                                        break
+                                    end
+                                end
+                            end
                             local isHighTier = false
                             for _, hName in ipairs(HighFruits) do
-                                if string.find(tostring(Fruit.Name), hName) then
+                                if string.find(rawName, hName) then
                                     isHighTier = true
                                     break
                                 end
                             end
-                            
-                            if (isTrash or (price < 1000000 and not isHighTier)) and not isEatList and not isHighTier then
+                            local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
+                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList then
+                                Fruit.Type = "Blox Fruit"
                                 return Fruit
                             end
                         end
                     end
                 end
+
+                -- 2. Kiểm tra trong ScriptStorage.Backpack
+                for _, Fruit in pairs(ScriptStorage.Backpack or {}) do
+                    if type(Fruit) == "table" and Fruit.Name then
+                        local rawName = tostring(Fruit.Name)
+                        local isBloxFruit = (Fruit.Type == "Blox Fruit") or string.find(rawName, "-") or string.find(rawName, "Fruit")
+                        if isBloxFruit then
+                            local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
+                            local isTrash = TrashFruits[rawName] or (price > 0 and price < 1000000)
+                            if not isTrash then
+                                for tName, _ in pairs(TrashFruits) do
+                                    local baseName = string.split(tName, "-")[1]
+                                    if string.find(rawName, baseName) then
+                                        isTrash = true
+                                        break
+                                    end
+                                end
+                            end
+                            local isHighTier = false
+                            for _, hName in ipairs(HighFruits) do
+                                if string.find(rawName, hName) then
+                                    isHighTier = true
+                                    break
+                                end
+                            end
+                            local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
+                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList then
+                                return Fruit
+                            end
+                        end
+                    end
+                end
+
+                -- 3. Kiểm tra nếu người chơi đang cầm trái rác vật lý trong túi đồ Backpack/Character
+                local lp = game:GetService("Players").LocalPlayer
+                if lp then
+                    local checkTools = {}
+                    if lp.Character then
+                        for _, tool in pairs(lp.Character:GetChildren()) do
+                            if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then table.insert(checkTools, tool) end
+                        end
+                    end
+                    if lp:FindFirstChild("Backpack") then
+                        for _, tool in pairs(lp.Backpack:GetChildren()) do
+                            if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then table.insert(checkTools, tool) end
+                        end
+                    end
+                    for _, tool in ipairs(checkTools) do
+                        local toolName = tool.Name
+                        local isHighTier = false
+                        for _, hName in ipairs(HighFruits) do
+                            if string.find(toolName, hName) then
+                                isHighTier = true
+                                break
+                            end
+                        end
+                        if not isHighTier then
+                            return { Name = toolName, Type = "Blox Fruit", IsPhysical = true }
+                        end
+                    end
+                end
+
                 return nil
             end
         )
@@ -4175,9 +4455,12 @@ FunctionsHandler = {
                 return RaidFruit
             end
             
-            -- Nếu không có Fruit nhưng có đủ 100k Beli -> Vẫn đi Raid mua Chip bằng Beli!
+            -- Nếu không có Fruit nhưng có Beli -> Chỉ đi mua nếu không bị Cooldown 2 tiếng
+            -- Nếu đang bị cooldown -> return false để LevelFarm đi làm nhiệm vụ / cày cấp!
             if Beli >= 100000 then
-                return true
+                if not (getgenv().BeliChipCooldownUntil and os.time() < getgenv().BeliChipCooldownUntil) then
+                    return true
+                end
             end
             
             return false
@@ -4235,29 +4518,36 @@ FunctionsHandler = {
                         local RaidButton = RaidIsland.RaidSummon2.Button.Main
                         
                         if not CheckSpecialMicrochip() then
+
                             local cRaidFruit = FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()
-                            local chipName = FunctionsHandler.RaidController:Get("CurrentChip") or "Flame"
-                            
-                            if cRaidFruit then
-                                if not table.find(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name) then
-                                    table.insert(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name)
-                                end
-                                if getgenv().LastLoadedFruit ~= cRaidFruit.Name then
-                                    getgenv().LastLoadedFruit = cRaidFruit.Name
-                                    alert("Load Fruit", cRaidFruit.Name)
-                                    Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
-                                    task.wait(1.5)
-                                end
-                                Remotes.CommF_:InvokeServer("RaidsNpc", "Select", chipName)
-                                task.wait(1)
-                                Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
-                                task.wait(1)
-                            else
-                                -- Mua chip bằng 100k Beli nếu không có trái ác quỷ
-                                alert("Raid Buy", "Buying Microchip with 100k Beli (" .. chipName .. ")")
-                                Remotes.CommF_:InvokeServer("RaidsNpc", "Select", chipName)
-                                task.wait(1)
+                            if not cRaidFruit then
+                                warn("No raidable fruit found")
+                                return
                             end
+
+                            -- Chỉ thêm vào IgnoreStoreFruits nếu chưa có
+                            if not table.find(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name) then
+                                table.insert(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name)
+                            end
+
+                            -- Luôn lấy Fruit vật lý ra khỏi rương (LoadFruit)
+                            if getgenv().LastLoadedFruit ~= cRaidFruit.Name then
+                                getgenv().LastLoadedFruit = cRaidFruit.Name
+                                alert("Load Fruit", cRaidFruit.Name)
+                                Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
+                                task.wait(1.5)
+                            end
+
+                            Remotes.CommF_:InvokeServer(
+                                "RaidsNpc",
+                                "Select",
+                                FunctionsHandler.RaidController:Get("CurrentChip")
+                            )
+
+                            -- Game tự cất fruit khi chọn chip → load lại fruit
+                            task.wait(1)
+                            Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
+                            task.wait(1)
                         end
                         
                         FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Special Microchip")
@@ -5821,7 +6111,7 @@ FunctionsHandler = {
         end
 
     end
-    -- Đã xóa liên kết kunblox.net theo yêu cầu người dùng
+    -- Remote kunblox script removed
         
     local success2, response2 = xpcall(mmb, debug.traceback)
     if not success2 then
