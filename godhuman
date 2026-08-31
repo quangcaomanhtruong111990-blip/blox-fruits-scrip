@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.05"
+        NameHub.Text = "sanglove v1.06"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1122,12 +1122,12 @@ ScriptStorage = {
             end
         end
 
-        function RefreshInventory()
+                function RefreshInventory()
             pcall(function()
                 ScriptStorage.Backpack2 = {}
                 if not Remotes or not Remotes.CommF_ then return end
                 
-                -- 1. Quét các vật phẩm & nguyên liệu thông thường
+                -- 1. Quet kho do thong thuong (kiem, sung, phu kien)
                 local inv = nil
                 pcall(function() inv = Remotes.CommF_:InvokeServer("getInventory") end)
                 if type(inv) == "table" then
@@ -1146,7 +1146,7 @@ ScriptStorage = {
                     end
                 end
 
-                -- 2. Quét toàn bộ Trái Ác Quỷ lưu trữ trong Treasure Inventory (getInventoryFruits)
+                -- 2. Quet kho Trai Ac Quy (getInventoryFruits)
                 local fruits = nil
                 pcall(function() fruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
                 if type(fruits) == "table" then
@@ -1161,27 +1161,6 @@ ScriptStorage = {
                 ScriptStorage.Backpack = ScriptStorage.Backpack2
             end)
         end
-
-        function ResearchMoves(Child)
-            if Child and tostring(Child) == "V" then
-                if ScriptStorage.Connections.BurstCheck then
-                    ScriptStorage.Connections.BurstCheck:Disconnect()
-                    task.wait(1)
-                end
-                print("[ Debug ] Registering burst", Child)
-                ScriptStorage.Connections.BurstCheck =
-                    Child.Cooldown:GetPropertyChangedSignal("AbsoluteSize"):Connect(
-                    function()
-                        if EnablingBurstDebounce and os.time() - EnablingBurstDebounce < 10 then
-                            return
-                        end
-                        local Value = Child.Cooldown.AbsoluteSize.X
-                        if Value < 3 then
-                            EnablingBurstDebounce = os.time()
-                            SendKey("V", 0)
-                        end
-                    end
-                )
             end
         end
 
@@ -1243,31 +1222,48 @@ ScriptStorage = {
                         -- Tool doesn't have Level property, skip
                         print("[MeleeCheck] Tool", Child.Name, "does not have Level property")
                     end
-                elseif string.find(tostring(Child), "Fruit") then
+                                elseif string.find(tostring(Child), "Fruit") then
                     task.spawn(
                         function()
-                            -- Tạm thời disable store fruit khi đang load fruit cho Trevor
+                            -- 🚫 CHONG TU DONG CAT TRAI VAO RUONG KHI DANG RAID / DOI CHIP
+                            if getgenv().IsRaidStarting or getgenv().InRaidSafe or getgenv().IsLoadingRaidFruit then
+                                return
+                            end
+                            if FunctionsHandler.RaidController and (FunctionsHandler.RaidController:Get("IsInRaidProcess") or FunctionsHandler.RaidController:Get("IsLoadingFruit")) then
+                                return
+                            end
                             if FunctionsHandler.Trevor and FunctionsHandler.Trevor:Get("IsLoadingFruit") then
                                 return
                             end
                             
-                            if table.find(ScriptStorage.IgnoreStoreFruits, Child:GetAttribute("OriginalName")) then
+                            local rawName = Child:GetAttribute("OriginalName") or Child.Name or tostring(Child)
+                            if table.find(ScriptStorage.IgnoreStoreFruits, rawName) or table.find(ScriptStorage.IgnoreStoreFruits, Child.Name) then
                                 return
                             end
-                            if
-                                Config.Items.AutoEatFruit and
-                                    game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
-                                    table.find(Config.Items.Eatlist, Child:GetAttribute("OriginalName"))
-                             then
+                            for _, ignName in ipairs(ScriptStorage.IgnoreStoreFruits or {}) do
+                                if string.find(string.lower(tostring(rawName)), string.lower(tostring(ignName))) or string.find(string.lower(Child.Name), string.lower(tostring(ignName))) then
+                                    return
+                                end
+                            end
+
+                            if Config.Items.AutoEatFruit and
+                                game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
+                                table.find(Config.Items.Eatlist, rawName)
+                            then
                                 while not LocalPlayer.Character:FindFirstChild(Child.Name) and
                                     game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
                                     task.wait(3) do
                                     FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(Child.Name)
                                 end
-                                LocalPlayer.Character:FindFirstChild(Child.Name).EatRemote:InvokeServer()
+                                if LocalPlayer.Character:FindFirstChild(Child.Name) and LocalPlayer.Character:FindFirstChild(Child.Name):FindFirstChild("EatRemote") then
+                                    LocalPlayer.Character:FindFirstChild(Child.Name).EatRemote:InvokeServer()
+                                end
                             end
-                            local StoreResult =
-                                Remotes.CommF_:InvokeServer("StoreFruit", Child:GetAttribute("OriginalName"), Child)
+                            
+                            -- Chi cat trai neu khong trong qua trinh Raid
+                            if not getgenv().IsRaidStarting and not getgenv().InRaidSafe then
+                                local StoreResult = Remotes.CommF_:InvokeServer("StoreFruit", Child:GetAttribute("OriginalName") or Child.Name, Child)
+                            end
                         end
                     )
                 end
@@ -4252,50 +4248,88 @@ FunctionsHandler = {
             end
         )
 
-        FunctionsHandler.RaidController:RegisterMethod(
+                FunctionsHandler.RaidController:RegisterMethod(
             "GetRaidableFruit",
             function()
                 pcall(RefreshInventory)
                 
-                local TrashFruits = {
-                    ["Rocket-Rocket"] = true, ["Spin-Spin"] = true, ["Blade-Blade"] = true, ["Chop-Chop"] = true,
-                    ["Spring-Spring"] = true, ["Bomb-Bomb"] = true, ["Smoke-Smoke"] = true, ["Spike-Spike"] = true,
-                    ["Flame-Flame"] = true, ["Falcon-Falcon"] = true, ["Ice-Ice"] = true, ["Sand-Sand"] = true,
-                    ["Dark-Dark"] = true, ["Diamond-Diamond"] = true, ["Light-Light"] = true, ["Rubber-Rubber"] = true,
-                    ["Barrier-Barrier"] = true, ["Ghost-Ghost"] = true, ["Magma-Magma"] = true, ["Quake-Quake"] = true
+                local TrashKeywords = {
+                    "rocket", "spin", "blade", "chop", "spring", "bomb", "smoke", "spike",
+                    "flame", "falcon", "ice", "sand", "dark", "diamond", "light", "rubber",
+                    "barrier", "ghost", "magma", "quake"
                 }
                 
                 local HighFruits = {
-                    "Kitsune", "Dragon", "Leopard", "Spirit", "Control", "Venom", "Shadow", "Dough", 
-                    "T-Rex", "Mammoth", "Gravity", "Blizzard", "Pain", "Rumble", "Portal", "Phoenix", 
-                    "Sound", "Spider", "Love", "Buddha"
+                    "kitsune", "dragon", "leopard", "spirit", "control", "venom", "shadow", "dough", 
+                    "t-rex", "mammoth", "gravity", "blizzard", "pain", "rumble", "portal", "phoenix", 
+                    "sound", "spider", "love", "buddha"
                 }
 
-                for _, Fruit in pairs(ScriptStorage.Backpack or {}) do
-                    if type(Fruit) == "table" and Fruit.Name then
-                        local isBloxFruit = (Fruit.Type == "Blox Fruit") or string.find(tostring(Fruit.Name), "-") or string.find(tostring(Fruit.Name), "Fruit")
-                        if isBloxFruit then
+                local function isTrashFruit(name, price)
+                    local lower = string.lower(tostring(name))
+                    for _, h in ipairs(HighFruits) do
+                        if string.find(lower, h) then return false end
+                    end
+                    if Config and Config.Items and Config.Items.Eatlist then
+                        for _, e in ipairs(Config.Items.Eatlist) do
+                            if string.find(lower, string.lower(tostring(e))) then return false end
+                        end
+                    end
+                    for _, t in ipairs(TrashKeywords) do
+                        if string.find(lower, t) then return true end
+                    end
+                    if price and price > 0 and price < 1000000 then
+                        return true
+                    end
+                    return false
+                end
+
+                -- 1. Kiem tra truc tiep tu getInventoryFruits
+                local directFruits = nil
+                pcall(function() directFruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
+                if type(directFruits) == "table" then
+                    for _, Fruit in pairs(directFruits) do
+                        if type(Fruit) == "table" and Fruit.Name then
                             local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
-                            local isTrash = TrashFruits[Fruit.Name] or (price > 0 and price < 1000000)
-                            
-                            -- Kiểm tra không nằm trong Eatlist
-                            local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, Fruit.Name)
-                            
-                            -- Kiểm tra không phải trái xịn
-                            local isHighTier = false
-                            for _, hName in ipairs(HighFruits) do
-                                if string.find(tostring(Fruit.Name), hName) then
-                                    isHighTier = true
-                                    break
-                                end
-                            end
-                            
-                            if (isTrash or (price < 1000000 and not isHighTier)) and not isEatList and not isHighTier then
+                            if isTrashFruit(Fruit.Name, price) then
+                                Fruit.Type = "Blox Fruit"
                                 return Fruit
                             end
                         end
                     end
                 end
+
+                -- 2. Kiem tra trong ScriptStorage.Backpack
+                for _, Fruit in pairs(ScriptStorage.Backpack or {}) do
+                    if type(Fruit) == "table" and Fruit.Name then
+                        local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
+                        if isTrashFruit(Fruit.Name, price) then
+                            return Fruit
+                        end
+                    end
+                end
+
+                -- 3. Kiem tra cac trai dang co san trong tui/tay
+                local lp = game:GetService("Players").LocalPlayer
+                if lp then
+                    local physicalTools = {}
+                    if lp.Character then
+                        for _, tool in pairs(lp.Character:GetChildren()) do
+                            if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then table.insert(physicalTools, tool) end
+                        end
+                    end
+                    if lp:FindFirstChild("Backpack") then
+                        for _, tool in pairs(lp.Backpack:GetChildren()) do
+                            if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then table.insert(physicalTools, tool) end
+                        end
+                    end
+                    for _, tool in ipairs(physicalTools) do
+                        if isTrashFruit(tool.Name, 0) then
+                            return { Name = tool.Name, Type = "Blox Fruit", IsPhysical = true }
+                        end
+                    end
+                end
+
                 return nil
             end
         )
@@ -4462,30 +4496,67 @@ FunctionsHandler = {
                         -- Lấy trực tiếp cái nút để sau này bấm hoặc bay tới (cho Sea 2)
                         local RaidButton = RaidIsland.RaidSummon2.Button.Main
                         
-                        if not CheckSpecialMicrochip() then
-                            local cRaidFruit = FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()
+                                                if not CheckSpecialMicrochip() then
                             local chipName = FunctionsHandler.RaidController:Get("CurrentChip") or "Flame"
                             
+                            -- Bat co de chong tu dong cat trai vao ruong
+                            FunctionsHandler.RaidController:Set("IsLoadingFruit", true)
+                            getgenv().IsLoadingRaidFruit = true
+                            
+                            local cRaidFruit = FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()
+                            
                             if cRaidFruit then
-                                if not table.find(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name) then
-                                    table.insert(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name)
+                                local rawFruitName = (type(cRaidFruit) == "table" and cRaidFruit.Name) or tostring(cRaidFruit)
+                                if not table.find(ScriptStorage.IgnoreStoreFruits, rawFruitName) then
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, rawFruitName)
                                 end
-                                if getgenv().LastLoadedFruit ~= cRaidFruit.Name then
-                                    getgenv().LastLoadedFruit = cRaidFruit.Name
-                                    alert("Load Fruit", cRaidFruit.Name)
-                                    Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
+                                
+                                alert("Raid Buy", "Dung trai rac doi Chip: " .. tostring(rawFruitName))
+                                
+                                -- 1. Rut trai ra neu dang trong ruong
+                                if not (type(cRaidFruit) == "table" and cRaidFruit.IsPhysical) then
+                                    Remotes.CommF_:InvokeServer("LoadFruit", rawFruitName)
                                     task.wait(1.5)
                                 end
+                                
+                                -- 2. Cam trai tren tay nhan vat
+                                local toolName = FruitIdToName(rawFruitName)
+                                pcall(function()
+                                    if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                        FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(toolName)
+                                    end
+                                    local lp = game:GetService("Players").LocalPlayer
+                                    if lp and lp.Character and not lp.Character:FindFirstChild(toolName) and lp:FindFirstChild("Backpack") then
+                                        for _, t in pairs(lp.Backpack:GetChildren()) do
+                                            if t:IsA("Tool") and (string.find(t.Name, "Fruit") or string.find(t.Name, rawFruitName)) then
+                                                t.Parent = lp.Character
+                                                break
+                                            end
+                                        end
+                                    end
+                                end)
+                                task.wait(1.0)
+                                
+                                -- 3. Doi chip tai NPC
                                 Remotes.CommF_:InvokeServer("RaidsNpc", "Select", chipName)
-                                task.wait(1)
-                                Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
-                                task.wait(1)
+                                task.wait(1.5)
+                                
+                                -- Neu chua co chip, thu lai 1 lan
+                                if not CheckSpecialMicrochip() and not (type(cRaidFruit) == "table" and cRaidFruit.IsPhysical) then
+                                    Remotes.CommF_:InvokeServer("LoadFruit", rawFruitName)
+                                    task.wait(1)
+                                    Remotes.CommF_:InvokeServer("RaidsNpc", "Select", chipName)
+                                    task.wait(1)
+                                end
                             else
-                                -- Mua chip bằng 100k Beli nếu không có trái ác quỷ
+                                -- Mua chip bang 100k Beli neu khong con trai ac quy
                                 alert("Raid Buy", "Buying Microchip with 100k Beli (" .. chipName .. ")")
                                 Remotes.CommF_:InvokeServer("RaidsNpc", "Select", chipName)
                                 task.wait(1)
                             end
+                            
+                            FunctionsHandler.RaidController:Set("IsLoadingFruit", false)
+                            getgenv().IsLoadingRaidFruit = false
                         end
                         
                         FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Special Microchip")
