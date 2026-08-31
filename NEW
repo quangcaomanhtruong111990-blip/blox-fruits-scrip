@@ -211,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.03"
+        NameHub.Text = "sanglove v1.04"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -6070,7 +6070,16 @@ FunctionsHandler = {
                             local Elapsed = os.time() - StartTime
                             local TotalElapsed = Elapsed + OldSessionTime
 
-                            writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
+                            if os.time() % 30 == 0 then
+                                pcall(function()
+                                    writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
+                                end)
+                            end
+                            if os.time() % 60 == 0 then
+                                pcall(function()
+                                    collectgarbage("collect")
+                                end)
+                            end
 
                             if ScriptStorage.Interface then
                                 SetText(
