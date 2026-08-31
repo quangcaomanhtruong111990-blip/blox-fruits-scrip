@@ -219,7 +219,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.05"
+        NameHub.Text = "sanglove v1.04"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -869,55 +869,55 @@ ScriptStorage = {
             }
         )
         -- AFK Check System (Tối ưu hóa)
---         task.spawn(function()
---             local lastPosition = nil
---             local idleStartTime = nil
---             
---             while task.wait(1) do
---                 if not _G.Stop and Config.Configuration.IdleCheck and Config.Configuration.IdleCheck > 0 then
---                     pcall(function()
---                         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
---                             local currentPosition = LocalPlayer.Character.HumanoidRootPart.Position
---                             local currentTime = os.time()
---                             
---                             if lastPosition then
---                                 local distance = (currentPosition - lastPosition).Magnitude
---                                 
---                                 -- Check if player is moving (distance >= 5 studs)
---                                 if distance >= 5 then
---                                     -- Player moved, reset idle timer
---                                     idleStartTime = nil
---                                 else
---                                     -- Player not moving
---                                     if not idleStartTime then
---                                         -- Start tracking idle time
---                                         idleStartTime = currentTime
---                                     else
---                                         -- Check if idle time exceeds threshold
---                                         if (currentTime - idleStartTime) >= Config.Configuration.IdleCheck then
---                                             print("[AFK Check] Player is idle for " .. (currentTime - idleStartTime) .. " seconds, rejoining...")
---                                             if Hop then
---                                                 Hop("Rejoin")
---                                             else
---                                                 SafeRejoinOrHop("Rejoin")
---                                             end
---                                             return
---                                         end
---                                     end
---                                 end
---                             end
---                             
---                             lastPosition = currentPosition
---                         else
---                             -- Character not loaded, reset tracking
---                             lastPosition = nil
---                             idleStartTime = nil
---                         end
---                     end)
---                 end
---             end
---         end)
---         function CreateTraceback(Index, Value) -- i gave up
+        task.spawn(function()
+            local lastPosition = nil
+            local idleStartTime = nil
+            
+            while task.wait(1) do
+                if not _G.Stop and Config.Configuration.IdleCheck and Config.Configuration.IdleCheck > 0 then
+                    pcall(function()
+                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                            local currentPosition = LocalPlayer.Character.HumanoidRootPart.Position
+                            local currentTime = os.time()
+                            
+                            if lastPosition then
+                                local distance = (currentPosition - lastPosition).Magnitude
+                                
+                                -- Check if player is moving (distance >= 5 studs)
+                                if distance >= 5 then
+                                    -- Player moved, reset idle timer
+                                    idleStartTime = nil
+                                else
+                                    -- Player not moving
+                                    if not idleStartTime then
+                                        -- Start tracking idle time
+                                        idleStartTime = currentTime
+                                    else
+                                        -- Check if idle time exceeds threshold
+                                        if (currentTime - idleStartTime) >= Config.Configuration.IdleCheck then
+                                            print("[AFK Check] Player is idle for " .. (currentTime - idleStartTime) .. " seconds, rejoining...")
+                                            if Hop then
+                                                Hop("Rejoin")
+                                            else
+                                                SafeRejoinOrHop("Rejoin")
+                                            end
+                                            return
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            lastPosition = currentPosition
+                        else
+                            -- Character not loaded, reset tracking
+                            lastPosition = nil
+                            idleStartTime = nil
+                        end
+                    end)
+                end
+            end
+        end)
+        function CreateTraceback(Index, Value) -- i gave up
             table.insert(
                 ScriptStorage.Tracebacks,
                 (GetCurrentDateTime() ..
