@@ -229,7 +229,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.01"
+        NameHub.Text = "sanglove v1.02"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -894,7 +894,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                             if Hop then
                                                 Hop("Rejoin")
                                             else
-                                                game.Players.LocalPlayer:Kick("Rejoining...")
+                                                SafeRejoinOrHop("Rejoining protection")
                                             end
                                             return
                                         end
@@ -1899,7 +1899,20 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             return cf and cf.Position or nil
         end
 
-        -- Fallback NPC coordinates database for all Seas
+        local function SafeRejoinOrHop(reason)
+            warn("[SangLove Anti-Crash] Soft Rejoin/Hop triggered:", tostring(reason or "unknown"))
+            LastFound = os.time()
+            pcall(function()
+                if typeof(Hop) == "function" then
+                    Hop("Rejoin")
+                else
+                    local ts = game:GetService("TeleportService")
+                    ts:Teleport(game.PlaceId, game.Players.LocalPlayer)
+                end
+            end)
+        end
+
+        -- Fallback NPC coordinates database for all Seas (Sea 1, 2, 3)
         local QuestNPCFallback = {
             -- Sea 1
             ["BanditQuest1"] = Vector3.new(1059, 16, 1549),
@@ -2021,7 +2034,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
                 Self.CurrentQuestId = SelectedQuestId
 
-                -- Clone and sanitize quest data (filter boss quests without destroying structure)
+                -- Clone and sanitize quest data
                 local CleanQuests = {}
                 if SelectedQuestData then
                     for idx, qData in ipairs(SelectedQuestData) do
@@ -2044,11 +2057,10 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
                 Self.CurrentQuests = CleanQuests
 
-                -- Resolve NPC Position accurately and safely
+                -- Resolve NPC Position accurately
                 local foundNpcPos = nil
                 local targetLevelReq = (CleanQuests[#CleanQuests] and CleanQuests[#CleanQuests].LevelReq) or QuestLevelFlag
 
-                -- Step 1: Check GuideModule
                 local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
                 if guideModule then
                     local okModule, guideData = pcall(function() return require(guideModule) end)
@@ -2057,7 +2069,6 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                             if npcInfo and npcInfo.Levels then
                                 for _, lvl in pairs(npcInfo.Levels) do
                                     if lvl == targetLevelReq then
-                                        -- npcKey can be Model, BasePart or name
                                         local cf = SafeGetCFrame(npcKey)
                                         if cf then
                                             foundNpcPos = cf.Position
@@ -2071,7 +2082,6 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
                 end
 
-                -- Step 2: Check workspace.NPCs or ReplicatedStorage.NPCs
                 if not foundNpcPos and SelectedQuestId then
                     local npcGiver = workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild(SelectedQuestId .. " Giver")
                     if not npcGiver and game.ReplicatedStorage:FindFirstChild("NPCs") then
@@ -2082,7 +2092,6 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
                 end
 
-                -- Step 3: Fallback database
                 if not foundNpcPos and SelectedQuestId and QuestNPCFallback[SelectedQuestId] then
                     foundNpcPos = QuestNPCFallback[SelectedQuestId]
                 end
@@ -2163,7 +2172,6 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             if not QuestId then return end
             return Remotes.CommF_:InvokeServer("StartQuest", QuestId, QuestLevel or 1)
         end
-
 
         ScriptStorage.MobRegions = {}
         for _, Region in game:GetService("ReplicatedStorage").FortBuilderReplicatedSpawnPositionsFolder:GetChildren() do
@@ -2296,29 +2304,25 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         
         -- TweenController
         
+                -- Optimized Safe TweenController (Anti-Ban & Anti-Kick Sea 3)
         function TweenController.Create(Position)
-            -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
             if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
             if not Position or TweenDebounce or TweenController._isCreating then return end
-        
-            -- Chuyển đổi Position sang CFrame nếu cần
+
             local TargetCFrame = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
-            -- Chỉ giữ lại tọa độ Position, loại bỏ Rotation để tránh xoay người ảo
             TargetCFrame = CFrame.new(TargetCFrame.Position)
-        
+
             local RootPart = Character.HumanoidRootPart
             local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
-        
-            -- 2. CHỐNG GIẬT (Smarter Check)
-            -- Nếu đang có Tween chạy và mục tiêu mới quá gần mục tiêu cũ, hoặc nhân vật đã gần đích -> Bỏ qua
+
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
-                if CurrentDist < 5 then return end -- Đã đủ gần, không cần tạo thêm
+                if CurrentDist < 5 then return end
             end
-        
+
             TweenController._isCreating = true
-        
-            -- 3. XỬ LÝ NOCLIP (Mượt hơn)
+
+            -- Noclip an toàn
             pcall(function()
                 for _, part in ipairs(Character:GetDescendants()) do
                     if part:IsA("BasePart") and part.CanCollide then
@@ -2326,49 +2330,44 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                     end
                 end
             end)
-        
-            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity)
-            local head = Character:FindFirstChild("Head")
-            if head and not head:FindFirstChild("eltrul") then
-                local bv = Instance.new("BodyVelocity")
+
+            -- Giữ nhân vật trên không tại HumanoidRootPart thay vì Head
+            local bv = RootPart:FindFirstChild("eltrul")
+            if not bv then
+                bv = Instance.new("BodyVelocity")
                 bv.Name = "eltrul"
-                bv.MaxForce = Vector3.new(0, math.huge, 0)
+                bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
                 bv.Velocity = Vector3.zero
-                bv.Parent = head
+                bv.Parent = RootPart
+            else
+                bv.Velocity = Vector3.zero
             end
-        
-            -- 5. LOGIC DI CHUYỂN ĐẶC BIỆT (Sea 3 Submarine / Portals)
-            if CurrentDist > 500 then
-                if SeaIndex ~= 3 then
-                    GetPortal(TargetCFrame)
-                end
-            end
-        
-            -- Kiểm tra di chuyển sang Submerged Island (Sea 3)
-            if SeaIndex == 3 and (TargetCFrame.Position - Vector3.new(11256, -2138, 9888)).Magnitude < (CurrentDist - 700) then
-                local SubmarinePos = CFrame.new(-16269, 23, 1371)
-                if (RootPart.Position - SubmarinePos.Position).Magnitude > 60 then
+
+            -- Sea 3: Chỉ dùng Submarine nếu đích thực sự là Submerged Island (Y < -1500)
+            local SubmergedTargetPos = Vector3.new(11256, -2138, 9888)
+            if SeaIndex == 3 and TargetCFrame.Position.Y < -1500 and (TargetCFrame.Position - SubmergedTargetPos).Magnitude < 2500 then
+                if RootPart.Position.Y > -1000 then
+                    local SubmarinePos = CFrame.new(-16269, 23, 1371)
+                    if (RootPart.Position - SubmarinePos.Position).Magnitude > 40 then
+                        TweenController._isCreating = false
+                        TweenController.Create(SubmarinePos)
+                        return
+                    end
+                    pcall(function()
+                        require(game.ReplicatedStorage.Modules.Net):RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
+                    end)
                     TweenController._isCreating = false
-                    TweenController.Create(SubmarinePos)
                     return
                 end
-                pcall(function()
-                    require(game.ReplicatedStorage.Modules.Net):RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
-                end)
-                TweenController._isCreating = false
-                return
             end
-        
-            -- 6. THỰC THI TWEEN
-            -- Hủy Tween cũ trước khi tạo mới
+
             if TweenInstance then
                 TweenInstance:Cancel()
             end
-        
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (100)
-            local Speed = (CurrentDist < 18) and 25 or 100
+
+            local Speed = (CurrentDist < 18) and 25 or 250
             local Time = CurrentDist / Speed
-        
+
             TweenInstance = Services.TweenService:Create(
                 RootPart,
                 TweenInfo.new(Time, Enum.EasingStyle.Linear),
@@ -2376,9 +2375,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             )
             
             TweenInstance:Play()
-        
-            -- Reset flag sau một khoảng thời gian ngắn để tránh spam
-            task.delay(0.1, function()
+
+            task.delay(0.08, function()
                 TweenController._isCreating = false
             end)
         end
@@ -2589,81 +2587,78 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         LastFound = os.time()
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
-        function CombatController.Grab(MobName)
+                function CombatController.Grab(MobName)
             pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", math.huge)
             if not CombatController.GRAB or GrabDebounce == os.time() then
+                return
             end
             GrabDebounce = os.time()
-
             local MidPoint, Count = Vector3.zero, 0
             ForcePosition = nil
             local MobsTable = {}
 
-            for _, Mon in Services.Workspace.Enemies:GetChildren() do
+            for _, Mon in ipairs(Services.Workspace.Enemies:GetChildren()) do
                 if Mon.Name == MobName then
-                    if --not Mon:GetAttribute("IsGrabbedreci") and
-                        Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
-                            Mon.Humanoid.Health > 0 then
+                    if Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and Mon.Humanoid.Health > 0 then
                         local MonPosition = Mon.HumanoidRootPart.Position
-                        --print("isnetworkowner", isnetworkowner(Mon.PrimaryPart))
-                        if MonPosition and isnetworkowner(Mon.PrimaryPart) then
-                            if
-                                not ForcePosition or
-                                    CaculateDistance(MonPosition, ForcePosition) < CombatController.GRAB_DISTANCE
-                             then
+                        local isOwner = true
+                        if type(isnetworkowner) == "function" and Mon.PrimaryPart then
+                            local ok, own = pcall(isnetworkowner, Mon.PrimaryPart)
+                            if ok then isOwner = own end
+                        end
+                        if MonPosition and isOwner then
+                            if not ForcePosition or CaculateDistance(MonPosition, ForcePosition) < CombatController.GRAB_DISTANCE then
                                 Count = Count + 1
                                 Mon:SetAttribute("OldPosition", Mon:GetAttribute("OldPosition") or MonPosition)
                                 MidPoint = MidPoint + MonPosition
                                 ForcePosition = ForcePosition or MonPosition
-
                                 table.insert(MobsTable, Mon)
                             end
                         end
                     end
                 end
             end
-            MidPoint = CFrame.new(MidPoint / Count)
 
-            table.foreach(
-                MobsTable,
-                function(_, ChildInstance)
-                    (function()
-                        if ChildInstance:GetAttribute("IgnoreGrab") then
-                            return
-                        end
-                        if (ChildInstance:GetAttribute("FailureCount") or 0) > 7 then
-                            return
-                        end
-                        --[[ChildInstance.Humanoid.PlatformStand = true
-                ChildInstance.Humanoid.Sit = true
-                ChildInstance.HumanoidRootPart.CanCollide = false ]]
-                        local RootPart = ChildInstance:FindFirstChild("HumanoidRootPart")
-                        local BodyVelocity = RootPart:FindFirstChild("FarmingVelocity")
-                        if not BodyVelocity then
-                            BodyVelocity = Instance.new("BodyVelocity")
-                            BodyVelocity.Name = "FarmingVelocity"
-                            BodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-                            BodyVelocity.Parent = RootPart
-                        end
+            if Count == 0 or #MobsTable == 0 then
+                return
+            end
 
-                        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            local avgPos = MidPoint / Count
+            if typeof(avgPos) ~= "Vector3" or tostring(avgPos.X) == "nan" or tostring(avgPos.Y) == "nan" or tostring(avgPos.Z) == "nan" then
+                return
+            end
 
-                        local BodyPosition = RootPart:FindFirstChild("FarmingPosition")
-                        if not BodyPosition then
-                            BodyPosition = Instance.new("BodyPosition")
-                            BodyPosition.Name = "FarmingPosition"
-                            BodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-                            BodyPosition.P = 4.12
-                            BodyPosition.D = 1000
-                            BodyPosition.Parent = RootPart
-                        end
-                        ChildInstance:SetAttribute("IsGrabbed", true)
-                        ChildInstance.HumanoidRootPart.CFrame = MidPoint
+            local MidPointCFrame = CFrame.new(avgPos)
 
-                        ChildInstance:SetAttribute("MidPoint", MidPoint)
-                    end)()
-                end
-            )
+            for _, ChildInstance in ipairs(MobsTable) do
+                pcall(function()
+                    if ChildInstance:GetAttribute("IgnoreGrab") then return end
+                    if (ChildInstance:GetAttribute("FailureCount") or 0) > 7 then return end
+                    local RootPart = ChildInstance:FindFirstChild("HumanoidRootPart")
+                    if not RootPart then return end
+                    local BodyVelocity = RootPart:FindFirstChild("FarmingVelocity")
+                    if not BodyVelocity then
+                        BodyVelocity = Instance.new("BodyVelocity")
+                        BodyVelocity.Name = "FarmingVelocity"
+                        BodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+                        BodyVelocity.Parent = RootPart
+                    end
+                    BodyVelocity.Velocity = Vector3.zero
+
+                    local BodyPosition = RootPart:FindFirstChild("FarmingPosition")
+                    if not BodyPosition then
+                        BodyPosition = Instance.new("BodyPosition")
+                        BodyPosition.Name = "FarmingPosition"
+                        BodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+                        BodyPosition.P = 4.12
+                        BodyPosition.D = 1000
+                        BodyPosition.Parent = RootPart
+                    end
+                    ChildInstance:SetAttribute("IsGrabbed", true)
+                    RootPart.CFrame = MidPointCFrame
+                    ChildInstance:SetAttribute("MidPoint", MidPointCFrame)
+                end)
+            end
         end
 
 
@@ -2788,7 +2783,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                                     )
                                     alert("Stuck", "Mob health unchanged")
                                     _G.Stop = true
-                                    game.Players.LocalPlayer:Kick("Rejoining...")
+                                    SafeRejoinOrHop("Rejoining protection")
 
                                 end
 
@@ -2842,7 +2837,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 elseif not NearbyHit then
                     if (os.time() - LastFound) > 200 then
                         alert("KUN", "Error while farming, rejoin")
-                        game.Players.LocalPlayer:Kick("Rejoining...")
+                        SafeRejoinOrHop("Rejoining protection")
                         return
                     end
 
@@ -2885,19 +2880,26 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         
 local function GetGuideEnv()
     local ok, env = pcall(function()
-        if type(getsenv) == "function" and game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule") then
-            return GetGuideEnv()
+        if type(getsenv) == "function" then
+            local lp = game:GetService("Players").LocalPlayer
+            local clientGuide = lp and lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("Main") and lp.PlayerGui.Main:FindFirstChild("Guide")
+            if clientGuide then
+                return getsenv(clientGuide)
+            end
         end
     end)
-    return ok and env or nil
+    return (ok and type(env) == "table") and env or { ["_G"] = {} }
 end
 
 local function GetExpBoost()
-    local env = GetGuideEnv()
-    if env and env._G and env._G.ServerData and env._G.ServerData.ExpBoost then
-        return env._G.ServerData.ExpBoost
-    end
-    return 0
+    local ok, boost = pcall(function()
+        local env = GetGuideEnv()
+        if env and env._G and env._G.ServerData and env._G.ServerData.ExpBoost then
+            return env._G.ServerData.ExpBoost
+        end
+        return 0
+    end)
+    return ok and boost or 0
 end
 
 
@@ -3488,9 +3490,7 @@ FunctionsHandler = {
                             AbandonedCount = (AbandonedCount or 0) + 1
                             if AbandonedCount > 25 then
                                 AbandonedCount = 0
-                                pcall(function()
-                                    if Hop then Hop("Rejoin") end
-                                end)
+                                SafeRejoinOrHop("Abandoned quest overflow")
                             end
                             alert("Abandon Quest", tostring(CurrentClaimQuest1 or "") .. " / " .. tostring(QuestTitle or ""))
                             return QuestManager.AbandonQuest()
@@ -3523,6 +3523,7 @@ FunctionsHandler = {
                     end
 
                     SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Defeating Enemies")
+                    LastFound = os.time()
                     local AttackTime1 = os.time()
                     CombatController.Attack(MonName)
                     LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
@@ -5002,7 +5003,7 @@ FunctionsHandler = {
                         function()
                             alert("1102", "rejoin")
                             task.wait(30)
-                            game.Players.LocalPlayer:Kick("Rejoining...")
+                            SafeRejoinOrHop("Rejoining protection")
                        end
                     )
 
