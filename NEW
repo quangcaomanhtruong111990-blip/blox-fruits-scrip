@@ -219,7 +219,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.04"
+        NameHub.Text = "sanglove v1.10"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -6103,43 +6103,6 @@ FunctionsHandler = {
             end
             
         )
-
-        -- Cấu hình thời gian
-        local CHECK_INTERVAL = 60 -- Kiểm tra mỗi 1 phút để đảm bảo không lỡ nhịp
-        local lastBuy = 0
-
-        task.spawn(function()
-            while true do
-                pcall(function()
-                    -- 1. Kiểm tra sự tồn tại của Remotes
-                    if Remotes and Remotes.CommF_ then
-                        
-                        -- 2. Gọi hàm cộng điểm (nếu có)
-                        if type(AddPoint) == "function" then
-                            AddPoint()
-                        end
-
-                        -- 3. Thực hiện mua trái ác quỷ
-                        -- Blox Fruits trả về thông tin thời gian nếu chưa đủ 2 tiếng
-                        local result = Remotes.CommF_:InvokeServer("Cousin", "Buy")
-                        
-                        if result then
-                            print("[Random Fruit] Kết quả: ", tostring(result))
-                            
-                            -- Nếu mua thành công hoặc thông báo liên quan đến thời gian
-                            -- Bạn có thể thêm logic cất trái ác quỷ vào kho ở đây
-                            if string.find(tostring(result), "Unboxed") or string.find(tostring(result), "Eat") then
-                                print("success: " .. tostring(result))
-                            end
-                        end
-                    else
-                        warn("error: " .. tostring(result))
-                    end
-                end)
-                
-                task.wait(CHECK_INTERVAL)
-            end
-        end)
 
        
         while task.wait(0.3) do
