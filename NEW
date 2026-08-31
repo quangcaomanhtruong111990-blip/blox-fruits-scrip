@@ -219,7 +219,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.04"
+        NameHub.Text = "sanglove v1.05"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -869,55 +869,55 @@ ScriptStorage = {
             }
         )
         -- AFK Check System (Tối ưu hóa)
-        task.spawn(function()
-            local lastPosition = nil
-            local idleStartTime = nil
-            
-            while task.wait(1) do
-                if not _G.Stop and Config.Configuration.IdleCheck and Config.Configuration.IdleCheck > 0 then
-                    pcall(function()
-                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                            local currentPosition = LocalPlayer.Character.HumanoidRootPart.Position
-                            local currentTime = os.time()
-                            
-                            if lastPosition then
-                                local distance = (currentPosition - lastPosition).Magnitude
-                                
-                                -- Check if player is moving (distance >= 5 studs)
-                                if distance >= 5 then
-                                    -- Player moved, reset idle timer
-                                    idleStartTime = nil
-                                else
-                                    -- Player not moving
-                                    if not idleStartTime then
-                                        -- Start tracking idle time
-                                        idleStartTime = currentTime
-                                    else
-                                        -- Check if idle time exceeds threshold
-                                        if (currentTime - idleStartTime) >= Config.Configuration.IdleCheck then
-                                            print("[AFK Check] Player is idle for " .. (currentTime - idleStartTime) .. " seconds, rejoining...")
-                                            if Hop then
-                                                Hop("Rejoin")
-                                            else
-                                                SafeRejoinOrHop("Rejoin")
-                                            end
-                                            return
-                                        end
-                                    end
-                                end
-                            end
-                            
-                            lastPosition = currentPosition
-                        else
-                            -- Character not loaded, reset tracking
-                            lastPosition = nil
-                            idleStartTime = nil
-                        end
-                    end)
-                end
-            end
-        end)
-        function CreateTraceback(Index, Value) -- i gave up
+--         task.spawn(function()
+--             local lastPosition = nil
+--             local idleStartTime = nil
+--             
+--             while task.wait(1) do
+--                 if not _G.Stop and Config.Configuration.IdleCheck and Config.Configuration.IdleCheck > 0 then
+--                     pcall(function()
+--                         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+--                             local currentPosition = LocalPlayer.Character.HumanoidRootPart.Position
+--                             local currentTime = os.time()
+--                             
+--                             if lastPosition then
+--                                 local distance = (currentPosition - lastPosition).Magnitude
+--                                 
+--                                 -- Check if player is moving (distance >= 5 studs)
+--                                 if distance >= 5 then
+--                                     -- Player moved, reset idle timer
+--                                     idleStartTime = nil
+--                                 else
+--                                     -- Player not moving
+--                                     if not idleStartTime then
+--                                         -- Start tracking idle time
+--                                         idleStartTime = currentTime
+--                                     else
+--                                         -- Check if idle time exceeds threshold
+--                                         if (currentTime - idleStartTime) >= Config.Configuration.IdleCheck then
+--                                             print("[AFK Check] Player is idle for " .. (currentTime - idleStartTime) .. " seconds, rejoining...")
+--                                             if Hop then
+--                                                 Hop("Rejoin")
+--                                             else
+--                                                 SafeRejoinOrHop("Rejoin")
+--                                             end
+--                                             return
+--                                         end
+--                                     end
+--                                 end
+--                             end
+--                             
+--                             lastPosition = currentPosition
+--                         else
+--                             -- Character not loaded, reset tracking
+--                             lastPosition = nil
+--                             idleStartTime = nil
+--                         end
+--                     end)
+--                 end
+--             end
+--         end)
+--         function CreateTraceback(Index, Value) -- i gave up
             table.insert(
                 ScriptStorage.Tracebacks,
                 (GetCurrentDateTime() ..
@@ -2698,99 +2698,99 @@ CombatController = {
                     local Count, Debounce = 0, os.time()
                     local Count2, Debounce = 0, os.time()
                     -- Optimize: Add delay to reduce FPS impact
-                    while task.wait(0.1) do
-                        if _G.Stop then
-                            return
-                        end
-
-                        -- Cache lại InCombat mỗi lần loop để kiểm tra trạng thái combat
-                        if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
-                            TweenController.Create(Vector3.new(0, 0, 0))
-                            return
-                        end
-
-                        local MobHumanoid = MonResult:FindFirstChild("Humanoid")
-                        local MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart")
-
-                        if not MobHumanoid or MobHumanoid.Health <= 0 then
-                            if MonResult.Name == "Don Swan" then
-                                Storage:Set("SwanDefeated", true)
-                                
-                            end
-                            break
-                        end
-
-                        TweenController.Create(
-                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
-                        )
-
-                        if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
-                            CombatController.Grab(Child or "")
-                            if MonResult.Name ~= "Core" then
-                                if
-                                    ScriptStorage.PlayerData.Level > 100 and
-                                        Count2 >= CombatController.MAX_ATTACK_DURATION_2 and
-                                        MobHumanoid.Health - MobHumanoid.MaxHealth == 0
-                                 then
-                                    SetTask(
-                                        "SubTask",
-                                        "Hop Server - Mob Health Unchanged ( " ..
-                                            MobHumanoid.Health .. " / " .. MobHumanoid.MaxHealth .. ")"
-                                    )
-                                    alert("Stuck", "Mob health unchanged")
-                                    _G.Stop = true
-                                    SafeRejoinOrHop("Rejoin")
-
-                                end
-
-                              
-                                if
-                                    Count >= CombatController.MAX_ATTACK_DURATION and
-                                        MobHumanoid.Health - MobHumanoid.MaxHealth == 0
-                                 then
-                                    Count = 0
-
-                                    local OldPosition = MonResult:GetAttribute("OldPosition")
-
-                                    if OldPosition then
-                                        MonResult:SetPrimaryPartCFrame(CFrame.new(OldPosition))
-                                        MonResult:SetAttribute("IgnoreGrab", true)
-                                        MonResult:SetAttribute(
-                                            "FailureCount",
-                                            (MonResult:GetAttribute("FailureCount") or 0) + 1
-                                        )
-                                        alert(
-                                            "Failed to attack",
-                                            "Returning to the old position ( #" ..
-                                                MonResult:GetAttribute("FailureCount") .. " )"
-                                        )
-                                       MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
-                                        task.wait()
-
-                                        return
-                                    end
-                                end
-                            end
-                         
-                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
-                                    ScriptStorage.ForceToUseSword and "Sword" or "Melee"
-                                )
-
-                            AttackController:Attack(MonResult)
-                            if os.time() ~= Debounce then
-                                Debounce = os.time()
-
-                                Count = Count + 1
-                                Count2 = Count2 + 1
-                            end
-                            if Count > 30 and MonResult.Name ~= "Core" then
-                                alert("Take more than 30s to attack, cancelling")
-                                break
-                            end
-                       
-                        end
-                    end
-                elseif not NearbyHit then
+--                     while task.wait(0.1) do
+--                         if _G.Stop then
+--                             return
+--                         end
+-- 
+--                         -- Cache lại InCombat mỗi lần loop để kiểm tra trạng thái combat
+--                         if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
+--                             TweenController.Create(Vector3.new(0, 0, 0))
+--                             return
+--                         end
+-- 
+--                         local MobHumanoid = MonResult:FindFirstChild("Humanoid")
+--                         local MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart")
+-- 
+--                         if not MobHumanoid or MobHumanoid.Health <= 0 then
+--                             if MonResult.Name == "Don Swan" then
+--                                 Storage:Set("SwanDefeated", true)
+--                                 
+--                             end
+--                             break
+--                         end
+-- 
+--                         TweenController.Create(
+--                             CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
+--                         )
+-- 
+--                         if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
+--                             CombatController.Grab(Child or "")
+--                             if MonResult.Name ~= "Core" then
+--                                 if
+--                                     ScriptStorage.PlayerData.Level > 100 and
+--                                         Count2 >= CombatController.MAX_ATTACK_DURATION_2 and
+--                                         MobHumanoid.Health - MobHumanoid.MaxHealth == 0
+--                                  then
+--                                     SetTask(
+--                                         "SubTask",
+--                                         "Hop Server - Mob Health Unchanged ( " ..
+--                                             MobHumanoid.Health .. " / " .. MobHumanoid.MaxHealth .. ")"
+--                                     )
+--                                     alert("Stuck", "Mob health unchanged")
+--                                     _G.Stop = true
+--                                     SafeRejoinOrHop("Rejoin")
+-- 
+--                                 end
+-- 
+--                               
+--                                 if
+--                                     Count >= CombatController.MAX_ATTACK_DURATION and
+--                                         MobHumanoid.Health - MobHumanoid.MaxHealth == 0
+--                                  then
+--                                     Count = 0
+-- 
+--                                     local OldPosition = MonResult:GetAttribute("OldPosition")
+-- 
+--                                     if OldPosition then
+--                                         MonResult:SetPrimaryPartCFrame(CFrame.new(OldPosition))
+--                                         MonResult:SetAttribute("IgnoreGrab", true)
+--                                         MonResult:SetAttribute(
+--                                             "FailureCount",
+--                                             (MonResult:GetAttribute("FailureCount") or 0) + 1
+--                                         )
+--                                         alert(
+--                                             "Failed to attack",
+--                                             "Returning to the old position ( #" ..
+--                                                 MonResult:GetAttribute("FailureCount") .. " )"
+--                                         )
+--                                        MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
+--                                         task.wait()
+-- 
+--                                         return
+--                                     end
+--                                 end
+--                             end
+--                          
+--                             FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
+--                                     ScriptStorage.ForceToUseSword and "Sword" or "Melee"
+--                                 )
+-- 
+--                             AttackController:Attack(MonResult)
+--                             if os.time() ~= Debounce then
+--                                 Debounce = os.time()
+-- 
+--                                 Count = Count + 1
+--                                 Count2 = Count2 + 1
+--                             end
+--                             if Count > 30 and MonResult.Name ~= "Core" then
+--                                 alert("Take more than 30s to attack, cancelling")
+--                                 break
+--                             end
+--                        
+--                         end
+--                     end
+--                 elseif not NearbyHit then
                     if (os.time() - LastFound) > 200 then
                         alert("KUN", "Error while farming, rejoin")
                         SafeRejoinOrHop("Rejoin")
