@@ -72,7 +72,7 @@ function CheckKick(v)
 end
 -- print restored
 repeat
-    task.wait(1) 
+    task.wait(3) 
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
 until game.Players.LocalPlayer.Character
 game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.09"
+        NameHub.Text = "sanglove v1.10"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
