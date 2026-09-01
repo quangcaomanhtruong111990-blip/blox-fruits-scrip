@@ -14,7 +14,7 @@ Config =
             },
             Items = {
                 -- Melees
-                AutoFullyMelees = false,
+                AutoFullyMelees = true,
                 -- Swords
                 Saber = true,
                 CursedDualKatana = false,
@@ -36,16 +36,16 @@ repeat
     task.wait(0.5)
 until game:IsLoaded()
 
--- [v1.11] Ultra-Stability Startup Delay: Chờ 20 giây để giả lập ổn định hoàn toàn
-task.wait(20)
-
--- Volt Performance Optimization Setup (Bọc an toàn hơn cho giả lập)
+-- Volt Performance Optimization Setup
 local Volt = nil
 pcall(function()
+    -- Try to load Volt if available
     if typeof(volt) == "table" then
         Volt = volt
+        print("[Volt] Volt detected and loaded")
     elseif typeof(getgenv().volt) == "table" then
         Volt = getgenv().volt
+        print("[Volt] Volt detected from getgenv()")
     end
 end)
 
@@ -69,7 +69,7 @@ function CheckKick(v)
 end
 -- print restored
 repeat
-    task.wait(3) 
+    task.wait() 
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
 until game.Players.LocalPlayer.Character
 game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
@@ -168,64 +168,60 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         -- Webhook Discord disabled: No telemetry or data sent externally
     end
 
-        function mmb()
-            local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
-            local Interface = {
-                Instances = {}
-            }
-    
-            local isVisible = true
-            local isToggleOpen = false
-            local player = game.Players.LocalPlayer
-    
-            repeat
-                task.wait(1) -- Chờ CoreGui an toàn hơn
-            until game:GetService("CoreGui")
-    
-            task.wait(0.5)
-            local HopGui = Instance.new("ScreenGui")
-            task.wait(0.1)
-            local NameHub = Instance.new("TextLabel")
-            task.wait(0.1)
-            local UIStroke = Instance.new("UIStroke")
-            local StrokeBounty = Instance.new("UIStroke")
-            local Bounty = Instance.new("TextLabel")
-            local ToggleButton = Instance.new("ImageButton")
-            local ToggleContainer = Instance.new("Frame")
-            local ToggleUIStroke = Instance.new("UIStroke")
-            local ToggleIcon = Instance.new("TextLabel")
-    
-            -- Create a table to store UI references for blurring
-            local UIReferences = {}
-    
-            HopGui.Name = "CyndralDev"
-            HopGui.Parent = game:GetService("CoreGui")
-            HopGui.Enabled = not Config.Configuration.HideGui
-            HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-            HopGui.IgnoreGuiInset = true
-    
-            NameHub.Name = "NameHub"
-            NameHub.Parent = HopGui
-            NameHub.AnchorPoint = Vector2.new(0.5, 0.5)
-            NameHub.Position = UDim2.new(0.5, 0, 0.3, 0)
-            NameHub.Size = UDim2.new(1, 0, 0, 80)
-            NameHub.BackgroundTransparency = 0.999
-            NameHub.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            NameHub.BorderSizePixel = 0
-            NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.26"
-    
-            local UIStroke = Instance.new("UIStroke")
-            UIStroke.Parent = NameHub
-            UIStroke.Color = Color3.fromRGB(0, 0, 0)
-            UIStroke.Thickness = 1
-    
-            NameHub.TextColor3 = Color3.fromRGB(9, 255, 248)
-            NameHub.TextSize = 50
-    
-            task.wait(0.5) -- Giãn cách nạp Container
-            -- Create Toggle Button Container
+    function mmb()
+        local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
+        local Interface = {
+            Instances = {}
+        }
+
+        local isVisible = true
+        local isToggleOpen = false
+        local player = game.Players.LocalPlayer
+
+        repeat
+            task.wait()
+        until game.CoreGui
+
+        local HopGui = Instance.new("ScreenGui")
+        local NameHub = Instance.new("TextLabel")
+        local UIStroke = Instance.new("UIStroke")
+        local StrokeBounty = Instance.new("UIStroke")
+        local Bounty = Instance.new("TextLabel")
+        local ToggleButton = Instance.new("ImageButton")
+        local ToggleContainer = Instance.new("Frame")
+        local ToggleUIStroke = Instance.new("UIStroke")
+        local ToggleIcon = Instance.new("TextLabel")
+
+        -- Create a table to store UI references for blurring
+        local UIReferences = {}
+
+        HopGui.Name = "CyndralDev"
+        HopGui.Parent = game:GetService("CoreGui")
+        HopGui.Enabled = not Config.Configuration.HideGui
+        HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        HopGui.IgnoreGuiInset = true
+
+        NameHub.Name = "NameHub"
+        NameHub.Parent = HopGui
+        NameHub.AnchorPoint = Vector2.new(0.5, 0.5)
+        NameHub.Position = UDim2.new(0.5, 0, 0.3, 0)
+        NameHub.Size = UDim2.new(1, 0, 0, 80)
+        NameHub.BackgroundTransparency = 0.999
+        NameHub.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
+        NameHub.BorderSizePixel = 0
+        NameHub.Font = Enum.Font.FredokaOne
+        NameHub.Text = "sanglove v1.04"
+
+        local UIStroke = Instance.new("UIStroke")
+        UIStroke.Parent = NameHub
+        UIStroke.Color = Color3.fromRGB(0, 0, 0)
+        UIStroke.Thickness = 1
+
+        NameHub.TextColor3 = Color3.fromRGB(9, 255, 248)
+        NameHub.TextSize = 50
+
+        -- Create Toggle Button Container
         ToggleContainer.Name = "ToggleContainer"
         ToggleContainer.Parent = HopGui
         ToggleContainer.AnchorPoint = Vector2.new(1, 0)
@@ -723,7 +719,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 end
             end
         end)
-        -- alert("Cyndral", "Endpoint reached")
+        alert("Cyndral", "Endpoint reached")
 
         local CDN_HOST = ""
 
@@ -749,7 +745,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 LocalPlayer.PlayerScripts:WaitForChild("IslandLOD", 9999):Destroy()
             end
         )
-        -- alert("wait 1", "ok")
+        alert("wait 1", "ok")
         
         local Segmants = {
             "RawConstants",
@@ -772,7 +768,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         repeat
             task.wait()
         until SetText
-        -- alert("load 2")
+        alert("load 2")
         SetText("MainTextLabel", "Initalizing Script...")
         
 
@@ -817,15 +813,10 @@ ScriptStorage = {
         end)) 
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
-        
-        -- [v1.19] Safety Check for Character on Server Join/Hop
-        repeat task.wait(0.5) until LocalPlayer.Character or (tick() - StartTick > 15)
         Character = LocalPlayer.Character
-        
-        if Character then
-            Humanoid = Character:WaitForChild("Humanoid", 10)
-            HumanoidRootPart = Character:WaitForChild("HumanoidRootPart", 10)
-        end
+
+        Humanoid = Character:WaitForChild("Humanoid")
+        HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 
         PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
         Lighting = game:GetService("Lighting")
@@ -1009,19 +1000,15 @@ ScriptStorage = {
         Tasks = {}
 
         function AwaitUntilPlayerLoaded(Player, Timeout)
-            local t = tick()
             repeat
                 task.wait()
-            until Player.Character or (tick() - t > (Timeout or 5))
+            until Player.Character
 
-            if Player.Character then
-                Player.Character:WaitForChild("Humanoid", Timeout or 5)
-                
-                local t2 = tick()
-                repeat
-                    task.wait()
-                until (Player.Character:FindFirstChild("Humanoid") and Player.Character.Humanoid.Health > 0) or (tick() - t2 > (Timeout or 5))
-            end
+            Player.Character:WaitForChild("Humanoid")
+
+            repeat
+                task.wait()
+            until Player.Character.Humanoid.Health > 0
         end
 
         function AddPoint()
@@ -1271,14 +1258,10 @@ ScriptStorage = {
         print(0)
         SetText("MainTextLabel", "Refreshing Player Data 18219")
         print(-1)
-        task.spawn(function()
-            pcall(function() MeleeCheck(LocalPlayer.Character:FindFirstChildOfClass("Tool")) end)
-        end)
-        
-        task.spawn(function()
-            pcall(RefreshPlayerData)
-        end)
-        
+        MeleeCheck(LocalPlayer.Character:FindFirstChildOfClass("Tool"))
+        print(-2)
+        RefreshPlayerData()
+        print(-3)
         function RegisterLocalPlayerEventsConnection()
             task.spawn(
                 function()
@@ -1355,10 +1338,8 @@ ScriptStorage = {
                 end
             )
         end
-        task.defer(function()
-            RegisterLocalPlayerEventsConnection(LocalPlayer)
-        end)
-        
+        RegisterLocalPlayerEventsConnection(LocalPlayer)
+
         print(-4)
         game.Players.LocalPlayer.CharacterAdded:Connect(
             function(Character)
@@ -2058,11 +2039,10 @@ ScriptStorage = {
         local function NoclipLoop()
             speaker = LocalPlayer
             if speaker.Character ~= nil then
-                local char = speaker.Character
-                local parts = {"HumanoidRootPart", "UpperTorso", "LowerTorso", "Head"}
-                for _, name in ipairs(parts) do
-                    local p = char:FindFirstChild(name)
-                    if p and p:IsA("BasePart") then p.CanCollide = false end
+                for _, child in pairs(speaker.Character:GetDescendants()) do
+                    if child:IsA("BasePart") and child.CanCollide == true and child.Name ~= nil then
+                        child.CanCollide = false
+                    end
                 end
             end
         end
@@ -2198,10 +2178,10 @@ ScriptStorage = {
         
             TweenController._isCreating = true
         
-            -- 3. XỬ LÝ NOCLIP (An toàn tuyệt đối cho v1.08)
+            -- 3. XỬ LÝ NOCLIP (Mượt hơn)
             pcall(function()
-                for _, part in ipairs(Character:GetChildren()) do
-                    if part:IsA("BasePart") then
+                for _, part in ipairs(Character:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
                         part.CanCollide = false
                     end
                 end
@@ -2245,8 +2225,8 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (75)
-            local Speed = (CurrentDist < 18) and 25 or 75
+            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (100)
+            local Speed = (CurrentDist < 18) and 25 or 100
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2356,26 +2336,18 @@ ScriptStorage = {
         local Net = Modules.Net
         local Register_Hit, Register_Attack = Net:WaitForChild("RE/RegisterHit"), Net:WaitForChild("RE/RegisterAttack")
         local Funcs = {}
-        local lastBladeScan = 0
-        local cachedBladeHits = {}
         function GetAllBladeHits()
-            local now = tick()
-            if now - lastBladeScan < 0.2 and #cachedBladeHits > 0 then
-                return cachedBladeHits
-            end
-            lastBladeScan = now
-            cachedBladeHits = {}
-            local myPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and game.Players.LocalPlayer.Character.HumanoidRootPart.Position
-            if not myPos then return cachedBladeHits end
-
+            bladehits = {}
             for _, v in pairs(workspace.Enemies:GetChildren()) do
-                if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-                    if (v.HumanoidRootPart.Position - myPos).Magnitude <= 65 then
-                        table.insert(cachedBladeHits, v)
-                    end
+                if
+                    v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 and
+                        (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <=
+                            65
+                 then
+                    table.insert(bladehits, v)
                 end
             end
-            return cachedBladeHits
+            return bladehits
         end
         function Getplayerhit()
             bladehits = {}
@@ -2547,8 +2519,8 @@ CombatController = {
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
         function CombatController.Grab(MobName)
-            -- [v1.09] Disabled SimulationRadius to prevent crashes in Sea 3
-            -- pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
+            -- Tối ưu SimulationRadius cho giả lập (Tránh Crash)
+            pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 2500)
             if not CombatController.GRAB or GrabDebounce == os.time() then
             end
             GrabDebounce = os.time()
@@ -2619,7 +2591,6 @@ CombatController = {
                         ChildInstance.HumanoidRootPart.CFrame = MidPoint
 
                         ChildInstance:SetAttribute("MidPoint", MidPoint)
-                        task.wait() -- [v1.17] Thêm delay cực ngắn để chống crash vật lý
                     end)()
                 end
             )
@@ -3760,14 +3731,6 @@ FunctionsHandler = {
         FunctionsHandler.MeleesController:RegisterMethod(
             "Start",
             function()
-                -- [v1.20] Safety Warmup for Melee Check: Giảm xuống 30s nhưng ưu tiên chạy đầu
-                if tick() - (StartTick or 0) < 30 then
-                    SetTask("SubTask", "Initializing Melee System (" .. math.floor(30 - (tick() - (StartTick or 0))) .. "s)")
-                    return
-                end
-
-                _G.MeleeChecked = true -- Đánh dấu đã kiểm tra võ xong v1.20
-
                 ScriptStorage.IsGettingMelee = false  -- luôn reset flag trước khi bắt đầu
 
                 for Cursor, Melee in MeleesTable do
@@ -5887,42 +5850,41 @@ FunctionsHandler = {
             end
 
             -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
-            -- [v1.14] Removed aggressive listener that causes crashes on load
-            -- workspace.DescendantAdded:Connect(function(child)
-            --     task.spawn(function()
-            --         pcall(function()
-            --             -- Chỉ xử lý effect, KHÔNG transparent player character
-            --             if child:IsA("ForceField") or child:IsA("Sparkles") or
-            --                child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
-            --                 child:Destroy()
-            --                 return
-            --             end
-            -- 
-            --             -- Bỏ qua character parts của player
-            --             local char = Player.Character
-            --             if char and (child:IsDescendantOf(char) or child == char) then
-            --                 return
-            --             end
-            -- 
-            --             if child:IsA("BasePart") then
-            --                 child.Material = "Plastic"
-            --                 child.Reflectance = 0
-            --                 child.BackSurface = "SmoothNoOutlines"
-            --                 child.BottomSurface = "SmoothNoOutlines"
-            --                 child.FrontSurface = "SmoothNoOutlines"
-            --                 child.LeftSurface = "SmoothNoOutlines"
-            --                 child.RightSurface = "SmoothNoOutlines"
-            --                 child.TopSurface = "SmoothNoOutlines"
-            --                 child.Transparency = 1
-            --                 child.CastShadow = false
-            --             elseif child:IsA("Decal") then
-            --                 child.Transparency = 1
-            --             elseif child:IsA("AnimationController") then
-            --                 child:Destroy()
-            --             end
-            --         end)
-            --     end)
-            -- end)
+            workspace.DescendantAdded:Connect(function(child)
+                task.spawn(function()
+                    pcall(function()
+                        -- Chỉ xử lý effect, KHÔNG transparent player character
+                        if child:IsA("ForceField") or child:IsA("Sparkles") or
+                           child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
+                            child:Destroy()
+                            return
+                        end
+
+                        -- Bỏ qua character parts của player
+                        local char = Player.Character
+                        if char and (child:IsDescendantOf(char) or child == char) then
+                            return
+                        end
+
+                        if child:IsA("BasePart") then
+                            child.Material = "Plastic"
+                            child.Reflectance = 0
+                            child.BackSurface = "SmoothNoOutlines"
+                            child.BottomSurface = "SmoothNoOutlines"
+                            child.FrontSurface = "SmoothNoOutlines"
+                            child.LeftSurface = "SmoothNoOutlines"
+                            child.RightSurface = "SmoothNoOutlines"
+                            child.TopSurface = "SmoothNoOutlines"
+                            child.Transparency = 1
+                            child.CastShadow = false
+                        elseif child:IsA("Decal") then
+                            child.Transparency = 1
+                        elseif child:IsA("AnimationController") then
+                            child:Destroy()
+                        end
+                    end)
+                end)
+            end)
         end  
         if Config.Configuration.FpsBoost then
             boostfps()
@@ -5946,11 +5908,6 @@ FunctionsHandler = {
         end)
         
         local LogCache = {}
-        -- [v1.26] Initialize UI immediately so Loading status can be seen
-        task.spawn(function()
-            xpcall(mmb, debug.traceback)
-        end)
-        
         SetTask("MainTask", "n/a")
         SetTask("SubTask", "n/a")
         ParsingTimes = 0 
@@ -5958,13 +5915,6 @@ FunctionsHandler = {
             if _G.Stop then
                 return
             end
-            task.wait(0.5) -- [v1.18] Giãn cách quét task để tránh quá tải CPU
-            
-            -- [v1.24] Only run tasks after startup is finished
-            if not _G.StartupFinished then
-                return
-            end
-
             for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
                 if Task then
@@ -5999,25 +5949,14 @@ FunctionsHandler = {
             end
         end
 
-        -- [v1.24] New Secured Startup Sequence (10s delay between steps)
-        SetText("MainTextLabel", "Loading Melee System (Step 1/4)...")
-        pcall(function() FunctionsHandler.MeleesController.Methods.Start:Call() end)
-        task.wait(10)
-
-        SetText("MainTextLabel", "Loading Inventory (Step 2/4)...")
-        pcall(RefreshInventory)
-        task.wait(10)
-
-        SetText("MainTextLabel", "Loading Race Info (Step 3/4)...")
-        pcall(RefreshRace)
-        task.wait(10)
-
-        SetText("MainTextLabel", "Loading Quest Data (Step 4/4)...")
+        SetText("MainTextLabel", "Refreshing Player Items...")
+        pcall(RefreshPlayerData)
+        pcall(AddPoint)
         pcall(function() QuestManager:RefreshQuest() end)
-        task.wait(2) -- Final breather
-        
-        _G.StartupFinished = true -- Flag to unlock farming tasks
-        
+        SetText("MainTextLabel", "Loading Inventory...")
+        pcall(RefreshInventory)
+        SetText("MainTextLabel", "Loading Race...")
+        pcall(RefreshRace)
         Remotes.CommE.OnClientEvent:Connect(
             function(...)
                 local data = {...}
@@ -6027,6 +5966,8 @@ FunctionsHandler = {
                 end
             end
         )
+
+        RefreshRace()
 
         Players.LocalPlayer.Idled:Connect(
             function()
@@ -6098,15 +6039,10 @@ FunctionsHandler = {
         end)
         
         if ScriptStorage.PlayerData.Level > 2000 then 
-            task.spawn(function()
-                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo") end)
-                task.wait(1)
-                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso") end)
-                task.wait(1)
-                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru") end)
-                task.wait(1)
-                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") end)
-            end)
+            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo")
+            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso")
+            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru")
+            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") 
         end
         
          function getcandies()
@@ -6187,17 +6123,21 @@ FunctionsHandler = {
         end)
 
        
-        while task.wait(0.5) do
-             -- [v1.12] Removed debug prints (0, 1, 2) that cause emulator crashes
+        while task.wait() do
+            --[[
+            if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
+                SendDataDelay = os.time() 
+                pcall(SendData)
+            end ]]
+             print(0)
             local success, response = xpcall(RefreshTasksData, debug.traceback)
-            
+            print(1)
             -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
-            -- [v1.24] Handled in startup sequence to avoid crash
-            -- local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            -- if not IsInRaid then
-            --     FunctionsHandler.MeleesController.Methods.Start:Call()
-            -- end
-            
+            local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
+            if not IsInRaid then
+                FunctionsHandler.MeleesController.Methods.Start:Call()
+            end
+            print(2)
             if not success then
                 Report(response)
             end
@@ -6206,9 +6146,7 @@ FunctionsHandler = {
     end
     -- Remote kunblox script removed
         
---     task.defer(function()
---         local success2, response2 = xpcall(mmb, debug.traceback)
---         if not success2 then
---             Report(response2)
---         end
---     end)
+    local success2, response2 = xpcall(mmb, debug.traceback)
+    if not success2 then
+        Report(response2)
+    end
