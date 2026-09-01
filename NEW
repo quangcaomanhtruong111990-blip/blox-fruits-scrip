@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.12"
+            NameHub.Text = "sanglove v1.13"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -1004,15 +1004,19 @@ ScriptStorage = {
         Tasks = {}
 
         function AwaitUntilPlayerLoaded(Player, Timeout)
+            local t = tick()
             repeat
                 task.wait()
-            until Player.Character
+            until Player.Character or (tick() - t > (Timeout or 5))
 
-            Player.Character:WaitForChild("Humanoid")
-
-            repeat
-                task.wait()
-            until Player.Character.Humanoid.Health > 0
+            if Player.Character then
+                Player.Character:WaitForChild("Humanoid", Timeout or 5)
+                
+                local t2 = tick()
+                repeat
+                    task.wait()
+                until (Player.Character:FindFirstChild("Humanoid") and Player.Character.Humanoid.Health > 0) or (tick() - t2 > (Timeout or 5))
+            end
         end
 
         function AddPoint()
@@ -1262,10 +1266,14 @@ ScriptStorage = {
         print(0)
         SetText("MainTextLabel", "Refreshing Player Data 18219")
         print(-1)
-        MeleeCheck(LocalPlayer.Character:FindFirstChildOfClass("Tool"))
-        print(-2)
-        RefreshPlayerData()
-        print(-3)
+        task.spawn(function()
+            pcall(function() MeleeCheck(LocalPlayer.Character:FindFirstChildOfClass("Tool")) end)
+        end)
+        
+        task.spawn(function()
+            pcall(RefreshPlayerData)
+        end)
+        
         function RegisterLocalPlayerEventsConnection()
             task.spawn(
                 function()
@@ -1342,8 +1350,10 @@ ScriptStorage = {
                 end
             )
         end
-        RegisterLocalPlayerEventsConnection(LocalPlayer)
-
+        task.defer(function()
+            RegisterLocalPlayerEventsConnection(LocalPlayer)
+        end)
+        
         print(-4)
         game.Players.LocalPlayer.CharacterAdded:Connect(
             function(Character)
