@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.17"
+            NameHub.Text = "sanglove v1.18"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -1622,7 +1622,7 @@ ScriptStorage = {
             "PirateRaid",
             "SecondSeaPuzzle",
             "ThirdSeaPuzzle",
-            "CollectDrops",
+            -- "CollectDrops",
             "BossesTask",
             "LevelFarm"
         }
@@ -5955,6 +5955,7 @@ FunctionsHandler = {
             if _G.Stop then
                 return
             end
+            task.wait(0.5) -- [v1.18] Giãn cách quét task để tránh quá tải CPU
             for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
                 if Task then
