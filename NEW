@@ -36,6 +36,9 @@ repeat
     task.wait(0.5)
 until game:IsLoaded()
 
+-- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
+task.wait(15)
+
 -- Volt Performance Optimization Setup
 local Volt = nil
 pcall(function()
@@ -69,7 +72,7 @@ function CheckKick(v)
 end
 -- print restored
 repeat
-    task.wait() 
+    task.wait(1) 
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
 until game.Players.LocalPlayer.Character
 game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
@@ -211,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v2"
+        NameHub.Text = "sanglove v1.09"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2178,10 +2181,10 @@ ScriptStorage = {
         
             TweenController._isCreating = true
         
-            -- 3. XỬ LÝ NOCLIP (Mượt hơn)
+            -- 3. XỬ LÝ NOCLIP (An toàn tuyệt đối cho v1.08)
             pcall(function()
-                for _, part in ipairs(Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
+                for _, part in ipairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
                 end
@@ -2225,8 +2228,8 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (100)
-            local Speed = (CurrentDist < 18) and 25 or 100
+            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (75)
+            local Speed = (CurrentDist < 18) and 25 or 75
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2336,18 +2339,26 @@ ScriptStorage = {
         local Net = Modules.Net
         local Register_Hit, Register_Attack = Net:WaitForChild("RE/RegisterHit"), Net:WaitForChild("RE/RegisterAttack")
         local Funcs = {}
+        local lastBladeScan = 0
+        local cachedBladeHits = {}
         function GetAllBladeHits()
-            bladehits = {}
+            local now = tick()
+            if now - lastBladeScan < 0.2 and #cachedBladeHits > 0 then
+                return cachedBladeHits
+            end
+            lastBladeScan = now
+            cachedBladeHits = {}
+            local myPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and game.Players.LocalPlayer.Character.HumanoidRootPart.Position
+            if not myPos then return cachedBladeHits end
+
             for _, v in pairs(workspace.Enemies:GetChildren()) do
-                if
-                    v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 and
-                        (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <=
-                            65
-                 then
-                    table.insert(bladehits, v)
+                if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                    if (v.HumanoidRootPart.Position - myPos).Magnitude <= 65 then
+                        table.insert(cachedBladeHits, v)
+                    end
                 end
             end
-            return bladehits
+            return cachedBladeHits
         end
         function Getplayerhit()
             bladehits = {}
@@ -2519,8 +2530,8 @@ CombatController = {
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
         function CombatController.Grab(MobName)
-            -- Tối ưu SimulationRadius cho giả lập (Tránh Crash)
-            pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 2500)
+            -- [v1.09] Disabled SimulationRadius to prevent crashes in Sea 3
+            -- pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
             if not CombatController.GRAB or GrabDebounce == os.time() then
             end
             GrabDebounce = os.time()
@@ -5730,6 +5741,7 @@ FunctionsHandler = {
             if Terrain then
                 Terrain.WaterWaveSize = 0
                 Terrain.WaterWaveSpeed = 0
+                Terrain.WaterReflectance = 0
                 Terrain.WaterTransparency = 1
             end
 
@@ -5741,12 +5753,14 @@ FunctionsHandler = {
                         pcall(function() v:Destroy() end)
                     end
                 end
+
                 -- Xóa skybox/decoration trong lighting
                 for _, v in ipairs(Lighting:GetChildren()) do
                     if v:IsA("Sky") or v:IsA("Decal") then
                         pcall(function() v:Destroy() end)
                     end
                 end
+
                 -- Xóa map decorations (part nằm trong Map folder)
                 local Map = workspace:FindFirstChild("Map")
                 if Map then
@@ -5817,12 +5831,12 @@ FunctionsHandler = {
             end
 
             -- Bug 1 FIX: Chỉ destroy thứ KHÔNG phải Model/Folder trong _WorldOrigin
-            pcall(function()
-                for _, v in ipairs(workspace:FindFirstChild("_WorldOrigin"):GetChildren()) do
-                    if not v:IsA("Model") and not v:IsA("Folder") then
-                        pcall(function() v:Destroy() end)
+            workspace._WorldOrigin.ChildAdded:Connect(function(child)
+                pcall(function()
+                    if not child:IsA("Model") and not child:IsA("Folder") then
+                        child:Destroy()
                     end
-                end
+                end)
             end)
 
             -- Xóa cache folder trong ReplicatedStorage
@@ -5835,14 +5849,16 @@ FunctionsHandler = {
                 end
             end)
 
-            -- Bug 2 FIX: pcall cho map destruction
-            pcall(function()
-                for _, v in ipairs(workspace:GetDescendants()) do
-                    if v:IsA("Part") and v.Name == "Leaf" then
-                        pcall(function() v:Destroy() end)
-                    end
-                end
+            -- Camera và Terrain child cleanup
+            workspace.Camera.ChildAdded:Connect(function(child)
+                pcall(function() child:Destroy() end)
             end)
+
+            if Terrain then
+                Terrain.ChildAdded:Connect(function(child)
+                    pcall(function() child:Destroy() end)
+                end)
+            end
 
             -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
             workspace.DescendantAdded:Connect(function(child)
