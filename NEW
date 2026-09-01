@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.11"
+            NameHub.Text = "sanglove v1.12"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -6135,21 +6135,16 @@ FunctionsHandler = {
         end)
 
        
-        while task.wait() do
-            --[[
-            if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
-                SendDataDelay = os.time() 
-                pcall(SendData)
-            end ]]
-             print(0)
+        while task.wait(0.5) do
+             -- [v1.12] Removed debug prints (0, 1, 2) that cause emulator crashes
             local success, response = xpcall(RefreshTasksData, debug.traceback)
-            print(1)
+            
             -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
             if not IsInRaid then
                 FunctionsHandler.MeleesController.Methods.Start:Call()
             end
-            print(2)
+            
             if not success then
                 Report(response)
             end
@@ -6158,7 +6153,9 @@ FunctionsHandler = {
     end
     -- Remote kunblox script removed
         
-    local success2, response2 = xpcall(mmb, debug.traceback)
-    if not success2 then
-        Report(response2)
-    end
+    task.defer(function()
+        local success2, response2 = xpcall(mmb, debug.traceback)
+        if not success2 then
+            Report(response2)
+        end
+    end)
