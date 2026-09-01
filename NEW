@@ -169,10 +169,6 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function mmb()
-        -- [v1.05] Startup Delay: Chờ 10 giây để game ổn định hoàn toàn trước khi bắt đầu
-        print("[SANGLOVE v1.05] Đang chờ game ổn định trong 10 giây...")
-        task.wait(10)
-        print("[SANGLOVE v1.05] Khởi động hoàn tất!")
         local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
         local Interface = {
             Instances = {}
@@ -215,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.05"
+        NameHub.Text = "sanglove v1.06"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2182,13 +2178,15 @@ ScriptStorage = {
         
             TweenController._isCreating = true
         
-            -- 3. XỬ LÝ NOCLIP (Mượt hơn)
+            -- 3. XỬ LÝ NOCLIP (Tối ưu cho giả lập)
             pcall(function()
-                for _, part in ipairs(Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
+                for _, part in ipairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
                 end
+                local hrp = Character:FindFirstChild("HumanoidRootPart")
+                if hrp then hrp.CanCollide = false end
             end)
         
             -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity)
@@ -2340,18 +2338,26 @@ ScriptStorage = {
         local Net = Modules.Net
         local Register_Hit, Register_Attack = Net:WaitForChild("RE/RegisterHit"), Net:WaitForChild("RE/RegisterAttack")
         local Funcs = {}
+        local lastBladeScan = 0
+        local cachedBladeHits = {}
         function GetAllBladeHits()
-            bladehits = {}
+            local now = tick()
+            if now - lastBladeScan < 0.1 and #cachedBladeHits > 0 then
+                return cachedBladeHits
+            end
+            lastBladeScan = now
+            cachedBladeHits = {}
+            local myPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and game.Players.LocalPlayer.Character.HumanoidRootPart.Position
+            if not myPos then return cachedBladeHits end
+
             for _, v in pairs(workspace.Enemies:GetChildren()) do
-                if
-                    v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 and
-                        (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <=
-                            65
-                 then
-                    table.insert(bladehits, v)
+                if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                    if (v.HumanoidRootPart.Position - myPos).Magnitude <= 65 then
+                        table.insert(cachedBladeHits, v)
+                    end
                 end
             end
-            return bladehits
+            return cachedBladeHits
         end
         function Getplayerhit()
             bladehits = {}
