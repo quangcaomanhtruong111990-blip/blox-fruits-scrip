@@ -242,7 +242,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "kunblox.net"
+        NameHub.Text = "kunblox"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1137,18 +1137,34 @@ end)
 
         function RefreshInventory()
             ScriptStorage.Backpack2 = {}
-            for _, Value in Remotes.CommF_:InvokeServer("getInventory") do
-                if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
-                table.find(Config.Items.Eatlist, Value.Name) then 
-                    warn("Load fruit", Value.Name)
-                    Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
-                    task.wait(1)
-                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name))
+            local rawInv = nil
+            pcall(function()
+                if Remotes and Remotes.CommF_ then
+                    rawInv = Remotes.CommF_:InvokeServer("getInventory")
+                elseif game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_") then
+                    rawInv = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
                 end
-                ScriptStorage.Backpack2[Value.Name] = Value
+            end)
+            if type(rawInv) == "table" then
+                for _, Value in pairs(rawInv) do
+                    if type(Value) == "table" and Value.Name then
+                        pcall(function()
+                            if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
+                            Config.Items.Eatlist and table.find(Config.Items.Eatlist, Value.Name) then 
+                                warn("Load fruit", Value.Name)
+                                Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
+                                task.wait(1)
+                                if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name))
+                                end
+                            end
+                        end)
+                        ScriptStorage.Backpack2[Value.Name] = Value
+                    end
+                end
             end
 
-            ScriptStorage.Backpack = ScriptStorage.Backpack2
+            ScriptStorage.Backpack = ScriptStorage.Backpack2 or {}
         end
 
         function ResearchMoves(Child)
@@ -3593,9 +3609,13 @@ end)
             return 0, bfMaxLevel
         end
 
-        Remotes.Redeem:InvokeServer("KITT_RESET")
-        Remotes.Redeem:InvokeServer("Sub2UncleKizaru")
-        Remotes.Redeem:InvokeServer("SUB2GAMERROBOT_RESET1")
+        pcall(function()
+            if Remotes.Redeem then
+                pcall(function() Remotes.Redeem:InvokeServer("KITT_RESET") end)
+                pcall(function() Remotes.Redeem:InvokeServer("Sub2UncleKizaru") end)
+                pcall(function() Remotes.Redeem:InvokeServer("SUB2GAMERROBOT_RESET1") end)
+            end
+        end)
 
         function ResetStat(PrimaryPoint)
             if (LocalPlayer.Data.Stats:FindFirstChild(PrimaryPoint).Level.Value < 2000) then
@@ -5688,27 +5708,25 @@ end)
             if _G.Stop then
                 return
             end
-            for _, TaskName in TasksOrder do
+            for _, TaskName in ipairs(TasksOrder) do
                 local Task = FunctionsHandler[TaskName]
-                if not Task.Initalized then
-                    if not LogCache[TaskName] then
-                        print("[ Debug ] Task", Name, "is not registered yet")
-                        LogCache[TaskName] = true
-                    end
-                else
-                    local Refresh = Task.Methods.Refresh
-                    local Start = Task.Methods.Start
+                if Task and Task.Initalized then
+                    local Refresh = Task.Methods and Task.Methods.Refresh
+                    local Start = Task.Methods and Task.Methods.Start
 
-                    if Refresh then
-                        local RefreshValue = Refresh:Call(ParsingTimes < 100)
+                    if Refresh and Start then
+                        local success, RefreshValue = pcall(function()
+                            return Refresh:Call(true)
+                        end)
 
-                        ParsingTimes = ParsingTimes + 1
-                        if RefreshValue and ParsingTimes > 100 then
-                            CurrentTask = CurrentTask ~= TaskName
-
+                        if success and RefreshValue then
                             CurrentTask = TaskName
-                            ScriptStorage.Interface.SetText("DebugLine", TaskName)
-                            Start:Call(RefreshValue)
+                            if ScriptStorage.Interface and ScriptStorage.Interface.SetText then
+                                ScriptStorage.Interface.SetText("DebugLine", TaskName)
+                            end
+                            pcall(function()
+                                Start:Call(RefreshValue)
+                            end)
                             return
                         end
                     end
@@ -5717,32 +5735,41 @@ end)
         end
 
         SetText("MainTextLabel", "Refreshing Player Items...")
-        AddPoint()
+        pcall(AddPoint)
 
-        QuestManager:RefreshQuest()
-        SetText("MainTextLabel", "A")
+        pcall(function()
+            QuestManager:RefreshQuest()
+        end)
 
-        RefreshInventory()
-                SetText("MainTextLabel", "B")
+        pcall(RefreshInventory)
 
-        Remotes.CommE.OnClientEvent:Connect(
-            function(...)
-                local data = {...}
-                -- print(..., "additem")
-                if string.find(data[1], "Item") then
-                    RefreshInventory()
+        pcall(function()
+            local remotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+            local commE = remotesFolder and remotesFolder:FindFirstChild("CommE")
+            if commE and commE:IsA("RemoteEvent") then
+                commE.OnClientEvent:Connect(
+                    function(...)
+                        local data = {...}
+                        if data and data[1] and string.find(tostring(data[1]), "Item") then
+                            pcall(RefreshInventory)
+                        end
+                    end
+                )
+            end
+        end)
+
+        pcall(RefreshRace)
+
+        pcall(function()
+            Players.LocalPlayer.Idled:Connect(
+                function()
+                    pcall(function()
+                        Services.VirtualUser:CaptureController()
+                        Services.VirtualUser:ClickButton2(Vector2.new())
+                    end)
                 end
-            end
-        )
-
-        RefreshRace()
-
-        Players.LocalPlayer.Idled:Connect(
-            function()
-                Services.VirtualUser:CaptureController()
-                Services.VirtualUser:ClickButton2(Vector2.new())
-            end
-        )
+            )
+        end)
 
         SetText("MainTextLabel", "Loaded In " .. tick() - StartTick .. "ms!")
         Loaded = 1
@@ -5806,21 +5833,29 @@ end)
             end
         end)
         
-        if ScriptStorage.PlayerData.Level > 2000 then 
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") 
-        end
+        pcall(function()
+            if ScriptStorage.PlayerData.Level and ScriptStorage.PlayerData.Level > 2000 then 
+                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo") end)
+                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso") end)
+                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru") end)
+                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") end)
+            end
+        end)
         
-         function getcandies()
-            for i,v in game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory") do
-                if v.Name ==  "Candy" then 
-                    return v.Count
+        function getcandies()
+            local inv = nil
+            pcall(function()
+                inv = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
+            end)
+            if type(inv) == "table" then
+                for _, v in pairs(inv) do
+                    if type(v) == "table" and v.Name == "Candy" then 
+                        return tonumber(v.Count) or 0
+                    end
                 end
             end
             return 0
-         end
+        end
         -- Optimized refresh loop with delay to reduce FPS impact
         task.spawn(
             function()
@@ -5906,8 +5941,10 @@ end)
             print(1)
             -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            if not IsInRaid then
-                FunctionsHandler.MeleesController.Methods.Start:Call()
+            if not IsInRaid and FunctionsHandler.MeleesController and FunctionsHandler.MeleesController.Methods and FunctionsHandler.MeleesController.Methods.Start then
+                pcall(function()
+                    FunctionsHandler.MeleesController.Methods.Start:Call()
+                end)
             end
             print(2)
             if not success then
