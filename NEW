@@ -211,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.03"
+        NameHub.Text = "sanglove v1.04"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1840,12 +1840,18 @@ ScriptStorage = {
         function getpos(npcname)
             for i,v in game:GetService("ReplicatedStorage").NPCs:GetChildren() do
                 if v.Name == npcname then
-                    return v.HumanoidRootPart.CFrame
+                    local hrp = v:FindFirstChild("HumanoidRootPart")
+                    if hrp then return hrp.CFrame end
+                    if v.PrimaryPart then return v.PrimaryPart.CFrame end
+                    return v:GetPivot()
                 end
             end
             for i,v in workspace.NPCs:GetChildren() do
                 if v.Name == npcname then
-                    return v.HumanoidRootPart.CFrame
+                    local hrp = v:FindFirstChild("HumanoidRootPart")
+                    if hrp then return hrp.CFrame end
+                    if v.PrimaryPart then return v.PrimaryPart.CFrame end
+                    return v:GetPivot()
                 end
             end
         end
@@ -2150,8 +2156,11 @@ ScriptStorage = {
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
-            if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
+            if not Character or not Character:FindFirstChild("HumanoidRootPart") or not Character:FindFirstChild("Humanoid") then return end
             if not Position or TweenDebounce or TweenController._isCreating then return end
+            
+            -- Chống bay khi đang chết
+            if Character.Humanoid.Health <= 0 then return end
         
             -- Chuyển đổi Position sang CFrame nếu cần
             local TargetCFrame = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
@@ -2510,7 +2519,8 @@ CombatController = {
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
         function CombatController.Grab(MobName)
-            pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", math.huge)
+            -- Tối ưu SimulationRadius cho giả lập (Tránh Crash)
+            pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 2500)
             if not CombatController.GRAB or GrabDebounce == os.time() then
             end
             GrabDebounce = os.time()
