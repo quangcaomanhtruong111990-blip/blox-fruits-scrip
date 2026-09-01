@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.22"
+            NameHub.Text = "sanglove v1.23"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -1627,7 +1627,7 @@ ScriptStorage = {
             "PirateRaid",
             "SecondSeaPuzzle",
             "ThirdSeaPuzzle",
-            -- "CollectDrops",
+            "CollectDrops",
             "BossesTask",
             "LevelFarm"
         }
@@ -2058,24 +2058,14 @@ ScriptStorage = {
         local function NoclipLoop()
             speaker = LocalPlayer
             if speaker.Character ~= nil then
-                -- [v1.17] Optimized Noclip: Chỉ xử lý các bộ phận chính để tiết kiệm CPU
-                local charParts = {"HumanoidRootPart", "UpperTorso", "LowerTorso", "Head"}
-                for _, partName in ipairs(charParts) do
-                    local part = speaker.Character:FindFirstChild(partName)
-                    if part and part:IsA("BasePart") then
-                        part.CanCollide = false
+                for _, child in pairs(speaker.Character:GetDescendants()) do
+                    if child:IsA("BasePart") and child.CanCollide == true and child.Name ~= nil then
+                        child.CanCollide = false
                     end
                 end
             end
         end
-        -- [v1.17] Tăng thời gian nghỉ cho vòng lặp Stepped để giảm tải giả lập
-        local noclipCount = 0
-        Noclipping = Services.RunService.Stepped:Connect(function()
-            noclipCount = noclipCount + 1
-            if noclipCount % 5 == 0 then -- Chỉ chạy mỗi 5 frame
-                NoclipLoop()
-            end
-        end)
+        Noclipping = Services.RunService.Stepped:Connect(NoclipLoop)
         function GetPortal(Position)
             local Nearest, Current = 9e9, nil
             for _, Portal in Portals do
@@ -5963,6 +5953,12 @@ FunctionsHandler = {
                 return
             end
             task.wait(0.5) -- [v1.18] Giãn cách quét task để tránh quá tải CPU
+            
+            -- [v1.24] Only run tasks after startup is finished
+            if not _G.StartupFinished then
+                return
+            end
+
             for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
                 if Task then
@@ -5997,14 +5993,25 @@ FunctionsHandler = {
             end
         end
 
-        SetText("MainTextLabel", "Refreshing Player Items...")
-        pcall(RefreshPlayerData)
-        pcall(AddPoint)
-        pcall(function() QuestManager:RefreshQuest() end)
-        SetText("MainTextLabel", "Loading Inventory...")
+        -- [v1.24] New Secured Startup Sequence (10s delay between steps)
+        SetText("MainTextLabel", "Loading Melee System (Step 1/4)...")
+        pcall(function() FunctionsHandler.MeleesController.Methods.Start:Call() end)
+        task.wait(10)
+
+        SetText("MainTextLabel", "Loading Inventory (Step 2/4)...")
         pcall(RefreshInventory)
-        -- SetText("MainTextLabel", "Loading Race...")
-        -- pcall(RefreshRace)
+        task.wait(10)
+
+        SetText("MainTextLabel", "Loading Race Info (Step 3/4)...")
+        pcall(RefreshRace)
+        task.wait(10)
+
+        SetText("MainTextLabel", "Loading Quest Data (Step 4/4)...")
+        pcall(function() QuestManager:RefreshQuest() end)
+        task.wait(2) -- Final breather
+        
+        _G.StartupFinished = true -- Flag to unlock farming tasks
+        
         Remotes.CommE.OnClientEvent:Connect(
             function(...)
                 local data = {...}
@@ -6014,8 +6021,6 @@ FunctionsHandler = {
                 end
             end
         )
-
-        -- RefreshRace()
 
         Players.LocalPlayer.Idled:Connect(
             function()
@@ -6181,8 +6186,8 @@ FunctionsHandler = {
             local success, response = xpcall(RefreshTasksData, debug.traceback)
             
             -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
-            local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            -- [v1.21] Disabled Melee check as it causes crashes on some emulators
+            -- [v1.24] Handled in startup sequence to avoid crash
+            -- local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
             -- if not IsInRaid then
             --     FunctionsHandler.MeleesController.Methods.Start:Call()
             -- end
