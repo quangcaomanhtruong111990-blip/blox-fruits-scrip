@@ -211,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.06"
+        NameHub.Text = "sanglove v1.07"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2178,15 +2178,13 @@ ScriptStorage = {
         
             TweenController._isCreating = true
         
-            -- 3. XỬ LÝ NOCLIP (Tối ưu cho giả lập)
+            -- 3. XỬ LÝ NOCLIP (An toàn cho Sea 3)
             pcall(function()
                 for _, part in ipairs(Character:GetChildren()) do
-                    if part:IsA("BasePart") then
+                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
                         part.CanCollide = false
                     end
                 end
-                local hrp = Character:FindFirstChild("HumanoidRootPart")
-                if hrp then hrp.CanCollide = false end
             end)
         
             -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity)
@@ -2228,7 +2226,7 @@ ScriptStorage = {
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (100)
-            local Speed = (CurrentDist < 18) and 25 or 100
+            local Speed = (CurrentDist < 18) and 25 or 85
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
