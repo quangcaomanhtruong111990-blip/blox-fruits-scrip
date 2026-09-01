@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.16"
+            NameHub.Text = "sanglove v1.17"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -2053,14 +2053,24 @@ ScriptStorage = {
         local function NoclipLoop()
             speaker = LocalPlayer
             if speaker.Character ~= nil then
-                for _, child in pairs(speaker.Character:GetDescendants()) do
-                    if child:IsA("BasePart") and child.CanCollide == true and child.Name ~= nil then
-                        child.CanCollide = false
+                -- [v1.17] Optimized Noclip: Chỉ xử lý các bộ phận chính để tiết kiệm CPU
+                local charParts = {"HumanoidRootPart", "UpperTorso", "LowerTorso", "Head"}
+                for _, partName in ipairs(charParts) do
+                    local part = speaker.Character:FindFirstChild(partName)
+                    if part and part:IsA("BasePart") then
+                        part.CanCollide = false
                     end
                 end
             end
         end
-        Noclipping = Services.RunService.Stepped:Connect(NoclipLoop)
+        -- [v1.17] Tăng thời gian nghỉ cho vòng lặp Stepped để giảm tải giả lập
+        local noclipCount = 0
+        Noclipping = Services.RunService.Stepped:Connect(function()
+            noclipCount = noclipCount + 1
+            if noclipCount % 5 == 0 then -- Chỉ chạy mỗi 5 frame
+                NoclipLoop()
+            end
+        end)
         function GetPortal(Position)
             local Nearest, Current = 9e9, nil
             for _, Portal in Portals do
@@ -2613,6 +2623,7 @@ CombatController = {
                         ChildInstance.HumanoidRootPart.CFrame = MidPoint
 
                         ChildInstance:SetAttribute("MidPoint", MidPoint)
+                        task.wait() -- [v1.17] Thêm delay cực ngắn để chống crash vật lý
                     end)()
                 end
             )
