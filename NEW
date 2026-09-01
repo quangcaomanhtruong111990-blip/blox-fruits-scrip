@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.25"
+            NameHub.Text = "sanglove v1.26"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -5946,6 +5946,11 @@ FunctionsHandler = {
         end)
         
         local LogCache = {}
+        -- [v1.26] Initialize UI immediately so Loading status can be seen
+        task.spawn(function()
+            xpcall(mmb, debug.traceback)
+        end)
+        
         SetTask("MainTask", "n/a")
         SetTask("SubTask", "n/a")
         ParsingTimes = 0 
@@ -6012,11 +6017,6 @@ FunctionsHandler = {
         task.wait(2) -- Final breather
         
         _G.StartupFinished = true -- Flag to unlock farming tasks
-        
-        -- [v1.25] Load UI AFTER startup is finished to prevent immediate crash
-        task.spawn(function()
-            xpcall(mmb, debug.traceback)
-        end)
         
         Remotes.CommE.OnClientEvent:Connect(
             function(...)
