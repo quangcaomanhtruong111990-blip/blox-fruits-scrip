@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.19"
+            NameHub.Text = "sanglove v1.20"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -3769,11 +3769,13 @@ FunctionsHandler = {
         FunctionsHandler.MeleesController:RegisterMethod(
             "Start",
             function()
-                -- [v1.16] Safety Delay: Không mua võ trong 60 giây đầu để tránh crash giả lập
-                if tick() - (StartTick or 0) < 60 then
-                    SetTask("SubTask", "Waiting for System Warmup (" .. math.floor(60 - (tick() - (StartTick or 0))) .. "s)")
+                -- [v1.20] Safety Warmup for Melee Check: Giảm xuống 30s nhưng ưu tiên chạy đầu
+                if tick() - (StartTick or 0) < 30 then
+                    SetTask("SubTask", "Initializing Melee System (" .. math.floor(30 - (tick() - (StartTick or 0))) .. "s)")
                     return
                 end
+
+                _G.MeleeChecked = true -- Đánh dấu đã kiểm tra võ xong v1.20
 
                 ScriptStorage.IsGettingMelee = false  -- luôn reset flag trước khi bắt đầu
 
@@ -5962,6 +5964,11 @@ FunctionsHandler = {
             end
             task.wait(0.5) -- [v1.18] Giãn cách quét task để tránh quá tải CPU
             for _, TaskName in TasksOrder do
+                -- [v1.20] Nếu chưa kiểm tra võ xong, chỉ chạy task Melees, bỏ qua các task sau
+                if not _G.MeleeChecked and TaskName ~= "Melees" then
+                    continue
+                end
+
                 local Task = FunctionsHandler[TaskName]
                 if Task then
                     if not Task.Initalized then
