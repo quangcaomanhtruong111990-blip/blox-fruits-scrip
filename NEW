@@ -169,6 +169,10 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function mmb()
+        -- [v1.05] Startup Delay: Chờ 10 giây để game ổn định hoàn toàn trước khi bắt đầu
+        print("[SANGLOVE v1.05] Đang chờ game ổn định trong 10 giây...")
+        task.wait(10)
+        print("[SANGLOVE v1.05] Khởi động hoàn tất!")
         local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
         local Interface = {
             Instances = {}
@@ -211,7 +215,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.04"
+        NameHub.Text = "sanglove v1.05"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
