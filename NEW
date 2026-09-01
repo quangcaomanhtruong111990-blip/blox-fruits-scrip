@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.23"
+            NameHub.Text = "sanglove v1.25"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -224,7 +224,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.TextColor3 = Color3.fromRGB(9, 255, 248)
             NameHub.TextSize = 50
     
-            task.wait(0.2) -- Giãn cách nạp Container
+            task.wait(0.5) -- Giãn cách nạp Container
             -- Create Toggle Button Container
         ToggleContainer.Name = "ToggleContainer"
         ToggleContainer.Parent = HopGui
@@ -2058,10 +2058,11 @@ ScriptStorage = {
         local function NoclipLoop()
             speaker = LocalPlayer
             if speaker.Character ~= nil then
-                for _, child in pairs(speaker.Character:GetDescendants()) do
-                    if child:IsA("BasePart") and child.CanCollide == true and child.Name ~= nil then
-                        child.CanCollide = false
-                    end
+                local char = speaker.Character
+                local parts = {"HumanoidRootPart", "UpperTorso", "LowerTorso", "Head"}
+                for _, name in ipairs(parts) do
+                    local p = char:FindFirstChild(name)
+                    if p and p:IsA("BasePart") then p.CanCollide = false end
                 end
             end
         end
@@ -6012,6 +6013,11 @@ FunctionsHandler = {
         
         _G.StartupFinished = true -- Flag to unlock farming tasks
         
+        -- [v1.25] Load UI AFTER startup is finished to prevent immediate crash
+        task.spawn(function()
+            xpcall(mmb, debug.traceback)
+        end)
+        
         Remotes.CommE.OnClientEvent:Connect(
             function(...)
                 local data = {...}
@@ -6200,9 +6206,9 @@ FunctionsHandler = {
     end
     -- Remote kunblox script removed
         
-    task.defer(function()
-        local success2, response2 = xpcall(mmb, debug.traceback)
-        if not success2 then
-            Report(response2)
-        end
-    end)
+--     task.defer(function()
+--         local success2, response2 = xpcall(mmb, debug.traceback)
+--         if not success2 then
+--             Report(response2)
+--         end
+--     end)
