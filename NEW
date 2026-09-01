@@ -211,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.04"
+        NameHub.Text = "sanglove v1.05"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5726,26 +5726,35 @@ FunctionsHandler = {
             local RunService = game:GetService("RunService")
             local Lighting = game:GetService("Lighting")
 
-            -- Tắt nước
+            -- Tối ưu hóa render 3D mức tối đa
+            pcall(function()
+                RunService:Set3dRenderSetting(Enum.ThreeDRenderSetting.Low)
+                settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+                settings().Physics.PhysicsEnvironmentalThrottle = Enum.EnviromentalPhysicsThrottle.Default
+                workspace.LevelOfDetail = Enum.ModelLevelOfDetail.Disabled
+            end)
+
+            -- Tắt nước và hiệu ứng Terrain
             if Terrain then
                 Terrain.WaterWaveSize = 0
                 Terrain.WaterWaveSpeed = 0
                 Terrain.WaterReflectance = 0
                 Terrain.WaterTransparency = 1
+                Terrain.Decoration = false
             end
 
-            -- Xóa map không cần thiết để tăng FPS
+            -- Xóa map không cần thiết để tăng FPS mức tối đa
             pcall(function()
                 -- Xóa clouds trong workspace
                 for _, v in ipairs(workspace:GetChildren()) do
-                    if v.Name == "Clouds" or v.Name == "Cloud" then
+                    if v.Name == "Clouds" or v.Name == "Cloud" or v:IsA("Sky") then
                         pcall(function() v:Destroy() end)
                     end
                 end
 
                 -- Xóa skybox/decoration trong lighting
                 for _, v in ipairs(Lighting:GetChildren()) do
-                    if v:IsA("Sky") or v:IsA("Decal") then
+                    if v:IsA("Sky") or v:IsA("Decal") or v:IsA("PostProcessEffect") then
                         pcall(function() v:Destroy() end)
                     end
                 end
@@ -5753,70 +5762,97 @@ FunctionsHandler = {
                 -- Xóa map decorations (part nằm trong Map folder)
                 local Map = workspace:FindFirstChild("Map")
                 if Map then
-                    for _, v in ipairs(Map:GetChildren()) do
-                        local name = v.Name:lower()
-                        if name:find("tree") or name:find("plant") or name:find("rock") or
-                           name:find("fence") or name:find("decoration") or name:find("grass") or
-                           name:find("bush") or name:find("flower") or name:find("sign") then
-                            pcall(function() v:Destroy() end)
+                    for _, v in ipairs(Map:GetDescendants()) do
+                        if v:IsA("BasePart") then
+                            local name = v.Name:lower()
+                            if name:find("tree") or name:find("plant") or name:find("rock") or
+                               name:find("fence") or name:find("decoration") or name:find("grass") or
+                               name:find("bush") or name:find("flower") or name:find("sign") or name:find("leaf") then
+                                pcall(function() v:Destroy() end)
+                            end
                         end
                     end
                 end
 
-                -- Xóa spawn location effects
+                -- Xóa tất cả âm thanh và hiệu ứng môi trường
                 for _, v in ipairs(workspace:GetDescendants()) do
-                    if v:IsA("Sound") then
+                    if v:IsA("Sound") or v:IsA("Explosion") then
                         pcall(function() v:Destroy() end)
+                    elseif v:IsA("BasePart") and not v:IsDescendantOf(Player.Character) then
+                        v.CastShadow = false
                     end
                 end
             end)
 
-            -- Tắt lighting
+            -- Tắt lighting hoàn toàn
             Lighting.GlobalShadows = false
             Lighting.FogEnd = 9e9
             Lighting.FogStart = 9e9
+            Lighting.Brightness = 1
+            Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
 
-            -- Giảm quality level
-            pcall(function()
-                settings().Rendering.QualityLevel = 1
-            end)
-
-            -- Xóa lighting children
+            -- Xóa toàn bộ Lighting children (Bloom, Blur, ColorCorrection...)
             pcall(function()
                 Lighting:ClearAllChildren()
             end)
 
-            -- Xóa effect particles cho non-character parts
+            -- Xóa effect particles mức tối đa
+            local function cleanEffect(v)
+                if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Beam") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+                    pcall(function() 
+                        v.Enabled = false 
+                        if v:IsA("ParticleEmitter") then v.Lifetime = NumberRange.new(0) end
+                    end)
+                elseif v:IsA("Decal") or v:IsA("Texture") then
+                    pcall(function() v:Destroy() end)
+                elseif v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+                    pcall(function() v.Enabled = false end)
+                end
+            end
+
             pcall(function()
                 for _, v in ipairs(game:GetDescendants()) do
-                    if v:IsA("ParticleEmitter") or v:IsA("Trail") then
-                        pcall(function() v.Lifetime = NumberRange.new(0) end)
-                    elseif v:IsA("AnimationController") then
-                        pcall(function() v:Destroy() end)
-                    end
+                    cleanEffect(v)
                 end
             end)
 
-            -- Xử lý existing characters
-            for _, player1 in pairs(Players:GetChildren()) do
-                if player1.Character then
-                    task.spawn(function()
-                        task.wait(0.5)
-                        for _, part in pairs(player1.Character:GetChildren()) do
-                            if part:IsA("Accessory") or part.Name == "Radio" then
-                                pcall(function() part:Destroy() end)
+            -- Xử lý NPCs và Players (Giảm tối đa hiệu ứng nhân vật)
+            local function simplifyChar(char)
+                if not char then return end
+                task.spawn(function()
+                    task.wait(0.2)
+                    for _, part in pairs(char:GetDescendants()) do
+                        if part:IsA("Accessory") or part:IsA("Shirt") or part:IsA("Pants") or part:IsA("ShirtGraphic") or part.Name == "Radio" then
+                            pcall(function() part:Destroy() end)
+                        elseif part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                            -- Làm mờ nhân vật NPC/Player khác
+                            if not char:IsAncestorOf(Player.Character) and char ~= Player.Character then
+                                pcall(function()
+                                    part.Material = "SmoothPlastic"
+                                    part.Reflectance = 0
+                                    part.Transparency = 0.5 -- Cho thấy mờ mờ để biết NPC ở đâu
+                                end)
                             end
                         end
-                    end)
-                end
-                player1.CharacterAdded:Connect(function(char)
-                    task.wait(0.5)
-                    for _, part in pairs(char:GetChildren()) do
-                        if part:IsA("Accessory") or part.Name == "Radio" then
-                            pcall(function() part:Destroy() end)
-                        end
+                        cleanEffect(part)
                     end
                 end)
+            end
+
+            for _, p in pairs(Players:GetPlayers()) do
+                simplifyChar(p.Character)
+                p.CharacterAdded:Connect(simplifyChar)
+            end
+            Players.PlayerAdded:Connect(function(p)
+                p.CharacterAdded:Connect(simplifyChar)
+            end)
+
+            -- Theo dõi các NPC mới xuất hiện
+            if workspace:FindFirstChild("Enemies") then
+                workspace.Enemies.ChildAdded:Connect(simplifyChar)
+            end
+            if workspace:FindFirstChild("NPCs") then
+                workspace.NPCs.ChildAdded:Connect(simplifyChar)
             end
 
             -- Bug 1 FIX: Chỉ destroy thứ KHÔNG phải Model/Folder trong _WorldOrigin
@@ -5830,7 +5866,7 @@ FunctionsHandler = {
 
             -- Xóa cache folder trong ReplicatedStorage
             pcall(function()
-                local candelete = {"Cache", "Cache2"}
+                local candelete = {"Cache", "Cache2", "Effect", "Effects"}
                 for _, v in ipairs(ReplicatedStorage:GetChildren()) do
                     if table.find(candelete, v.Name) then
                         pcall(function() v:Destroy() end)
@@ -5849,17 +5885,12 @@ FunctionsHandler = {
                 end)
             end
 
-            -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
+            -- DescendantAdded hook cho các object mới
             workspace.DescendantAdded:Connect(function(child)
                 task.spawn(function()
                     pcall(function()
-                        -- Chỉ xử lý effect, KHÔNG transparent player character
-                        if child:IsA("ForceField") or child:IsA("Sparkles") or
-                           child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
-                            child:Destroy()
-                            return
-                        end
-
+                        cleanEffect(child)
+                        
                         -- Bỏ qua character parts của player
                         local char = Player.Character
                         if char and (child:IsDescendantOf(char) or child == char) then
@@ -5867,20 +5898,13 @@ FunctionsHandler = {
                         end
 
                         if child:IsA("BasePart") then
-                            child.Material = "Plastic"
+                            child.Material = "SmoothPlastic"
                             child.Reflectance = 0
-                            child.BackSurface = "SmoothNoOutlines"
-                            child.BottomSurface = "SmoothNoOutlines"
-                            child.FrontSurface = "SmoothNoOutlines"
-                            child.LeftSurface = "SmoothNoOutlines"
-                            child.RightSurface = "SmoothNoOutlines"
-                            child.TopSurface = "SmoothNoOutlines"
-                            child.Transparency = 1
                             child.CastShadow = false
-                        elseif child:IsA("Decal") then
-                            child.Transparency = 1
-                        elseif child:IsA("AnimationController") then
-                            child:Destroy()
+                            -- Nếu không phải player character thì cho tàng hình/mờ
+                            if not child:IsDescendantOf(workspace:FindFirstChild("Enemies") or workspace) and not child:IsDescendantOf(workspace:FindFirstChild("NPCs") or workspace) then
+                                child.Transparency = 1
+                            end
                         end
                     end)
                 end)
