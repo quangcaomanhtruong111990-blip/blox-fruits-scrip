@@ -36,6 +36,9 @@ repeat
     task.wait(0.5)
 until game:IsLoaded()
 
+-- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
+task.wait(15)
+
 -- Volt Performance Optimization Setup
 local Volt = nil
 pcall(function()
@@ -69,7 +72,7 @@ function CheckKick(v)
 end
 -- print restored
 repeat
-    task.wait() 
+    task.wait(1) 
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
 until game.Players.LocalPlayer.Character
 game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
@@ -211,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.08"
+        NameHub.Text = "sanglove v1.09"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2527,8 +2530,8 @@ CombatController = {
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
         function CombatController.Grab(MobName)
-            -- Tối ưu SimulationRadius (An toàn tối đa v1.08)
-            pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
+            -- [v1.09] Disabled SimulationRadius to prevent crashes in Sea 3
+            -- pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
             if not CombatController.GRAB or GrabDebounce == os.time() then
             end
             GrabDebounce = os.time()
