@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.13"
+            NameHub.Text = "sanglove v1.14"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -723,7 +723,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 end
             end
         end)
-        alert("Cyndral", "Endpoint reached")
+        -- alert("Cyndral", "Endpoint reached")
 
         local CDN_HOST = ""
 
@@ -749,7 +749,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
                 LocalPlayer.PlayerScripts:WaitForChild("IslandLOD", 9999):Destroy()
             end
         )
-        alert("wait 1", "ok")
+        -- alert("wait 1", "ok")
         
         local Segmants = {
             "RawConstants",
@@ -772,7 +772,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         repeat
             task.wait()
         until SetText
-        alert("load 2")
+        -- alert("load 2")
         SetText("MainTextLabel", "Initalizing Script...")
         
 
@@ -5872,41 +5872,42 @@ FunctionsHandler = {
             end
 
             -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
-            workspace.DescendantAdded:Connect(function(child)
-                task.spawn(function()
-                    pcall(function()
-                        -- Chỉ xử lý effect, KHÔNG transparent player character
-                        if child:IsA("ForceField") or child:IsA("Sparkles") or
-                           child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
-                            child:Destroy()
-                            return
-                        end
-
-                        -- Bỏ qua character parts của player
-                        local char = Player.Character
-                        if char and (child:IsDescendantOf(char) or child == char) then
-                            return
-                        end
-
-                        if child:IsA("BasePart") then
-                            child.Material = "Plastic"
-                            child.Reflectance = 0
-                            child.BackSurface = "SmoothNoOutlines"
-                            child.BottomSurface = "SmoothNoOutlines"
-                            child.FrontSurface = "SmoothNoOutlines"
-                            child.LeftSurface = "SmoothNoOutlines"
-                            child.RightSurface = "SmoothNoOutlines"
-                            child.TopSurface = "SmoothNoOutlines"
-                            child.Transparency = 1
-                            child.CastShadow = false
-                        elseif child:IsA("Decal") then
-                            child.Transparency = 1
-                        elseif child:IsA("AnimationController") then
-                            child:Destroy()
-                        end
-                    end)
-                end)
-            end)
+            -- [v1.14] Removed aggressive listener that causes crashes on load
+            -- workspace.DescendantAdded:Connect(function(child)
+            --     task.spawn(function()
+            --         pcall(function()
+            --             -- Chỉ xử lý effect, KHÔNG transparent player character
+            --             if child:IsA("ForceField") or child:IsA("Sparkles") or
+            --                child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
+            --                 child:Destroy()
+            --                 return
+            --             end
+            -- 
+            --             -- Bỏ qua character parts của player
+            --             local char = Player.Character
+            --             if char and (child:IsDescendantOf(char) or child == char) then
+            --                 return
+            --             end
+            -- 
+            --             if child:IsA("BasePart") then
+            --                 child.Material = "Plastic"
+            --                 child.Reflectance = 0
+            --                 child.BackSurface = "SmoothNoOutlines"
+            --                 child.BottomSurface = "SmoothNoOutlines"
+            --                 child.FrontSurface = "SmoothNoOutlines"
+            --                 child.LeftSurface = "SmoothNoOutlines"
+            --                 child.RightSurface = "SmoothNoOutlines"
+            --                 child.TopSurface = "SmoothNoOutlines"
+            --                 child.Transparency = 1
+            --                 child.CastShadow = false
+            --             elseif child:IsA("Decal") then
+            --                 child.Transparency = 1
+            --             elseif child:IsA("AnimationController") then
+            --                 child:Destroy()
+            --             end
+            --         end)
+            --     end)
+            -- end)
         end  
         if Config.Configuration.FpsBoost then
             boostfps()
@@ -6061,10 +6062,15 @@ FunctionsHandler = {
         end)
         
         if ScriptStorage.PlayerData.Level > 2000 then 
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") 
+            task.spawn(function()
+                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo") end)
+                task.wait(1)
+                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso") end)
+                task.wait(1)
+                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru") end)
+                task.wait(1)
+                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") end)
+            end)
         end
         
          function getcandies()
