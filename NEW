@@ -14,7 +14,7 @@ Config =
             },
             Items = {
                 -- Melees
-                AutoFullyMelees = true,
+                AutoFullyMelees = false,
                 -- Swords
                 Saber = true,
                 CursedDualKatana = false,
@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.15"
+            NameHub.Text = "sanglove v1.16"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -3753,6 +3753,12 @@ FunctionsHandler = {
         FunctionsHandler.MeleesController:RegisterMethod(
             "Start",
             function()
+                -- [v1.16] Safety Delay: Không mua võ trong 60 giây đầu để tránh crash giả lập
+                if tick() - (StartTick or 0) < 60 then
+                    SetTask("SubTask", "Waiting for System Warmup (" .. math.floor(60 - (tick() - (StartTick or 0))) .. "s)")
+                    return
+                end
+
                 ScriptStorage.IsGettingMelee = false  -- luôn reset flag trước khi bắt đầu
 
                 for Cursor, Melee in MeleesTable do
