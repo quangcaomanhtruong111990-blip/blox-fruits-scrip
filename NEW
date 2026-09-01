@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
             NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
             NameHub.BorderSizePixel = 0
             NameHub.Font = Enum.Font.FredokaOne
-            NameHub.Text = "sanglove v1.18"
+            NameHub.Text = "sanglove v1.19"
     
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = NameHub
@@ -817,10 +817,15 @@ ScriptStorage = {
         end)) 
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
+        
+        -- [v1.19] Safety Check for Character on Server Join/Hop
+        repeat task.wait(0.5) until LocalPlayer.Character or (tick() - StartTick > 15)
         Character = LocalPlayer.Character
-
-        Humanoid = Character:WaitForChild("Humanoid")
-        HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+        
+        if Character then
+            Humanoid = Character:WaitForChild("Humanoid", 10)
+            HumanoidRootPart = Character:WaitForChild("HumanoidRootPart", 10)
+        end
 
         PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
         Lighting = game:GetService("Lighting")
