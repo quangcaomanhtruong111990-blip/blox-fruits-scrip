@@ -211,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.09"
+        NameHub.Text = "sanglove v2"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1900,7 +1900,7 @@ ScriptStorage = {
             }
         }
 
-        local NPCList = require(game.ReplicatedStorage.GuideModule).Data.NPCList
+        local NpcList = require(game.ReplicatedStorage.GuideModule).Data.NPCList
 
         repeat
             task.wait()
