@@ -36,19 +36,16 @@ repeat
     task.wait(0.5)
 until game:IsLoaded()
 
--- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
-task.wait(15)
+-- [v1.11] Ultra-Stability Startup Delay: Chờ 20 giây để giả lập ổn định hoàn toàn
+task.wait(20)
 
--- Volt Performance Optimization Setup
+-- Volt Performance Optimization Setup (Bọc an toàn hơn cho giả lập)
 local Volt = nil
 pcall(function()
-    -- Try to load Volt if available
     if typeof(volt) == "table" then
         Volt = volt
-        print("[Volt] Volt detected and loaded")
     elseif typeof(getgenv().volt) == "table" then
         Volt = getgenv().volt
-        print("[Volt] Volt detected from getgenv()")
     end
 end)
 
@@ -171,60 +168,64 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         -- Webhook Discord disabled: No telemetry or data sent externally
     end
 
-    function mmb()
-        local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
-        local Interface = {
-            Instances = {}
-        }
-
-        local isVisible = true
-        local isToggleOpen = false
-        local player = game.Players.LocalPlayer
-
-        repeat
-            task.wait()
-        until game.CoreGui
-
-        local HopGui = Instance.new("ScreenGui")
-        local NameHub = Instance.new("TextLabel")
-        local UIStroke = Instance.new("UIStroke")
-        local StrokeBounty = Instance.new("UIStroke")
-        local Bounty = Instance.new("TextLabel")
-        local ToggleButton = Instance.new("ImageButton")
-        local ToggleContainer = Instance.new("Frame")
-        local ToggleUIStroke = Instance.new("UIStroke")
-        local ToggleIcon = Instance.new("TextLabel")
-
-        -- Create a table to store UI references for blurring
-        local UIReferences = {}
-
-        HopGui.Name = "CyndralDev"
-        HopGui.Parent = game:GetService("CoreGui")
-        HopGui.Enabled = not Config.Configuration.HideGui
-        HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        HopGui.IgnoreGuiInset = true
-
-        NameHub.Name = "NameHub"
-        NameHub.Parent = HopGui
-        NameHub.AnchorPoint = Vector2.new(0.5, 0.5)
-        NameHub.Position = UDim2.new(0.5, 0, 0.3, 0)
-        NameHub.Size = UDim2.new(1, 0, 0, 80)
-        NameHub.BackgroundTransparency = 0.999
-        NameHub.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
-        NameHub.BorderSizePixel = 0
-        NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.10"
-
-        local UIStroke = Instance.new("UIStroke")
-        UIStroke.Parent = NameHub
-        UIStroke.Color = Color3.fromRGB(0, 0, 0)
-        UIStroke.Thickness = 1
-
-        NameHub.TextColor3 = Color3.fromRGB(9, 255, 248)
-        NameHub.TextSize = 50
-
-        -- Create Toggle Button Container
+        function mmb()
+            local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
+            local Interface = {
+                Instances = {}
+            }
+    
+            local isVisible = true
+            local isToggleOpen = false
+            local player = game.Players.LocalPlayer
+    
+            repeat
+                task.wait(1) -- Chờ CoreGui an toàn hơn
+            until game:GetService("CoreGui")
+    
+            task.wait(0.5)
+            local HopGui = Instance.new("ScreenGui")
+            task.wait(0.1)
+            local NameHub = Instance.new("TextLabel")
+            task.wait(0.1)
+            local UIStroke = Instance.new("UIStroke")
+            local StrokeBounty = Instance.new("UIStroke")
+            local Bounty = Instance.new("TextLabel")
+            local ToggleButton = Instance.new("ImageButton")
+            local ToggleContainer = Instance.new("Frame")
+            local ToggleUIStroke = Instance.new("UIStroke")
+            local ToggleIcon = Instance.new("TextLabel")
+    
+            -- Create a table to store UI references for blurring
+            local UIReferences = {}
+    
+            HopGui.Name = "CyndralDev"
+            HopGui.Parent = game:GetService("CoreGui")
+            HopGui.Enabled = not Config.Configuration.HideGui
+            HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            HopGui.IgnoreGuiInset = true
+    
+            NameHub.Name = "NameHub"
+            NameHub.Parent = HopGui
+            NameHub.AnchorPoint = Vector2.new(0.5, 0.5)
+            NameHub.Position = UDim2.new(0.5, 0, 0.3, 0)
+            NameHub.Size = UDim2.new(1, 0, 0, 80)
+            NameHub.BackgroundTransparency = 0.999
+            NameHub.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
+            NameHub.BorderSizePixel = 0
+            NameHub.Font = Enum.Font.FredokaOne
+            NameHub.Text = "sanglove v1.11"
+    
+            local UIStroke = Instance.new("UIStroke")
+            UIStroke.Parent = NameHub
+            UIStroke.Color = Color3.fromRGB(0, 0, 0)
+            UIStroke.Thickness = 1
+    
+            NameHub.TextColor3 = Color3.fromRGB(9, 255, 248)
+            NameHub.TextSize = 50
+    
+            task.wait(0.2) -- Giãn cách nạp Container
+            -- Create Toggle Button Container
         ToggleContainer.Name = "ToggleContainer"
         ToggleContainer.Parent = HopGui
         ToggleContainer.AnchorPoint = Vector2.new(1, 0)
