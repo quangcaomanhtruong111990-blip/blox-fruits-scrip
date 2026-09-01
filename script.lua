@@ -242,7 +242,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "kunblox"
+        NameHub.Text = "kunblox.net"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2210,8 +2210,8 @@ end)
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (100)
-            local Speed = (CurrentDist < 18) and 25 or 100
+            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
+            local Speed = (CurrentDist < 18) and 25 or 330
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -3747,8 +3747,35 @@ end)
                                                 ScriptStorage.Melees[Melee] ..
                                                     " / " .. Data.NextLevelRequirement .. " )."
                                 )
-                                -- Luôn attack ĐỂ TĂNG MASTERY, bất kể đã sở hữu melee chưa
-                                CombatController.Attack(Melee)
+                                -- Farm mastery bằng mob quest hiện tại, KHÔNG dùng tên melee
+                                local function GetMasteryFarmMob()
+                                    -- Thử lấy mob từ quest đang nhận
+                                    local QuestMobName = QuestManager:GetCurrentQuest and QuestManager:GetCurrentQuest()
+                                    if QuestMobName and type(QuestMobName) == "string" and QuestMobName ~= "" then
+                                        return QuestMobName
+                                    end
+                                    -- Fallback theo level và sea
+                                    local lv = ScriptStorage.PlayerData.Level or 0
+                                    if SeaIndex == 3 then
+                                        if lv >= 2000 then return "Reborn Skeleton"
+                                        elseif lv >= 1800 then return "Forest Pirates"
+                                        else return "Pirate Millionaire" end
+                                    elseif SeaIndex == 2 then
+                                        if lv >= 1500 then return "Fishman Raider"
+                                        elseif lv >= 1200 then return "Ship Deckhand"
+                                        elseif lv >= 1050 then return "Dragon Crew Warrior"
+                                        elseif lv >= 900 then return "Fishman Warrior"
+                                        elseif lv >= 700 then return "Swan Pirate"
+                                        else return "Toga Warrior" end
+                                    else
+                                        if lv >= 600 then return "Galley Pirate"
+                                        elseif lv >= 450 then return "Sky Bandit"
+                                        elseif lv >= 300 then return "Pirate"
+                                        else return "Bandit" end
+                                    end
+                                end
+                                local masteryMob = GetMasteryFarmMob()
+                                CombatController.Attack(masteryMob)
                                 -- Chỉ mua nếu chưa có — KHÔNG block raid khi farm mastery
                                 if not ScriptStorage.Tools[Melee] then
                                     print("no m1 found, buy")
