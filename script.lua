@@ -36,6 +36,9 @@ repeat
     task.wait(0.5)
 until game:IsLoaded()
 
+-- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
+task.wait(15)
+
 -- Volt Performance Optimization Setup
 local Volt = nil
 pcall(function()
@@ -67,23 +70,15 @@ function CheckKick(v)
         v:Destroy()
     end
 end
--- Safe Team Selection
-pcall(function()
-    if not game.Players.LocalPlayer.Character then
-        repeat
-            task.wait(0.1)
-            pcall(function()
-                if game.ReplicatedStorage:FindFirstChild("Remotes") and game.ReplicatedStorage.Remotes:FindFirstChild("CommF_") then
-                    game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', Config.Team or 'Pirates')
-                end
-            end)
-        until game.Players.LocalPlayer.Character
+-- print restored
+repeat
+    task.wait(1) 
+    game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
+until game.Players.LocalPlayer.Character
+game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
+    if os.time() >= 1756319996 then
+    --  while true do end
     end
-end)
-
-pcall(function()
-    game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
-end)
     
         local checkdone = false
 
@@ -96,7 +91,7 @@ end)
             GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
         end
     )
-   -- print = function() end
+   -- -- print restored
     local StartTime = os.time()
 
     local Traces = {}
@@ -109,7 +104,7 @@ end)
                 {
                     title = GameName,
                     description = game.PlaceId .. " | " .. game.JobId,
-                    color = 0x5865F2,
+                    color = 15642286,
                     fields = {
                         {
                             name = "Error Details",
@@ -117,7 +112,7 @@ end)
                         },
                         {
                             name = "Player Info",
-                            value = "Level: " .. ScriptStorage.PlayerData.Level
+                            value = "Level: " .. tostring((ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or "n/a")
                         },
                         {
                             name = "Script Details",
@@ -173,30 +168,7 @@ end)
     end
 
     function Report(Message)
-        pcall(function()
-            if Traces[Message] then
-                return
-            end
-            Traces[Message] = true
-    
-            local Body = game:GetService("HttpService"):JSONEncode(Build(Message))
-    
-            local req = (typeof(request) == "function" and request) 
-                or (typeof(http_request) == "function" and http_request) 
-                or (typeof(syn) == "table" and typeof(syn.request) == "function" and syn.request)
-                or (typeof(http) == "table" and typeof(http.request) == "function" and http.request)
-            
-            if req then
-                req({
-                    Url = "https://discord.com/api/webhooks/1489044457503592600/72IHxqtvinkQI3TJ1b4H_GZPvfwFbIZ1ba5CyOSdwi78KlV7gs56x9CtYky5FCxZNgiY",
-                    Method = "POST",
-                    Headers = {
-                        ["Content-Type"] = "application/json"
-                    },
-                    Body = Body
-                })
-            end
-        end)
+        -- Webhook Discord disabled: No telemetry or data sent externally
     end
 
     function mmb()
@@ -242,7 +214,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "kunblox.net"
+        NameHub.Text = "11111"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -717,54 +689,42 @@ end)
         Interface.ToggleUI = ToggleUI
         Interface.BlurManager = blurEffect
 
-        local Fluent = nil
+        getgenv().alert = function(t1, t2)
+            pcall(function() print("[Alert]", tostring(t1), tostring(t2)) end)
+        end
+
         pcall(function()
-            local content = nil
-            if typeof(isfile) == "function" and typeof(readfile) == "function" and isfile("fluent.lua") then
-                content = readfile("fluent.lua")
-            else
-                local success, res = pcall(function()
-                    return game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/main.lua")
+            if not isfile("fluent.lua") then
+                pcall(function()
+                    writefile(
+                        "fluent.lua",
+                        game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
+                    )
                 end)
-                if success and res and not string.find(res, "<!DOCTYPE") and not string.find(res, "<html") then
-                    content = res
-                    if typeof(writefile) == "function" then
-                        pcall(writefile, "fluent.lua", content)
-                    end
-                end
             end
-            if content then
-                local fn = loadstring(content)
-                if fn then
-                    Fluent = fn()
+
+            if isfile("fluent.lua") then
+                local content = readfile("fluent.lua")
+                if content and #content > 0 then
+                    local okLoad, fluentLib = pcall(function() return loadstring(content)() end)
+                    if okLoad and fluentLib then
+                        local Fluent = fluentLib
+                        getgenv().alert = function(t1, t2)
+                            pcall(function()
+                                Fluent:Notify({
+                                    Title = t1 or "",
+                                    Content = t2 or "",
+                                    Duration = 5
+                                })
+                            end)
+                        end
+                    end
                 end
             end
         end)
+        alert("Cyndral", "Endpoint reached")
 
-        getgenv().alert = function(t1, t2)
-            pcall(
-                function()
-                    if Fluent and typeof(Fluent.Notify) == "function" then
-                        Fluent:Notify(
-                            {
-                                Title = tostring(t1 or "Auto Godhuman"),
-                                Content = tostring(t2 or ""),
-                                Duration = 4
-                            }
-                        )
-                    else
-                        game:GetService("StarterGui"):SetCore("SendNotification", {
-                            Title = tostring(t1 or "Auto Godhuman"),
-                            Text = tostring(t2 or ""),
-                            Duration = 4
-                        })
-                    end
-                end
-            )
-        end
-        alert("Auto Godhuman", "Script Loaded Successfully")
-
-        local CDN_HOST = "https://files.lumitone.xyz/"
+        local CDN_HOST = ""
 
         StartTime = os.time()
 
@@ -813,11 +773,26 @@ end)
         until SetText
         alert("load 2")
         SetText("MainTextLabel", "Initalizing Script...")
-        -- loadstring(game:HttpGet"https://github.com/Cyndral-World/Cyndral_BF/blob/main/InstanceDownloader.lua?raw=true")()
+        
 
         local FolderPath = "Rua_Hub/Blox_Fruit/Assets/"
 
-        ScriptStorage = {
+        
+        -- Safe Rejoin / Server Hop Helper (replaces raw Kick calls)
+        local function SafeRejoinOrHop(reason)
+            print("[Auto Rejoin/Hop] Triggered: " .. tostring(reason or "Stuck/Idle/Desync"))
+            pcall(function()
+                if typeof(Hop) == "function" then
+                    Hop(reason or "SafeRejoin")
+                else
+                    local ts = game:GetService("TeleportService")
+                    local lp = game:GetService("Players").LocalPlayer
+                    ts:Teleport(game.PlaceId, lp)
+                end
+            end)
+        end
+
+ScriptStorage = {
             IsInitalized = false,
             PlayerData = {},
             Melees = {},
@@ -836,24 +811,15 @@ end)
             Interface = Interface,
             NPCs = {}
         }
-        pcall(function()
-            if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" then
-                if game.ReplicatedStorage:FindFirstChild("Reparent") then
-                    local reparentModule = require(game.ReplicatedStorage.Reparent)
-                    if reparentModule and reparentModule.Unparent then
-                        hookfunction(reparentModule.Unparent, newcclosure(function()
-                            return function(...) end
-                        end))
-                    end
-                end
-            end
-        end)
+        hookfunction(require(game.ReplicatedStorage.Reparent).Unparent, newcclosure(function()
+            return function(...) end
+        end)) 
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
-        Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        Character = LocalPlayer.Character
 
-        Humanoid = Character:WaitForChild("Humanoid", 15)
-        HumanoidRootPart = Character:WaitForChild("HumanoidRootPart", 15)
+        Humanoid = Character:WaitForChild("Humanoid")
+        HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 
         PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
         Lighting = game:GetService("Lighting")
@@ -928,7 +894,7 @@ end)
                                             if Hop then
                                                 Hop("Rejoin")
                                             else
-                                                game.Players.LocalPlayer:Kick("Rejoining...")
+                                                SafeRejoinOrHop("Rejoin")
                                             end
                                             return
                                         end
@@ -1049,26 +1015,29 @@ end)
         end
 
         function AddPoint()
-            local PointsValue = {}
-            local Result
-
-            for _, CInst in LocalPlayer.Data.Stats:GetChildren() do
-                if CInst and CInst:FindFirstChild("Level") then
-                    PointsValue[CInst.Name] = CInst.Level.Value
+            pcall(function()
+                if not LocalPlayer or not LocalPlayer:FindFirstChild("Data") or not LocalPlayer.Data:FindFirstChild("Stats") then return end
+                local PointsValue = {}
+                local Result
+                for _, CInst in pairs(LocalPlayer.Data.Stats:GetChildren()) do
+                    if CInst and CInst:FindFirstChild("Level") then
+                        PointsValue[CInst.Name] = CInst.Level.Value
+                    end
                 end
-            end
-            if
-                PointsValue.Defense < MaxLevel and
-                    (PointsValue.Defense < (ScriptStorage.PlayerData.Level / 80) or MaxLevel - PointsValue.Melee < 100)
-             then
-                Result = "Defense"
-            elseif PointsValue.Melee < MaxLevel then
-                Result = "Melee"
-            else
-                Result = "Sword"
-            end
-
-            Remotes.CommF_:InvokeServer("AddPoint", Result, 999)
+                local defense = PointsValue.Defense or 0
+                local melee = PointsValue.Melee or 0
+                local lvl = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+                if defense < MaxLevel and (defense < (lvl / 80) or MaxLevel - melee < 100) then
+                    Result = "Defense"
+                elseif melee < MaxLevel then
+                    Result = "Melee"
+                else
+                    Result = "Sword"
+                end
+                if Remotes and Remotes.CommF_ then
+                    Remotes.CommF_:InvokeServer("AddPoint", Result, 999)
+                end
+            end)
         end
 
         local Colors = {
@@ -1080,10 +1049,10 @@ end)
             Races = {}
         }
         function RefreshPlayerData()
-            for _, ChildInstance in LocalPlayer.Data:GetChildren() do
-                pcall(
-                    function()
-                        -- FIX Bug #4: Try to get value from Value property first, then fall back to Attribute
+            pcall(function()
+                if not LocalPlayer or not LocalPlayer:FindFirstChild("Data") then return end
+                for _, ChildInstance in pairs(LocalPlayer.Data:GetChildren()) do
+                    pcall(function()
                         local val = nil
                         if ChildInstance:IsA("IntValue") or ChildInstance:IsA("NumberValue") then
                             val = ChildInstance.Value
@@ -1092,7 +1061,6 @@ end)
                         elseif ChildInstance:IsA("BoolValue") then
                             val = ChildInstance.Value
                         end
-                        -- If Value is nil/0 but Fragments attribute exists, use attribute
                         if val == nil or val == 0 then
                             if ChildInstance:GetAttribute("Fragments") then
                                 val = ChildInstance:GetAttribute("Fragments")
@@ -1103,22 +1071,26 @@ end)
                         if val == nil and ChildInstance.Value ~= nil then
                             val = ChildInstance.Value
                         end
-                        ScriptStorage.PlayerData[ChildInstance.Name] = val
-                    end
-                )
-            end
-
-            local Currencies = ""
-            for Index, Value in ScriptStorage.PlayerData do
-                local Color = Colors.Currencies[Index]
-                if Color then
-                    Currencies = Currencies .. '<font color="' .. Color .. '">' .. Index .. "</font>: " .. Value .. " "
+                        if ScriptStorage and ScriptStorage.PlayerData then
+                            ScriptStorage.PlayerData[ChildInstance.Name] = val
+                        end
+                    end)
                 end
-            end
 
-            if ScriptStorage.Interface then
-                SetText("Currencies", Currencies)
-            end
+                local Currencies = ""
+                if ScriptStorage and ScriptStorage.PlayerData then
+                    for Index, Value in pairs(ScriptStorage.PlayerData) do
+                        local Color = Colors and Colors.Currencies and Colors.Currencies[Index]
+                        if Color then
+                            Currencies = Currencies .. '<font color="' .. Color .. '">' .. Index .. "</font>: " .. tostring(Value) .. " "
+                        end
+                    end
+                end
+
+                if ScriptStorage and ScriptStorage.Interface and type(ScriptStorage.Interface.SetText) == "function" then
+                    pcall(function() SetText("Currencies", Currencies) end)
+                end
+            end)
         end
 
         function RefreshRace()
@@ -1136,35 +1108,43 @@ end)
         end
 
         function RefreshInventory()
-            ScriptStorage.Backpack2 = {}
-            local rawInv = nil
             pcall(function()
-                if Remotes and Remotes.CommF_ then
-                    rawInv = Remotes.CommF_:InvokeServer("getInventory")
-                elseif game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_") then
-                    rawInv = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
-                end
-            end)
-            if type(rawInv) == "table" then
-                for _, Value in pairs(rawInv) do
-                    if type(Value) == "table" and Value.Name then
-                        pcall(function()
-                            if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
-                            Config.Items.Eatlist and table.find(Config.Items.Eatlist, Value.Name) then 
+                ScriptStorage.Backpack2 = {}
+                if not Remotes or not Remotes.CommF_ then return end
+                
+                -- 1. Quét các vật phẩm & nguyên liệu thông thường
+                local inv = nil
+                pcall(function() inv = Remotes.CommF_:InvokeServer("getInventory") end)
+                if type(inv) == "table" then
+                    for _, Value in pairs(inv) do
+                        if type(Value) == "table" and Value.Name then
+                            if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer:FindFirstChild("Data") and game:GetService("Players").LocalPlayer.Data:FindFirstChild("DevilFruit") and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and table.find(Config.Items.Eatlist, Value.Name) then
                                 warn("Load fruit", Value.Name)
                                 Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
                                 task.wait(1)
-                                if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
-                                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name))
+                                if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                    pcall(function() FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name)) end)
                                 end
                             end
-                        end)
-                        ScriptStorage.Backpack2[Value.Name] = Value
+                            ScriptStorage.Backpack2[Value.Name] = Value
+                        end
                     end
                 end
-            end
 
-            ScriptStorage.Backpack = ScriptStorage.Backpack2 or {}
+                -- 2. Quét toàn bộ Trái Ác Quỷ lưu trữ trong Treasure Inventory (getInventoryFruits)
+                local fruits = nil
+                pcall(function() fruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
+                if type(fruits) == "table" then
+                    for _, Value in pairs(fruits) do
+                        if type(Value) == "table" and Value.Name then
+                            Value.Type = "Blox Fruit"
+                            ScriptStorage.Backpack2[Value.Name] = Value
+                        end
+                    end
+                end
+
+                ScriptStorage.Backpack = ScriptStorage.Backpack2
+            end)
         end
 
         function ResearchMoves(Child)
@@ -1863,12 +1843,18 @@ end)
         function getpos(npcname)
             for i,v in game:GetService("ReplicatedStorage").NPCs:GetChildren() do
                 if v.Name == npcname then
-                    return v.HumanoidRootPart.CFrame
+                    local hrp = v:FindFirstChild("HumanoidRootPart")
+                    if hrp then return hrp.CFrame end
+                    if v.PrimaryPart then return v.PrimaryPart.CFrame end
+                    return v:GetPivot()
                 end
             end
             for i,v in workspace.NPCs:GetChildren() do
                 if v.Name == npcname then
-                    return v.HumanoidRootPart.CFrame
+                    local hrp = v:FindFirstChild("HumanoidRootPart")
+                    if hrp then return hrp.CFrame end
+                    if v.PrimaryPart then return v.PrimaryPart.CFrame end
+                    return v:GetPivot()
                 end
             end
         end
@@ -1930,47 +1916,76 @@ end)
         end
 
         function QuestManager.RefreshQuest(Self)
-            while not ScriptStorage.PlayerData.Level do
-                task.wait(1)
-                print("[ Debug ] Waiting for LocalPlayer datas.")
-            end
+            pcall(function()
+                local retries = 0
+                while not (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) do
+                    pcall(RefreshPlayerData)
+                    if not (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) then
+                        local lp = game:GetService("Players").LocalPlayer
+                        if lp and lp:FindFirstChild("Data") and lp.Data:FindFirstChild("Level") then
+                            if not ScriptStorage.PlayerData then ScriptStorage.PlayerData = {} end
+                            ScriptStorage.PlayerData.Level = lp.Data.Level.Value
+                        end
+                    end
+                    if ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then break end
+                    task.wait(0.2)
+                    retries = retries + 1
+                    if retries > 15 then
+                        if not ScriptStorage.PlayerData then ScriptStorage.PlayerData = {} end
+                        ScriptStorage.PlayerData.Level = 1
+                        break
+                    end
+                end
 
-            local QuestLevelFlag = 0
-            local CurrentQuestData
+                local QuestLevelFlag = 0
+                local CurrentQuestData = nil
 
-            for QuestID, QuestDatas in QuestManager.Quests do
-                if not QuestManager.BlacklistedQuestIds[QuestID] then
-                    if
-                        (QuestDatas[1].LevelReq >= QuestLevelFlag and
-                            QuestDatas[1].LevelReq <= ScriptStorage.PlayerData.Level)
-                     then
-                        QuestLevelFlag = QuestDatas[1].LevelReq
-                        CurrentQuestData = QuestDatas
-                        Self.CurrentQuestId = QuestID
-                        if ScriptStorage.PlayerData.Level >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
-                            break
+                if QuestManager and QuestManager.Quests then
+                    for QuestID, QuestDatas in pairs(QuestManager.Quests) do
+                        if not QuestManager.BlacklistedQuestIds or not QuestManager.BlacklistedQuestIds[QuestID] then
+                            if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq and ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then
+                                if QuestDatas[1].LevelReq >= QuestLevelFlag and QuestDatas[1].LevelReq <= ScriptStorage.PlayerData.Level then
+                                    QuestLevelFlag = QuestDatas[1].LevelReq
+                                    CurrentQuestData = QuestDatas
+                                    Self.CurrentQuestId = QuestID
+                                    if ScriptStorage.PlayerData.Level >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
+                                        break
+                                    end
+                                end
+                            end
                         end
                     end
                 end
-            end
 
-            local LastQuest = CurrentQuestData[#CurrentQuestData]
+                if CurrentQuestData and #CurrentQuestData > 0 then
+                    local LastQuest = CurrentQuestData[#CurrentQuestData]
+                    if LastQuest and LastQuest.Task then
+                        for _, Count in pairs(LastQuest.Task) do
+                            if Count == 1 then
+                                table.remove(CurrentQuestData, #CurrentQuestData)
+                            end
+                        end
+                    end
 
-            for _, Count in LastQuest.Task do
-                if Count == 1 then
-                    table.remove(CurrentQuestData, #CurrentQuestData)
-                end
-            end
-
-            for i, v in require(game.ReplicatedStorage.GuideModule).Data.NPCList do
-                for i1, v1 in v.Levels do
-                    if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
-                        Self.CurrentNpc = i.CFrame
+                    local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
+                    if guideModule then
+                        local okModule, guideData = pcall(function() return require(guideModule) end)
+                        if okModule and guideData and guideData.Data and guideData.Data.NPCList then
+                            for i, v in pairs(guideData.Data.NPCList) do
+                                if v and v.Levels and CurrentQuestData[#CurrentQuestData] then
+                                    for _, v1 in pairs(v.Levels) do
+                                        if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
+                                            Self.CurrentNpc = i.CFrame
+                                        end
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
-            end
 
-            Self.CurrentQuests = CurrentQuestData
+                Self.CurrentQuests = CurrentQuestData
+            end)
         end
 
         function QuestManager.GetCurrentQuest(Self)
@@ -2144,8 +2159,11 @@ end)
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
-            if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
+            if not Character or not Character:FindFirstChild("HumanoidRootPart") or not Character:FindFirstChild("Humanoid") then return end
             if not Position or TweenDebounce or TweenController._isCreating then return end
+            
+            -- Chống bay khi đang chết
+            if Character.Humanoid.Health <= 0 then return end
         
             -- Chuyển đổi Position sang CFrame nếu cần
             local TargetCFrame = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
@@ -2163,10 +2181,10 @@ end)
         
             TweenController._isCreating = true
         
-            -- 3. XỬ LÝ NOCLIP (Mượt hơn)
+            -- 3. XỬ LÝ NOCLIP (An toàn tuyệt đối cho v1.08)
             pcall(function()
-                for _, part in ipairs(Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
+                for _, part in ipairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
                 end
@@ -2190,7 +2208,7 @@ end)
             end
         
             -- Kiểm tra di chuyển sang Submerged Island (Sea 3)
-            if SeaIndex == 3 and (TargetCFrame.Position - Vector3.new(11256, -2138, 9888)).Magnitude < (CurrentDist - 700) then
+            if SeaIndex == 3 and TargetCFrame.Position.Y < -1500 then
                 local SubmarinePos = CFrame.new(-16269, 23, 1371)
                 if (RootPart.Position - SubmarinePos.Position).Magnitude > 60 then
                     TweenController._isCreating = false
@@ -2210,8 +2228,8 @@ end)
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (330)
-            local Speed = (CurrentDist < 18) and 25 or 330
+            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (75)
+            local Speed = (CurrentDist < 18) and 25 or 75
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2321,18 +2339,26 @@ end)
         local Net = Modules.Net
         local Register_Hit, Register_Attack = Net:WaitForChild("RE/RegisterHit"), Net:WaitForChild("RE/RegisterAttack")
         local Funcs = {}
+        local lastBladeScan = 0
+        local cachedBladeHits = {}
         function GetAllBladeHits()
-            bladehits = {}
+            local now = tick()
+            if now - lastBladeScan < 0.2 and #cachedBladeHits > 0 then
+                return cachedBladeHits
+            end
+            lastBladeScan = now
+            cachedBladeHits = {}
+            local myPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and game.Players.LocalPlayer.Character.HumanoidRootPart.Position
+            if not myPos then return cachedBladeHits end
+
             for _, v in pairs(workspace.Enemies:GetChildren()) do
-                if
-                    v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 and
-                        (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <=
-                            65
-                 then
-                    table.insert(bladehits, v)
+                if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                    if (v.HumanoidRootPart.Position - myPos).Magnitude <= 65 then
+                        table.insert(cachedBladeHits, v)
+                    end
                 end
             end
-            return bladehits
+            return cachedBladeHits
         end
         function Getplayerhit()
             bladehits = {}
@@ -2422,7 +2448,76 @@ end)
             )
         end
 
-        CombatController = {
+        
+        -- Comprehensive Mob Spawn Coordinates Fallback (Chống kẹt/đứng im khi mob chưa render)
+        local MobPositionsFallback = {
+            -- Sea 3 Mobs
+            ["Pirate Millionaire"] = Vector3.new(-373, 75, 5550),
+            ["Pistol Billionaire"] = Vector3.new(-470, 75, 5950),
+            ["Dragon Crew Warrior"] = Vector3.new(6500, 385, 140),
+            ["Dragon Crew Archer"] = Vector3.new(6580, 385, 140),
+            ["Female Islander"] = Vector3.new(4650, 745, 100),
+            ["Giant Islander"] = Vector3.new(4650, 745, -450),
+            ["Marine Commodore"] = Vector3.new(2450, 73, -6800),
+            ["Rear Admiral"] = Vector3.new(3100, 73, -6800),
+            ["Fishman Raider"] = Vector3.new(-10500, 332, -8700),
+            ["Fishman Captain"] = Vector3.new(-10900, 332, -8900),
+            ["Forest Pirate"] = Vector3.new(-13400, 332, -7900),
+            ["Mythological Pirate"] = Vector3.new(-13550, 470, -6900),
+            ["Jungle Pirate"] = Vector3.new(-12100, 332, -10500),
+            ["Musketeer Pirate"] = Vector3.new(-13250, 395, -9750),
+            ["Reborn Skeleton"] = Vector3.new(-8800, 142, 6000),
+            ["Living Zombie"] = Vector3.new(-10150, 142, 5950),
+            ["Demonic Soul"] = Vector3.new(-9500, 172, 6150),
+            ["Posessed Mummy"] = Vector3.new(-9570, 6, 6150),
+            ["Peanut Scout"] = Vector3.new(-2050, 38, -10450),
+            ["Peanut President"] = Vector3.new(-2150, 38, -10650),
+            ["Ice Cream Chef"] = Vector3.new(-650, 66, -11100),
+            ["Ice Cream Commander"] = Vector3.new(-950, 66, -11250),
+            ["Cookie Crafter"] = Vector3.new(-2350, 38, -12100),
+            ["Cake Guard"] = Vector3.new(-1600, 38, -12300),
+            ["Baking Staff"] = Vector3.new(-1850, 38, -13000),
+            ["Head Baker"] = Vector3.new(-2200, 38, -12950),
+            ["Cocoa Warrior"] = Vector3.new(200, 75, -12400),
+            ["Chocolate Bar Battler"] = Vector3.new(650, 75, -12600),
+            ["Sweet Thief"] = Vector3.new(-100, 75, -12600),
+            ["Candy Rebel"] = Vector3.new(-350, 75, -12900),
+            ["Candy Pirate"] = Vector3.new(-1350, 14, -14600),
+            ["Snow Demon"] = Vector3.new(-950, 14, -14600),
+            ["Sun-kissed Warrior"] = Vector3.new(-16250, 55, 1000),
+            ["Isle Outlaw"] = Vector3.new(-16100, 55, -500),
+            ["Island Boy"] = Vector3.new(-16800, 55, -1000),
+            ["Sun-kissed Champion"] = Vector3.new(-17200, 55, 500),
+            ["Deepsea Raider"] = Vector3.new(11500, -2138, 9500),
+            ["Ocean Prophet"] = Vector3.new(11400, -2138, 10200),
+            ["Abyssal Sentinel"] = Vector3.new(11600, -2138, 10600),
+            ["Grand Devotee"] = Vector3.new(11850, -2138, 10800),
+            -- Sea 2 Mobs
+            ["Raider"] = Vector3.new(-760, 50, 2400),
+            ["Mercenary"] = Vector3.new(-950, 50, 2600),
+            ["Swan Pirate"] = Vector3.new(700, 120, 1200),
+            ["Factory Staff"] = Vector3.new(400, 75, -300),
+            ["Marine Lieutenant"] = Vector3.new(-2800, 75, -3000),
+            ["Marine Captain"] = Vector3.new(-3100, 75, -3200),
+            ["Zombie"] = Vector3.new(-5600, 50, -800),
+            ["Vampire"] = Vector3.new(-6000, 50, -1200),
+            ["Snow Trooper"] = Vector3.new(600, 400, -5300),
+            ["Winter Warrior"] = Vector3.new(1200, 450, -5300),
+            ["Lab Subordinate"] = Vector3.new(-5800, 50, -4500),
+            ["Horned Warrior"] = Vector3.new(-6400, 50, -5800),
+            ["Magma Ninja"] = Vector3.new(-5400, 50, -5900),
+            ["Lava Pirate"] = Vector3.new(-5200, 50, -4800),
+            ["Ship Deckhand"] = Vector3.new(1000, 130, 33000),
+            ["Ship Engineer"] = Vector3.new(900, 130, 33000),
+            ["Ship Steward"] = Vector3.new(900, 130, 33500),
+            ["Ship Officer"] = Vector3.new(900, 180, 33300),
+            ["Arctic Warrior"] = Vector3.new(6000, 30, -6200),
+            ["Snow Lurker"] = Vector3.new(5500, 30, -6800),
+            ["Sea Soldier"] = Vector3.new(-3000, 50, -10000),
+            ["Water Fighter"] = Vector3.new(-3400, 50, -10500)
+        }
+
+CombatController = {
             GRAB = true,
             GRAB_DISTANCE = SeaIndex == 1 and 250 or 350,
             MAX_ATTACK_DURATION = 3,
@@ -2435,7 +2530,8 @@ end)
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
         function CombatController.Grab(MobName)
-            pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", math.huge)
+            -- [v1.09] Disabled SimulationRadius to prevent crashes in Sea 3
+            -- pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
             if not CombatController.GRAB or GrabDebounce == os.time() then
             end
             GrabDebounce = os.time()
@@ -2553,27 +2649,17 @@ end)
         end
 
         function CombatController.Attack(MobTable, NearbyHit, Range, Callback)
-            -- Safe check for GuideModule env
-            local inCombat = false
-            pcall(function()
-                if typeof(getsenv) == "function" and game.ReplicatedStorage:FindFirstChild("GuideModule") then
-                    local GuideEnv = getsenv(game.ReplicatedStorage.GuideModule)
-                    if GuideEnv and GuideEnv._G and GuideEnv._G.InCombat then
-                        inCombat = true
-                    end
-                end
-            end)
+            -- Cache GuideModule env để tránh gọi getsenv nhiều lần
+            local GuideEnv = pcall(function()
+                return GetGuideEnv()
+            end) and GetGuideEnv()
 
-            if ScriptStorage.Tools["Sweet Chalice"] and inCombat then
+            if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
                 TweenController.Create(Vector3.new(0, 0, 0))
                 return
             end
 
-            pcall(function()
-                if typeof(sethiddenproperty) == "function" then
-                    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
-                end
-            end)
+            sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
             MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
 
             for _, Child in (MobTable) do
@@ -2643,7 +2729,7 @@ end)
                                     )
                                     alert("Stuck", "Mob health unchanged")
                                     _G.Stop = true
-                                    game.Players.LocalPlayer:Kick("Rejoining...")
+                                    SafeRejoinOrHop("Rejoin")
 
                                 end
 
@@ -2695,9 +2781,9 @@ end)
                         end
                     end
                 elseif not NearbyHit then
-                    if (os.time() - LastFound) > 200 then
+                    if (os.time() - LastFound) > 600 then
                         alert("KUN", "Error while farming, rejoin")
-                        game.Players.LocalPlayer:Kick("Rejoining...")
+                        SafeRejoinOrHop("Rejoin")
                         return
                     end
 
@@ -2711,8 +2797,24 @@ end)
                         Region = Inst and {Inst:GetPrimaryPartCFrame().p}
                     end
 
+                    if not Region and MobPositionsFallback and MobPositionsFallback[Child] then
+                        Region = {MobPositionsFallback[Child]}
+                    end
+
                     if not Region then
-                        Report("[ Game data error ] Mob with name " .. tostring(Child) .. " have no spawn region datas")
+                        -- Thử tìm trong EnemySpawns trong Workspace
+                        pcall(function()
+                            for _, spawnObj in pairs(workspace:GetDescendants()) do
+                                if spawnObj.Name == Child or (spawnObj:IsA("BasePart") and string.find(spawnObj.Name, Child)) then
+                                    Region = {spawnObj.Position}
+                                    break
+                                end
+                            end
+                        end)
+                    end
+
+                    if not Region then
+                        -- Thay vì report và đứng im, tiếp tục thử quái tiếp theo trong list
                         return
                     end
 
@@ -2737,7 +2839,30 @@ end)
         LevelFarmTTL = 0
         LastTravel = os.time()
 
-        FunctionsHandler = {
+        
+local function GetGuideEnv()
+    local ok, env = pcall(function()
+        if type(getsenv) == "function" then
+            local lp = game:GetService("Players").LocalPlayer
+            local clientGuide = lp and lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("Main") and lp.PlayerGui.Main:FindFirstChild("Guide")
+            if clientGuide then
+                return getsenv(clientGuide)
+            end
+        end
+    end)
+    return ok and env or nil
+end
+
+local function GetExpBoost()
+    local env = GetGuideEnv()
+    if env and env._G and env._G.ServerData and env._G.ServerData.ExpBoost then
+        return env._G.ServerData.ExpBoost
+    end
+    return 0
+end
+
+
+FunctionsHandler = {
             Initalized = false
         }
 
@@ -2939,24 +3064,15 @@ end)
 
         FunctionsHandler.UtillyItemsActivitation:Register()
 
-        local function getGuideExpBoost()
-            local boost = 0
-            pcall(function()
-                if typeof(getsenv) == "function" and game.ReplicatedStorage:FindFirstChild("GuideModule") then
-                    local env = getsenv(game.ReplicatedStorage.GuideModule)
-                    if env and env._G and env._G.ServerData and env._G.ServerData.ExpBoost then
-                        boost = tonumber(env._G.ServerData.ExpBoost) or 0
-                    end
-                end
-            end)
-            return boost
-        end
+        -- Exp Redeem
 
         FunctionsHandler.ExpRedeem:RegisterMethod(
             "Refresh",
             function()
+                --Report("Typeof: " .. typeof(Storage))
+
                 return ScriptStorage.PlayerData.Level < MaxLevel and
-                    getGuideExpBoost() == 0 and
+                    GetExpBoost() == 0 and
                     not Storage.Get(Storage, "IsCodesRanOut")
             end
         )
@@ -3007,7 +3123,7 @@ end)
                     local Response = (Remotes.Redeem:InvokeServer(Promo))
                     task.wait()
                     SetTask("MainTask", "Code Redemption | " .. Promo .. " | " .. (Response or "Failed"))
-                    if getGuideExpBoost() == 0 then
+                    if GetExpBoost() == 0 then
                         if Response and string.find(Response, "SUCC") then
                             return SetTask("MainTask", "Code Redemption | X2 Exp Boost Activated!") and task.wait(1)
                         end
@@ -3195,20 +3311,15 @@ end)
                         else
                             print("Start Quest")
 
-                            local NpcPosition1 = ScriptStorage.NPCs["Cake Quest Giver 1"]
-                            NpcPosition1 = NpcPosition1 and NpcPosition1:GetModelCFrame()
+                            local cakeNpc = ScriptStorage.NPCs["Cake Quest Giver 1"] or workspace.NPCs:FindFirstChild("Cake Quest Giver 1") or game.ReplicatedStorage.NPCs:FindFirstChild("Cake Quest Giver 1")
+                            local NpcPosition1 = cakeNpc and cakeNpc:GetModelCFrame() or CFrame.new(-2020, 38, -12025)
 
-                            if NpcPosition1 then
-                                TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
-                                if CaculateDistance(NpcPosition1) < 10 then
-                                    task.wait(1)
-                                else
-                                    return
-                                end
-                            else
-                                Report("NPC HauntedQuest2 not found")
+                            TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
+                            if CaculateDistance(NpcPosition1) < 25 then
+                                task.wait(0.5)
+                                QuestManager.StartQuest("CakeQuest1", 1)
+                                task.wait(0.5)
                             end
-                            QuestManager.StartQuest("CakeQuest1", 1)
                             return
                         end
                     end
@@ -3251,7 +3362,7 @@ end)
             end
                 if
                     PlayerLevel >= 2025 and
-                        (getGuideExpBoost() == 0 or
+                        (GetExpBoost() == 0 or
                             PlayerLevel == MaxLevel) and
                         (ScriptStorage.Backpack.Bones or {Count = 0}).Count < 500 and SeaIndex == 3
                 then
@@ -3277,21 +3388,15 @@ end)
                         end
                     else
                         print("StartQuest", CurrentClaimQuest3)
-                        local NpcPosition1 = ScriptStorage.NPCs["Haunted Castle Quest Giver 2"]
-                        NpcPosition1 = NpcPosition1 and NpcPosition1:GetModelCFrame()
+                        local npcModel = ScriptStorage.NPCs["Haunted Castle Quest Giver 2"] or workspace.NPCs:FindFirstChild("Haunted Castle Quest Giver 2") or game.ReplicatedStorage.NPCs:FindFirstChild("Haunted Castle Quest Giver 2")
+                        local NpcPosition1 = npcModel and npcModel:GetModelCFrame() or CFrame.new(-9515, 142, 5520)
 
-                        if NpcPosition1 then
-                            TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
-                            if CaculateDistance(NpcPosition1) < 20 then
-                                task.wait(1)
-                            else
-                                return
-                            end
-                        else
-                            Report("NPC HauntedQuest2 not found")
+                        TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
+                        if CaculateDistance(NpcPosition1) < 25 then
+                            task.wait(0.5)
+                            QuestManager.StartQuest("HauntedQuest2", 1)
+                            task.wait(0.5)
                         end
-
-                        QuestManager.StartQuest("HauntedQuest2", 1)
                         return
                     end
                 end
@@ -3312,7 +3417,7 @@ end)
                         if CurrentClaimQuest1 ~= QuestTitle and CurrentClaimQuest1 ~= (QuestTitle .. "s") then
                             AbandonedCount = AbandonedCount and AbandonedCount + 1 or 0
                             if AbandonedCount > 20 then 
-                            game.Players.LocalPlayer:Kick("Rejoining...")
+                            SafeRejoinOrHop("Rejoin")
                             end
                             alert("Abandon Quest", CurrentClaimQuest1 or '' .. ' / ' .. QuestTitle or '')
                             return QuestManager.AbandonQuest()
@@ -3551,28 +3656,23 @@ end)
 
         -- Auto Melees
 
-        pcall(function()
-            if typeof(getrawmetatable) == "function" and typeof(setreadonly) == "function" and typeof(newcclosure) == "function" and typeof(getnamecallmethod) == "function" then
-                local MT = getrawmetatable(game)
-                local OldNameCall = MT.__namecall
-                setreadonly(MT, false)
-                MT.__namecall =
-                    newcclosure(
-                    function(self, ...)
-                        local Method = getnamecallmethod()
-                        local Args = {...}
-                        if Method == "FireServer" and self.Name == "RemoteEvent" then
-                            if getgenv().LastestLockDate and os.time() - LastestLockDate < 3 then
-                                Args[1] = getgenv().LockPosition
-                            end
-                        end
-
-                        return OldNameCall(self, unpack(Args))
+        local MT = getrawmetatable(game)
+        local OldNameCall = MT.__namecall
+        setreadonly(MT, false)
+        MT.__namecall =
+            newcclosure(
+            function(self, ...)
+                local Method = getnamecallmethod()
+                local Args = {...}
+                if Method == "FireServer" and self.Name == "RemoteEvent" then
+                    if getgenv().LastestLockDate and os.time() - LastestLockDate < 3 then
+                        Args[1] = getgenv().LockPosition
                     end
-                )
-                setreadonly(MT, true)
+                end
+
+                return OldNameCall(self, unpack(Args))
             end
-        end)
+        )
 
         function LockAimPositionTo(LockedPosition)
             getgenv().LastestLockDate = os.time()
@@ -3609,13 +3709,9 @@ end)
             return 0, bfMaxLevel
         end
 
-        pcall(function()
-            if Remotes.Redeem then
-                pcall(function() Remotes.Redeem:InvokeServer("KITT_RESET") end)
-                pcall(function() Remotes.Redeem:InvokeServer("Sub2UncleKizaru") end)
-                pcall(function() Remotes.Redeem:InvokeServer("SUB2GAMERROBOT_RESET1") end)
-            end
-        end)
+        Remotes.Redeem:InvokeServer("KITT_RESET")
+        Remotes.Redeem:InvokeServer("Sub2UncleKizaru")
+        Remotes.Redeem:InvokeServer("SUB2GAMERROBOT_RESET1")
 
         function ResetStat(PrimaryPoint)
             if (LocalPlayer.Data.Stats:FindFirstChild(PrimaryPoint).Level.Value < 2000) then
@@ -3747,35 +3843,8 @@ end)
                                                 ScriptStorage.Melees[Melee] ..
                                                     " / " .. Data.NextLevelRequirement .. " )."
                                 )
-                                -- Farm mastery bằng mob quest hiện tại, KHÔNG dùng tên melee
-                                local function GetMasteryFarmMob()
-                                    -- Thử lấy mob từ quest đang nhận
-                                    local QuestMobName = QuestManager:GetCurrentQuest and QuestManager:GetCurrentQuest()
-                                    if QuestMobName and type(QuestMobName) == "string" and QuestMobName ~= "" then
-                                        return QuestMobName
-                                    end
-                                    -- Fallback theo level và sea
-                                    local lv = ScriptStorage.PlayerData.Level or 0
-                                    if SeaIndex == 3 then
-                                        if lv >= 2000 then return "Reborn Skeleton"
-                                        elseif lv >= 1800 then return "Forest Pirates"
-                                        else return "Pirate Millionaire" end
-                                    elseif SeaIndex == 2 then
-                                        if lv >= 1500 then return "Fishman Raider"
-                                        elseif lv >= 1200 then return "Ship Deckhand"
-                                        elseif lv >= 1050 then return "Dragon Crew Warrior"
-                                        elseif lv >= 900 then return "Fishman Warrior"
-                                        elseif lv >= 700 then return "Swan Pirate"
-                                        else return "Toga Warrior" end
-                                    else
-                                        if lv >= 600 then return "Galley Pirate"
-                                        elseif lv >= 450 then return "Sky Bandit"
-                                        elseif lv >= 300 then return "Pirate"
-                                        else return "Bandit" end
-                                    end
-                                end
-                                local masteryMob = GetMasteryFarmMob()
-                                CombatController.Attack(masteryMob)
+                                -- Luôn attack ĐỂ TĂNG MASTERY, bất kể đã sở hữu melee chưa
+                                CombatController.Attack(Melee)
                                 -- Chỉ mua nếu chưa có — KHÔNG block raid khi farm mastery
                                 if not ScriptStorage.Tools[Melee] then
                                     print("no m1 found, buy")
@@ -3849,14 +3918,19 @@ end)
                     return
                 end
 
-                local Response = Remotes.CommF_:InvokeServer("DressrosaQuestProgress")
-                print(959, Response.TalkedDetective, Response.KilledIceBoss)
-                if not Response.TalkedDetective then
-                    Result = 1
-                elseif not Response.KilledIceBoss then
-                    Result = 2
-                else
-                    FunctionsHandler.SecondSeaPuzzle:Set("IsCompleted", true)
+                local Result = nil
+                local ok, Response = pcall(function()
+                    return Remotes.CommF_:InvokeServer("DressrosaQuestProgress")
+                end)
+                if ok and type(Response) == "table" then
+                    print(959, Response.TalkedDetective, Response.KilledIceBoss)
+                    if not Response.TalkedDetective then
+                        Result = 1
+                    elseif not Response.KilledIceBoss then
+                        Result = 2
+                    else
+                        FunctionsHandler.SecondSeaPuzzle:Set("IsCompleted", true)
+                    end
                 end
 
                 FunctionsHandler.SecondSeaPuzzle:Set("CurrentProgressLevel", Result)
@@ -3875,8 +3949,7 @@ end)
 
                 FunctionsHandler.SecondSeaPuzzle:Set("CurrentProgressLevel", nil)
                 if not Progress then
-                    FunctionsHandler.SecondSeaPuzzle.Methods.Refresh:Call()
-                    return FunctionsHandler.SecondSeaPuzzle.Methods.Start:Call()
+                    return
                 elseif Progress == 1 then
                     SetTask("MainTask", "Auto Second Sea - Talk To Detective")
                     Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Detective")
@@ -3909,20 +3982,29 @@ end)
                     return
                 end
 
-                if ScriptStorage.PlayerData.Level < 850 or ScriptStorage.Backpack["Warrior Helmet"] then
+                if ScriptStorage.PlayerData.Level < 850 or ScriptStorage.PlayerData.Level >= 1500 then
                     return
                 end
 
-                local Response = Remotes.CommF_:InvokeServer("BartiloQuestProgress")
+                if ScriptStorage.Backpack["Warrior Helmet"] or (ScriptStorage.Inventory and ScriptStorage.Inventory["Warrior Helmet"]) or (ScriptStorage.Accessories and ScriptStorage.Accessories["Warrior Helmet"]) then
+                    return
+                end
 
-                if not Response.KilledBandits then
-                    Result = 1
-                elseif not Response.KilledSpring then
-                    if ScriptStorage.Enemies.Jeremy then
-                        Result = 2
+                local Result = nil
+                local ok, Response = pcall(function()
+                    return Remotes.CommF_:InvokeServer("BartiloQuestProgress")
+                end)
+
+                if ok and type(Response) == "table" then
+                    if not Response.KilledBandits then
+                        Result = 1
+                    elseif not Response.KilledSpring then
+                        if ScriptStorage.Enemies.Jeremy then
+                            Result = 2
+                        end
+                    elseif not Response.DidPlates then
+                        Result = 3
                     end
-                elseif not Response.DidPlates then
-                    Result = 3
                 end
 
                 FunctionsHandler.ColosseumPuzzle:Set("CurrentProgressLevel", Result)
@@ -3940,8 +4022,7 @@ end)
                 FunctionsHandler.ColosseumPuzzle:Set("CurrentProgressLevel", nil)
                 print("Progress", Progress)
                 if not Progress then
-                    FunctionsHandler.ColosseumPuzzle.Methods.Refresh:Call()
-                    return FunctionsHandler.ColosseumPuzzle.Methods.Start:Call()
+                    return
                 elseif Progress == 1 then
                     SetTask("MainTask", "Auto Bartilo Quest - Defeating 50x Swan Pirate")
                     local CurrentQuest, RawText = QuestManager:GetCurrentClaimQuest()
@@ -4039,11 +4120,11 @@ end)
                     return
                 end
                 if
-                    getGuideExpBoost() ~= 0 or
+                    GetExpBoost() ~= 0 or
                         ScriptStorage.PlayerData.Level < 900 or
                         ScriptStorage.PlayerData.Beli < 1000000 or
                         ScriptStorage.PlayerData.RaceLevel ~= 1
-                then
+                 then
                     return
                 end
                 return true
@@ -4189,13 +4270,118 @@ end)
         FunctionsHandler.RaidController:RegisterMethod(
             "GetRaidableFruit",
             function()
-                for _, Fruit in ScriptStorage.Backpack do
-                    if string.find(FruitIdToName(Fruit.Name), " Fruit") then
-                        if Fruit.Value and Fruit.Value < 1000000 then
-                            return Fruit
+                pcall(RefreshInventory)
+                
+                local TrashFruits = {
+                    ["Rocket-Rocket"] = true, ["Spin-Spin"] = true, ["Blade-Blade"] = true, ["Chop-Chop"] = true,
+                    ["Spring-Spring"] = true, ["Bomb-Bomb"] = true, ["Smoke-Smoke"] = true, ["Spike-Spike"] = true,
+                    ["Flame-Flame"] = true, ["Falcon-Falcon"] = true, ["Ice-Ice"] = true, ["Sand-Sand"] = true,
+                    ["Dark-Dark"] = true, ["Diamond-Diamond"] = true, ["Light-Light"] = true, ["Rubber-Rubber"] = true,
+                    ["Barrier-Barrier"] = true, ["Ghost-Ghost"] = true, ["Magma-Magma"] = true, ["Quake-Quake"] = true
+                }
+                
+                local HighFruits = {
+                    "Kitsune", "Dragon", "Leopard", "Spirit", "Control", "Venom", "Shadow", "Dough", 
+                    "T-Rex", "Mammoth", "Gravity", "Blizzard", "Pain", "Rumble", "Portal", "Phoenix", 
+                    "Sound", "Spider", "Love", "Buddha"
+                }
+
+                -- 1. Kiểm tra trực tiếp qua getInventoryFruits
+                local directFruits = nil
+                pcall(function() directFruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
+                if type(directFruits) == "table" then
+                    for _, Fruit in pairs(directFruits) do
+                        if type(Fruit) == "table" and Fruit.Name then
+                            local rawName = tostring(Fruit.Name)
+                            local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
+                            local isTrash = TrashFruits[rawName] or (price > 0 and price < 1000000)
+                            if not isTrash then
+                                for tName, _ in pairs(TrashFruits) do
+                                    local baseName = string.split(tName, "-")[1]
+                                    if string.find(rawName, baseName) then
+                                        isTrash = true
+                                        break
+                                    end
+                                end
+                            end
+                            local isHighTier = false
+                            for _, hName in ipairs(HighFruits) do
+                                if string.find(rawName, hName) then
+                                    isHighTier = true
+                                    break
+                                end
+                            end
+                            local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
+                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList then
+                                Fruit.Type = "Blox Fruit"
+                                return Fruit
+                            end
                         end
                     end
                 end
+
+                -- 2. Kiểm tra trong ScriptStorage.Backpack
+                for _, Fruit in pairs(ScriptStorage.Backpack or {}) do
+                    if type(Fruit) == "table" and Fruit.Name then
+                        local rawName = tostring(Fruit.Name)
+                        local isBloxFruit = (Fruit.Type == "Blox Fruit") or string.find(rawName, "-") or string.find(rawName, "Fruit")
+                        if isBloxFruit then
+                            local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
+                            local isTrash = TrashFruits[rawName] or (price > 0 and price < 1000000)
+                            if not isTrash then
+                                for tName, _ in pairs(TrashFruits) do
+                                    local baseName = string.split(tName, "-")[1]
+                                    if string.find(rawName, baseName) then
+                                        isTrash = true
+                                        break
+                                    end
+                                end
+                            end
+                            local isHighTier = false
+                            for _, hName in ipairs(HighFruits) do
+                                if string.find(rawName, hName) then
+                                    isHighTier = true
+                                    break
+                                end
+                            end
+                            local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
+                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList then
+                                return Fruit
+                            end
+                        end
+                    end
+                end
+
+                -- 3. Kiểm tra nếu người chơi đang cầm trái rác vật lý trong túi đồ Backpack/Character
+                local lp = game:GetService("Players").LocalPlayer
+                if lp then
+                    local checkTools = {}
+                    if lp.Character then
+                        for _, tool in pairs(lp.Character:GetChildren()) do
+                            if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then table.insert(checkTools, tool) end
+                        end
+                    end
+                    if lp:FindFirstChild("Backpack") then
+                        for _, tool in pairs(lp.Backpack:GetChildren()) do
+                            if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then table.insert(checkTools, tool) end
+                        end
+                    end
+                    for _, tool in ipairs(checkTools) do
+                        local toolName = tool.Name
+                        local isHighTier = false
+                        for _, hName in ipairs(HighFruits) do
+                            if string.find(toolName, hName) then
+                                isHighTier = true
+                                break
+                            end
+                        end
+                        if not isHighTier then
+                            return { Name = toolName, Type = "Blox Fruit", IsPhysical = true }
+                        end
+                    end
+                end
+
+                return nil
             end
         )
 
@@ -4244,32 +4430,29 @@ end)
         FunctionsHandler.RaidController:RegisterMethod("Refresh", function()
             if getgenv().IsCheckingMelees then return end
         
-            local Level = ScriptStorage.PlayerData.Level
-            local Fragments = ScriptStorage.PlayerData.Fragments
+            local Level = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 0
+            local Fragments = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Fragments) or 0
+            local Beli = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Beli) or 0
         
-            -- Điều kiện cơ bản
-            if Level < 1300 or SeaIndex == 1 then return end
+            -- Điều kiện cơ bản: Raid mở từ Sea 2 (Lv 1100+) hoặc Sea 3
+            if Level < 1100 or SeaIndex == 1 then return end
             if ScriptStorage.IsGettingMelee then return end
         
             -- 1. Check Melee: Chỉ chặn Raid nếu thực sự có thể mua NGAY LẬP TỨC
             if Config.Items.AutoFullyMelees then
-                for Cursor, Melee in MeleesTable do
-                    if Melee == "SanguineArt" then
-                        -- SanguineArt không mua được qua remote, lấy qua quest
-                    else
+                for Cursor, Melee in pairs(MeleesTable) do
+                    if Melee ~= "SanguineArt" then
                         local Data = MeleePrices[Melee]
                         if Data then
                             local CanMeleePurchaseable = CanPurchase[Melee]
-                            if not CanMeleePurchaseable then
+                            if not CanMeleePurchaseable and type(Data.Buy) == "function" then
                                 CanMeleePurchaseable = Data.Buy(1)
                             end
 
                             local RequiredFragments = (Data.Price and Data.Price.Fragments) or 0
-                            local CurrentFragments = ScriptStorage.PlayerData.Fragments or 0
+                            local CurrentFragments = Fragments
 
-                            -- LOGIC: Chỉ block raid khi đủ ALL điều kiện (tiền + mastery + fragments + chưa sở hữu)
-                            -- Nếu thiếu Fragments → đi raid tích trữ, không block
-                            if CanMeleePurchaseable and Data.Requirements() and
+                            if CanMeleePurchaseable and Data.Requirements and Data.Requirements() and
                                (RequiredFragments == 0 or CurrentFragments >= RequiredFragments)
                             then
                                 if not ScriptStorage.Melees[Melee] or ScriptStorage.Melees[Melee] == 0 then
@@ -4282,25 +4465,38 @@ end)
                 end
             end
 
-            -- 2. Logic tich luy Fragments (Neu khong mua Melee thi di Raid tich tru)
-            -- Neu Level chua Max, tich du 10k thi nghi
-            -- Neu da Max Level, phai tich du 15k moi duoc nghi. Duoi 15k se tu di Raid tiep.
+            -- 2. Logic tích luỹ Fragments:
+            -- Nếu đang trên đảo Raid hoặc có Microchip sẵn -> LUÔN tiếp tục Raid!
+            local inRaidIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
+            local hasChip = CheckSpecialMicrochip()
+            if inRaidIsland or hasChip then
+                return true
+            end
+
+            -- Nếu Level chưa Max: farm tích luỹ đến 10k Fragments
+            -- Nếu đã Max Level: farm tích luỹ đến 15k Fragments
             if Level < MaxLevel then
                 if Fragments >= 10000 then return end 
             else
                 if Fragments >= 15000 then return end 
             end
         
-            -- 3. Thực hiện đi Raid (Phần này chỉ chạy khi 2 điều kiện trên không chặn)
+            -- 3. Thực hiện đi Raid (Hỗ trợ cả Fruit dưới 1M lẫn mua Chip bằng 100k Beli)
             local RaidFruit = FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()
-        
             if RaidFruit then
                 FunctionsHandler.RaidController:Set("CurrentProgressLevel", RaidFruit)
+                return RaidFruit
             end
-        
-            return RaidFruit
-                or FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
-                or CheckSpecialMicrochip()
+            
+            -- Nếu không có Fruit nhưng có Beli -> Chỉ đi mua nếu không bị Cooldown 2 tiếng
+            -- Nếu đang bị cooldown -> return false để LevelFarm đi làm nhiệm vụ / cày cấp!
+            if Beli >= 100000 then
+                if not (getgenv().BeliChipCooldownUntil and os.time() < getgenv().BeliChipCooldownUntil) then
+                    return true
+                end
+            end
+            
+            return false
         end)
         
         
@@ -4355,36 +4551,47 @@ end)
                         local RaidButton = RaidIsland.RaidSummon2.Button.Main
                         
                         if not CheckSpecialMicrochip() then
-
                             local cRaidFruit = FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()
-                            if not cRaidFruit then
-                                warn("No raidable fruit found")
-                                return
-                            end
-
-                            -- Chỉ thêm vào IgnoreStoreFruits nếu chưa có
-                            if not table.find(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name) then
-                                table.insert(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name)
-                            end
-
-                            -- Luôn lấy Fruit vật lý ra khỏi rương (LoadFruit)
-                            if getgenv().LastLoadedFruit ~= cRaidFruit.Name then
-                                getgenv().LastLoadedFruit = cRaidFruit.Name
-                                alert("Load Fruit", cRaidFruit.Name)
+                            
+                            if cRaidFruit then
+                                -- Mua bằng trái ác quỷ
+                                if not table.find(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name) then
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name)
+                                end
+                                if getgenv().LastLoadedFruit ~= cRaidFruit.Name then
+                                    getgenv().LastLoadedFruit = cRaidFruit.Name
+                                    alert("Load Fruit", cRaidFruit.Name)
+                                    Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
+                                    task.wait(1.5)
+                                end
+                                Remotes.CommF_:InvokeServer("RaidsNpc", "Select", FunctionsHandler.RaidController:Get("CurrentChip"))
+                                task.wait(1)
                                 Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
-                                task.wait(1.5)
+                                task.wait(1)
+                            else
+                                -- Mua bằng Beli (nếu đủ 100k và hết cooldown)
+                                local Beli = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Beli) or 0
+                                if Beli >= 100000 then
+                                    if not (getgenv().BeliChipCooldownUntil and os.time() < getgenv().BeliChipCooldownUntil) then
+                                        alert("Raid", "Mua Chip bằng Beli (100k)!")
+                                        -- Cất tay không để nó charge bằng Beli
+                                        if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("")
+                                        end
+                                        task.wait(1)
+                                        Remotes.CommF_:InvokeServer("RaidsNpc", "Select", FunctionsHandler.RaidController:Get("CurrentChip"))
+                                        task.wait(1)
+                                        -- Đặt cooldown 2 tiếng (7200 giây)
+                                        getgenv().BeliChipCooldownUntil = os.time() + 7200
+                                    else
+                                        warn("Beli Chip đang trong thời gian hồi chiêu 2 tiếng!")
+                                        return
+                                    end
+                                else
+                                    warn("Không có trái và không đủ Beli!")
+                                    return
+                                end
                             end
-
-                            Remotes.CommF_:InvokeServer(
-                                "RaidsNpc",
-                                "Select",
-                                FunctionsHandler.RaidController:Get("CurrentChip")
-                            )
-
-                            -- Game tự cất fruit khi chọn chip → load lại fruit
-                            task.wait(1)
-                            Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
-                            task.wait(1)
                         end
                         
                         FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Special Microchip")
@@ -4849,7 +5056,7 @@ end)
                         function()
                             alert("1102", "rejoin")
                             task.wait(30)
-                            game.Players.LocalPlayer:Kick("Rejoining...")
+                            SafeRejoinOrHop("Rejoin")
                        end
                     )
 
@@ -5311,24 +5518,22 @@ end)
             end
         )
 
-        pcall(function()
-            if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" then
-                if game.ReplicatedStorage:FindFirstChild("Notification") then
-                    local notifModule = require(game.ReplicatedStorage.Notification)
-                    if notifModule and notifModule.new then
-                        hookfunction(notifModule.new, newcclosure(function(a, b)
-                            local v21 = tostring(tostring(a or "") .. tostring(b or "")) or ""
-                            if typeof(getgenv().NotificationCallBack) == "function" then
-                                getgenv().NotificationCallBack(v21)
-                            end
-                            return {
-                                Display = function() end  
-                            }
-                        end))
-                    end
-                end
+        local old
+
+        old =
+            hookfunction(
+            require(game.ReplicatedStorage.Notification).new,
+           newcclosure(function(a, b)
+                v21 = tostring(tostring(a or "") .. tostring(b or "")) or ""
+
+                getgenv().NotificationCallBack(v21)
+
+                return {
+                    Display = function() end  
+                }
+                --return old(a, b)
             end
-        end)
+        ))
 
      
         if SeaIndex ~= 1 then
@@ -5389,7 +5594,7 @@ end)
                     ServerData = ArrayServers[Index]
                     if ServerData then
                         if not MaxPlayers or ServerData.Players < MaxPlayers then
-                            if not ForcedRegion or ServerData.Regoin == ForcedRegion then
+                            if not ForcedRegion or ServerData.Region == ForcedRegion then
                                 print(
                                     "Found Server:",
                                     ServerData.JobId,
@@ -5494,21 +5699,22 @@ end)
         end
 
         function Storage.Save(Self)
-            pcall(function()
-                if typeof(writefile) == "function" then
-                    writefile(StoragePath, Encode(Self.Data))
-                end
-            end)
+            writefile(StoragePath, Encode(Self.Data))
+        end
+
+        if not isfile(StoragePath) then
+            writefile(StoragePath, "{}")
+            task.wait(1)
         end
 
         Storage.Data = {}
-        pcall(function()
-            if typeof(isfile) == "function" and typeof(readfile) == "function" and isfile(StoragePath) then
-                Storage.Data = Decode(readfile(StoragePath) or "{}") or {}
-            elseif typeof(writefile) == "function" then
-                writefile(StoragePath, "{}")
+
+        --Report(readfile(StoragePath))
+        pcall(
+            function()
+                Storage.Data = Decode(readfile(StoragePath) or "{}")
             end
-        end)
+        )
 
         spawn(
             function()
@@ -5518,25 +5724,10 @@ end)
             end
         )
         CreateTraceback("Initalize", "Initalizing script...")
-        pcall(function()
-            if typeof(getconnections) == "function" then
-                local playerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
-                if playerGui and playerGui:FindFirstChild("Main") and playerGui.Main:FindFirstChild("SettingsMenu") then
-                    local fastBtn = playerGui.Main.SettingsMenu.Content.ScrollingFrame.FastMode.FirstButton
-                    if fastBtn and fastBtn:FindFirstChild("Activated") then
-                        for _, Connection in getconnections(fastBtn.Activated) do
-                            pcall(function()
-                                if Connection.Function then
-                                    Connection.Function()
-                                elseif Connection.Fire then
-                                    Connection:Fire()
-                                end
-                            end)
-                        end
-                    end
-                end
-            end
-        end)
+        for _, Connection in getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame.FastMode.FirstButton.Activated
+        ) do
+            Connection.Function()
+        end
       
         function boostfps()
             local Terrain = workspace:FindFirstChildOfClass('Terrain')
@@ -5735,26 +5926,34 @@ end)
             if _G.Stop then
                 return
             end
-            for _, TaskName in ipairs(TasksOrder) do
+            for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
-                if Task and Task.Initalized then
-                    local Refresh = Task.Methods and Task.Methods.Refresh
-                    local Start = Task.Methods and Task.Methods.Start
+                if Task then
+                    if not Task.Initalized then
+                        if not LogCache[TaskName] then
+                            print("[ Debug ] Task", TaskName, "is not registered yet")
+                            LogCache[TaskName] = true
+                        end
+                    else
+                        local Refresh = Task.Methods and Task.Methods.Refresh
+                        local Start = Task.Methods and Task.Methods.Start
 
-                    if Refresh and Start then
-                        local success, RefreshValue = pcall(function()
-                            return Refresh:Call(true)
-                        end)
-
-                        if success and RefreshValue then
-                            CurrentTask = TaskName
-                            if ScriptStorage.Interface and ScriptStorage.Interface.SetText then
-                                ScriptStorage.Interface.SetText("DebugLine", TaskName)
-                            end
-                            pcall(function()
-                                Start:Call(RefreshValue)
+                        if Refresh then
+                            local ok, RefreshValue = pcall(function()
+                                return Refresh:Call(ParsingTimes < 100)
                             end)
-                            return
+
+                            ParsingTimes = ParsingTimes + 1
+                            if ok and RefreshValue then
+                                CurrentTask = TaskName
+                                if ScriptStorage.Interface and type(ScriptStorage.Interface.SetText) == "function" then
+                                    pcall(function() ScriptStorage.Interface.SetText("DebugLine", TaskName) end)
+                                end
+                                if Start then
+                                    pcall(function() Start:Call(RefreshValue) end)
+                                end
+                                return
+                            end
                         end
                     end
                 end
@@ -5762,41 +5961,31 @@ end)
         end
 
         SetText("MainTextLabel", "Refreshing Player Items...")
+        pcall(RefreshPlayerData)
         pcall(AddPoint)
-
-        pcall(function()
-            QuestManager:RefreshQuest()
-        end)
-
+        pcall(function() QuestManager:RefreshQuest() end)
+        SetText("MainTextLabel", "Loading Inventory...")
         pcall(RefreshInventory)
-
-        pcall(function()
-            local remotesFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-            local commE = remotesFolder and remotesFolder:FindFirstChild("CommE")
-            if commE and commE:IsA("RemoteEvent") then
-                commE.OnClientEvent:Connect(
-                    function(...)
-                        local data = {...}
-                        if data and data[1] and string.find(tostring(data[1]), "Item") then
-                            pcall(RefreshInventory)
-                        end
-                    end
-                )
-            end
-        end)
-
+        SetText("MainTextLabel", "Loading Race...")
         pcall(RefreshRace)
-
-        pcall(function()
-            Players.LocalPlayer.Idled:Connect(
-                function()
-                    pcall(function()
-                        Services.VirtualUser:CaptureController()
-                        Services.VirtualUser:ClickButton2(Vector2.new())
-                    end)
+        Remotes.CommE.OnClientEvent:Connect(
+            function(...)
+                local data = {...}
+                -- print(..., "additem")
+                if string.find(data[1], "Item") then
+                    RefreshInventory()
                 end
-            )
-        end)
+            end
+        )
+
+        RefreshRace()
+
+        Players.LocalPlayer.Idled:Connect(
+            function()
+                Services.VirtualUser:CaptureController()
+                Services.VirtualUser:ClickButton2(Vector2.new())
+            end
+        )
 
         SetText("MainTextLabel", "Loaded In " .. tick() - StartTick .. "ms!")
         Loaded = 1
@@ -5860,29 +6049,21 @@ end)
             end
         end)
         
-        pcall(function()
-            if ScriptStorage.PlayerData.Level and ScriptStorage.PlayerData.Level > 2000 then 
-                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo") end)
-                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso") end)
-                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru") end)
-                pcall(function() game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") end)
-            end
-        end)
+        if ScriptStorage.PlayerData.Level > 2000 then 
+            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo")
+            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso")
+            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru")
+            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") 
+        end
         
-        function getcandies()
-            local inv = nil
-            pcall(function()
-                inv = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
-            end)
-            if type(inv) == "table" then
-                for _, v in pairs(inv) do
-                    if type(v) == "table" and v.Name == "Candy" then 
-                        return tonumber(v.Count) or 0
-                    end
+         function getcandies()
+            for i,v in game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory") do
+                if v.Name ==  "Candy" then 
+                    return v.Count
                 end
             end
             return 0
-        end
+         end
         -- Optimized refresh loop with delay to reduce FPS impact
         task.spawn(
             function()
@@ -5898,11 +6079,7 @@ end)
                             local Elapsed = os.time() - StartTime
                             local TotalElapsed = Elapsed + OldSessionTime
 
-                            pcall(function()
-                                if typeof(writefile) == "function" then
-                                    writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
-                                end
-                            end)
+                            writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
 
                             if ScriptStorage.Interface then
                                 SetText(
@@ -5948,7 +6125,7 @@ end)
                             end
                         end
                     else
-                        warn("error: Remotes or CommF_ not found")
+                        warn("error: " .. tostring(result))
                     end
                 end)
                 
@@ -5968,10 +6145,8 @@ end)
             print(1)
             -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            if not IsInRaid and FunctionsHandler.MeleesController and FunctionsHandler.MeleesController.Methods and FunctionsHandler.MeleesController.Methods.Start then
-                pcall(function()
-                    FunctionsHandler.MeleesController.Methods.Start:Call()
-                end)
+            if not IsInRaid then
+                FunctionsHandler.MeleesController.Methods.Start:Call()
             end
             print(2)
             if not success then
@@ -5980,20 +6155,9 @@ end)
         end
 
     end
-    spawn(function ()
-        pcall(function()
-            local success, content = pcall(function()
-                return game:HttpGet("https://kunblox.net/cron/kaitun.lua")
-            end)
-            if success and content and #content > 0 then
-                local fn = loadstring(content)
-                if fn then fn() end
-            end
-        end)
-    end)
+    -- Remote kunblox script removed
         
     local success2, response2 = xpcall(mmb, debug.traceback)
     if not success2 then
-        warn("[Auto Godhuman Error]:", tostring(response2))
-        pcall(Report, response2)
+        Report(response2)
     end
