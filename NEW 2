@@ -41,12 +41,94 @@ Config =
 -- =========================================================================
 if not game:IsLoaded() then
     repeat
-        task.wait(1)
+        task.wait(0.5)
     until game:IsLoaded()
 end
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local targetTeam = (Config and Config.Team) or "Pirates"
+
 -- =========================================================================
--- [BƯỚC 2]: CHẾ ĐỘ TẢI CHẬM AN TOÀN (SAFE SLOW-LOADING) CHỐNG VĂNG GAME
+-- [BƯỚC 2]: TỰ ĐỘNG CHỌN PHE (HẢI TẶC / HẢI QUÂN) NGAY LẬP TỨC
+-- =========================================================================
+local function AutoSelectTeam()
+    local attempts = 0
+    while attempts < 30 do
+        if LocalPlayer.Team ~= nil and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            break
+        end
+
+        pcall(function()
+            -- 1. Bấm nút Chế Độ Nhanh (Fast Mode) trên giao diện chọn phe nếu bật LowGraphicsMode
+            local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+            local mainGui = pGui and pGui:FindFirstChild("Main")
+            if mainGui then
+                local chooseTeam = mainGui:FindFirstChild("ChooseTeam")
+                if chooseTeam and chooseTeam.Visible then
+                    if Config and Config.Configuration and Config.Configuration.LowGraphicsMode then
+                        for _, elem in ipairs(chooseTeam:GetDescendants()) do
+                            if elem:IsA("TextButton") or elem:IsA("ImageButton") then
+                                local text = tostring(elem.Text or "")
+                                if text:find("Nhanh") or text:find("Fast") then
+                                    for _, c in pairs(getconnections(elem.Activated)) do
+                                        c.Function()
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    -- 2. Kích hoạt nút chọn phe trên UI (Pirates / Marines)
+                    local container = chooseTeam:FindFirstChild("Container")
+                    if container then
+                        local teamButton = (targetTeam == "Marines" and container:FindFirstChild("Marines")) or container:FindFirstChild("Pirates")
+                        if teamButton then
+                            for _, c in pairs(getconnections(teamButton.Activated)) do
+                                c.Function()
+                            end
+                            local frame = teamButton:FindFirstChild("Frame")
+                            local viewport = frame and frame:FindFirstChild("ViewportFrame")
+                            if viewport then
+                                for _, c in pairs(getconnections(viewport.Activated)) do
+                                    c.Function()
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- 3. Gọi Remote CommF_ SetTeam trực tiếp
+            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+            local commF = remotes and remotes:FindFirstChild("CommF_")
+            if commF then
+                commF:InvokeServer("SetTeam", targetTeam)
+            end
+        end)
+
+        attempts = attempts + 1
+        task.wait(0.8)
+    end
+end
+
+AutoSelectTeam()
+
+-- =========================================================================
+-- [BƯỚC 3]: ĐỢI NHÂN VẬT SPAWN VÀO ĐẢO HOÀN TẤT
+-- =========================================================================
+local function WaitForPlayerRoot()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart", 60)
+    local hum = char:WaitForChild("Humanoid", 60)
+    return char, hrp, hum
+end
+WaitForPlayerRoot()
+task.wait(1)
+
+-- =========================================================================
+-- [BƯỚC 4]: CHẾ ĐỘ TẢI CHẬM AN TOÀN (SAFE SLOW-LOADING) CHỐNG VĂNG GAME
 -- =========================================================================
 local safeDelay = (Config.Configuration and Config.Configuration.LoadingDelay) or 25
 if Config.Configuration and Config.Configuration.SafeLoad then
@@ -99,35 +181,7 @@ if Config.Configuration and Config.Configuration.SafeLoad then
 
     task.wait(safeDelay)
 else
-    task.wait(10)
-end
-
--- =========================================================================
--- [BƯỚC 3]: ĐỢI NHÂN VẬT & CÁC DỊCH VỤ CỐT LÕI KHỞI ĐỘNG XONG
--- =========================================================================
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
-
-local function WaitForPlayerRoot()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart", 60)
-    local hum = char:WaitForChild("Humanoid", 60)
-    return char, hrp, hum
-end
-WaitForPlayerRoot()
-task.wait(2)
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RemotesFolder = ReplicatedStorage:WaitForChild("Remotes", 60)
-local CommF_Remote = RemotesFolder and RemotesFolder:WaitForChild("CommF_", 60)
-
--- Chọn phe an toàn 1 lần, có bọc pcall chống disconnect
-if CommF_Remote then
-    local team = (Config and Config.Team) or "Pirates"
-    pcall(function()
-        CommF_Remote:InvokeServer('SetTeam', team)
-    end)
-    task.wait(2)
+    task.wait(3)
 end
 
 function CheckKick(v)
@@ -298,7 +352,7 @@ local PerformanceCache = {}
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "moi"
+        NameHub.Text = "co len"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
