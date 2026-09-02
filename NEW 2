@@ -209,9 +209,17 @@ end)
         local isToggleOpen = false
         local player = game.Players.LocalPlayer
 
-        repeat
-            task.wait()
-        until game.CoreGui
+        local targetGuiParent = nil
+        pcall(function()
+            if typeof(gethui) == "function" then
+                targetGuiParent = gethui()
+            elseif game:GetService("CoreGui") then
+                targetGuiParent = game:GetService("CoreGui")
+            end
+        end)
+        if not targetGuiParent then
+            targetGuiParent = player:WaitForChild("PlayerGui", 10)
+        end
 
         local HopGui = Instance.new("ScreenGui")
         local NameHub = Instance.new("TextLabel")
@@ -227,7 +235,7 @@ end)
         local UIReferences = {}
 
         HopGui.Name = "CyndralDev"
-        HopGui.Parent = game:GetService("CoreGui")
+        HopGui.Parent = targetGuiParent or game:GetService("CoreGui")
         HopGui.Enabled = not Config.Configuration.HideGui
         HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         HopGui.IgnoreGuiInset = true
@@ -1917,13 +1925,21 @@ end)
             }
         }
 
-        local NpcList = require(game.ReplicatedStorage.GuideModule).Data.NPCList
+        local NpcList = nil
+        pcall(function()
+            NpcList = require(game.ReplicatedStorage.GuideModule).Data.NPCList
+        end)
 
-        repeat
-            task.wait()
-        until game.Players.LocalPlayer.DataLoaded and ScriptStorage
+        for _ = 1, 30 do
+            if (game.Players.LocalPlayer:FindFirstChild("Data") and game.Players.LocalPlayer.Data:FindFirstChild("Level")) or (game.Players.LocalPlayer:FindFirstChild("DataLoaded")) or ScriptStorage.PlayerData.Level then
+                break
+            end
+            task.wait(0.5)
+        end
 
-        QuestManager.Quests = require(game.ReplicatedStorage.Quests)
+        pcall(function()
+            QuestManager.Quests = require(game.ReplicatedStorage.Quests)
+        end)
 
         function QuestManager.Set(Self, Index, Value)
             Self[Index] = Value
@@ -2392,49 +2408,50 @@ end)
         local Workspace = game:GetService("Workspace")
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local Player = Players.LocalPlayer
-        local Modules = ReplicatedStorage:WaitForChild("Modules")
-        local Net = Modules:WaitForChild("Net")
-        local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
-        local RegisterHit = Net:WaitForChild("RE/RegisterHit")
-        local ShootGunEvent = Net:WaitForChild("RE/ShootGunEvent")
-        local GunValidator = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Validator2")
-        local Modules = game.ReplicatedStorage.Modules
-        local Net = Modules.Net
-        local Register_Hit, Register_Attack = Net:WaitForChild("RE/RegisterHit"), Net:WaitForChild("RE/RegisterAttack")
+
+        local RegisterAttack, RegisterHit
+        pcall(function()
+            local NetModule = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+            if NetModule then
+                RegisterAttack = require(NetModule):RemoteEvent("RegisterAttack", true)
+                RegisterHit = require(NetModule):RemoteEvent("RegisterHit", true)
+            end
+        end)
+
+        local function GetAllBladeHits()
+            local hits = {}
+            local enemies = workspace:FindFirstChild("Enemies")
+            local char = game.Players.LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if enemies and hrp then
+                for _, v in pairs(enemies:GetChildren()) do
+                    if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 and
+                       (v.HumanoidRootPart.Position - hrp.Position).Magnitude <= 65 then
+                        table.insert(hits, v)
+                    end
+                end
+            end
+            return hits
+        end
+
+        local function Getplayerhit()
+            local hits = {}
+            local chars = workspace:FindFirstChild("Characters")
+            local char = game.Players.LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if chars and hrp then
+                for _, v in pairs(chars:GetChildren()) do
+                    if v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild("Humanoid") and
+                       v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 and
+                       (v.HumanoidRootPart.Position - hrp.Position).Magnitude <= 65 then
+                        table.insert(hits, v)
+                    end
+                end
+            end
+            return hits
+        end
+
         local Funcs = {}
-        function GetAllBladeHits()
-            bladehits = {}
-            for _, v in pairs(workspace.Enemies:GetChildren()) do
-                if
-                    v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 and
-                        (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <=
-                            65
-                 then
-                    table.insert(bladehits, v)
-                end
-            end
-            return bladehits
-        end
-        function Getplayerhit()
-            bladehits = {}
-            for _, v in pairs(workspace.Characters:GetChildren()) do
-                if
-                    v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild("Humanoid") and
-                        v:FindFirstChild("HumanoidRootPart") and
-                        v.Humanoid.Health > 0 and
-                        (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <=
-                            65
-                 then
-                    table.insert(bladehits, v)
-                end
-            end
-            return bladehits
-        end
-
-        local Net = (Services.ReplicatedStorage.Modules.Net)
-
-        local RegisterAttack = require(Net):RemoteEvent("RegisterAttack", true)
-        local RegisterHit = require(Net):RemoteEvent("RegisterHit", true)
 
         function Funcs:Attack()
             local bladehits = {}
