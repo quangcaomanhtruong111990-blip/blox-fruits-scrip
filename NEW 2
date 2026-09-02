@@ -93,15 +93,12 @@ local safeDelay = (Config and Config.Configuration and Config.Configuration.Load
 if Config and Config.Configuration and Config.Configuration.SafeLoad then
     print("[SafeLoad]: Chờ nạp map an toàn " .. tostring(safeDelay) .. "s...")
 
-    -- Tạo thông báo nhỏ hiển thị đếm ngược (Parent an toàn vào PlayerGui hoặc gethui, tránh crash CoreGui)
+    -- Tạo thông báo nhỏ hiển thị đếm ngược
     pcall(function()
-        local parentGui = (gethui and gethui()) or LocalPlayer:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
-        if not parentGui then return end
-
         local sg = Instance.new("ScreenGui")
         sg.Name = "BloxSafeLoadUI"
         sg.ResetOnSpawn = false
-        sg.Parent = parentGui
+        sg.Parent = game:GetService("CoreGui")
 
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(0, 330, 0, 60)
@@ -287,7 +284,9 @@ local PerformanceCache = {}
         local isToggleOpen = false
         local player = game.Players.LocalPlayer
 
-        local targetGuiParent = (gethui and gethui()) or (LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")) or game:GetService("CoreGui")
+        repeat
+            task.wait()
+        until game.CoreGui
 
         local HopGui = Instance.new("ScreenGui")
         local NameHub = Instance.new("TextLabel")
@@ -303,7 +302,7 @@ local PerformanceCache = {}
         local UIReferences = {}
 
         HopGui.Name = "CyndralDev"
-        HopGui.Parent = targetGuiParent
+        HopGui.Parent = game:GetService("CoreGui")
         HopGui.Enabled = not Config.Configuration.HideGui
         HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         HopGui.IgnoreGuiInset = true
@@ -318,7 +317,7 @@ local PerformanceCache = {}
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "moi"
+        NameHub.Text = "cu"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5842,44 +5841,169 @@ FunctionsHandler = {
       
         function boostfps()
             local Terrain = workspace:FindFirstChildOfClass('Terrain')
+            local ReplicatedStorage = game.ReplicatedStorage
+            local Players = game.Players
+            local Player = Players.LocalPlayer
+            local RunService = game:GetService("RunService")
             local Lighting = game:GetService("Lighting")
 
-            -- Hạ đồ họa an toàn, giảm tải VRAM & RAM
+            -- Tắt nước
+            if Terrain then
+                Terrain.WaterWaveSize = 0
+                Terrain.WaterWaveSpeed = 0
+                Terrain.WaterReflectance = 0
+                Terrain.WaterTransparency = 1
+            end
+
+            -- Xóa map không cần thiết để tăng FPS
+            pcall(function()
+                -- Xóa clouds trong workspace
+                for _, v in ipairs(workspace:GetChildren()) do
+                    if v.Name == "Clouds" or v.Name == "Cloud" then
+                        pcall(function() v:Destroy() end)
+                    end
+                end
+
+                -- Xóa skybox/decoration trong lighting
+                for _, v in ipairs(Lighting:GetChildren()) do
+                    if v:IsA("Sky") or v:IsA("Decal") then
+                        pcall(function() v:Destroy() end)
+                    end
+                end
+
+                -- Xóa map decorations (part nằm trong Map folder)
+                local Map = workspace:FindFirstChild("Map")
+                if Map then
+                    for _, v in ipairs(Map:GetChildren()) do
+                        local name = v.Name:lower()
+                        if name:find("tree") or name:find("plant") or name:find("rock") or
+                           name:find("fence") or name:find("decoration") or name:find("grass") or
+                           name:find("bush") or name:find("flower") or name:find("sign") then
+                            pcall(function() v:Destroy() end)
+                        end
+                    end
+                end
+
+                -- Xóa spawn location effects
+                for _, v in ipairs(workspace:GetDescendants()) do
+                    if v:IsA("Sound") then
+                        pcall(function() v:Destroy() end)
+                    end
+                end
+            end)
+
+            -- Tắt lighting
+            Lighting.GlobalShadows = false
+            Lighting.FogEnd = 9e9
+            Lighting.FogStart = 9e9
+
+            -- Giảm quality level
             pcall(function()
                 settings().Rendering.QualityLevel = 1
             end)
 
-            -- Tắt hiệu ứng ánh sáng nặng
+            -- Xóa lighting children
             pcall(function()
-                Lighting.GlobalShadows = false
-                Lighting.FogEnd = 9e9
-                Lighting.FogStart = 9e9
+                Lighting:ClearAllChildren()
             end)
 
-            -- Tắt hiệu ứng sóng nước
-            if Terrain then
-                pcall(function()
-                    Terrain.WaterWaveSize = 0
-                    Terrain.WaterWaveSpeed = 0
-                    Terrain.WaterReflectance = 0
-                    Terrain.WaterTransparency = 1
+            -- Xóa effect particles cho non-character parts
+            pcall(function()
+                for _, v in ipairs(game:GetDescendants()) do
+                    if v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                        pcall(function() v.Lifetime = NumberRange.new(0) end)
+                    elseif v:IsA("AnimationController") then
+                        pcall(function() v:Destroy() end)
+                    end
+                end
+            end)
+
+            -- Xử lý existing characters
+            for _, player1 in pairs(Players:GetChildren()) do
+                if player1.Character then
+                    task.spawn(function()
+                        task.wait(0.5)
+                        for _, part in pairs(player1.Character:GetChildren()) do
+                            if part:IsA("Accessory") or part.Name == "Radio" then
+                                pcall(function() part:Destroy() end)
+                            end
+                        end
+                    end)
+                end
+                player1.CharacterAdded:Connect(function(char)
+                    task.wait(0.5)
+                    for _, part in pairs(char:GetChildren()) do
+                        if part:IsA("Accessory") or part.Name == "Radio" then
+                            pcall(function() part:Destroy() end)
+                        end
+                    end
                 end)
             end
 
-            -- Dọn dẹp mây, ánh sáng và skybox nhẹ nhàng không làm tốn RAM hay đơ máy
-            task.spawn(function()
+            -- Bug 1 FIX: Chỉ destroy thứ KHÔNG phải Model/Folder trong _WorldOrigin
+            workspace._WorldOrigin.ChildAdded:Connect(function(child)
                 pcall(function()
-                    for _, v in ipairs(workspace:GetChildren()) do
-                        if v.Name == "Clouds" or v.Name == "Cloud" then
-                            pcall(function() v:Destroy() end)
-                        end
+                    if not child:IsA("Model") and not child:IsA("Folder") then
+                        child:Destroy()
                     end
+                end)
+            end)
 
-                    for _, v in ipairs(Lighting:GetChildren()) do
-                        if v:IsA("Sky") or v:IsA("Decal") or v:IsA("Atmosphere") then
-                            pcall(function() v:Destroy() end)
-                        end
+            -- Xóa cache folder trong ReplicatedStorage
+            pcall(function()
+                local candelete = {"Cache", "Cache2"}
+                for _, v in ipairs(ReplicatedStorage:GetChildren()) do
+                    if table.find(candelete, v.Name) then
+                        pcall(function() v:Destroy() end)
                     end
+                end
+            end)
+
+            -- Camera và Terrain child cleanup
+            workspace.Camera.ChildAdded:Connect(function(child)
+                pcall(function() child:Destroy() end)
+            end)
+
+            if Terrain then
+                Terrain.ChildAdded:Connect(function(child)
+                    pcall(function() child:Destroy() end)
+                end)
+            end
+
+            -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
+            workspace.DescendantAdded:Connect(function(child)
+                task.spawn(function()
+                    pcall(function()
+                        -- Chỉ xử lý effect, KHÔNG transparent player character
+                        if child:IsA("ForceField") or child:IsA("Sparkles") or
+                           child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
+                            child:Destroy()
+                            return
+                        end
+
+                        -- Bỏ qua character parts của player
+                        local char = Player.Character
+                        if char and (child:IsDescendantOf(char) or child == char) then
+                            return
+                        end
+
+                        if child:IsA("BasePart") then
+                            child.Material = "Plastic"
+                            child.Reflectance = 0
+                            child.BackSurface = "SmoothNoOutlines"
+                            child.BottomSurface = "SmoothNoOutlines"
+                            child.FrontSurface = "SmoothNoOutlines"
+                            child.LeftSurface = "SmoothNoOutlines"
+                            child.RightSurface = "SmoothNoOutlines"
+                            child.TopSurface = "SmoothNoOutlines"
+                            child.Transparency = 1
+                            child.CastShadow = false
+                        elseif child:IsA("Decal") then
+                            child.Transparency = 1
+                        elseif child:IsA("AnimationController") then
+                            child:Destroy()
+                        end
+                    end)
                 end)
             end)
         end  
