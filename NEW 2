@@ -200,7 +200,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v4"
+        NameHub.Text = "sanglove v1.13"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1180,7 +1180,7 @@ ScriptStorage = {
             end
         end
         function MeleeCheck(Child)
-            print("Melee check", Child)
+            return
 
             if Child and typeof(Child) == "Instance" and Child:IsA("Tool") then
                 if Child.ToolTip == "Melee" then
@@ -1583,7 +1583,6 @@ ScriptStorage = {
         SeaIndexes = {"Main", "Dressrosa", "Zou"}
 
         TasksOrder = {
-            "MeleesController",
             
             "SoulGuitar",
             "Tushita",
@@ -1601,7 +1600,7 @@ ScriptStorage = {
             "CollectDrops",
             "BossesTask",
             "LevelFarm"
-        
+        }
 
         MaxLevel = 2800
 
@@ -3051,20 +3050,8 @@ FunctionsHandler = {
         FunctionsHandler.LevelFarm:RegisterMethod(
             "Refresh",
             function()
-                -- Donot run LevelFarm if currently in raid process
-                if FunctionsHandler.RaidController:Get("IsInRaidProcess") then
-                    return
-                end
-
-                local Level = ScriptStorage.PlayerData.Level
-                if Level < 10 then
-                    return 1
-                elseif Level < 70 then
-                    return 2
-                else
-                    return 4
-                end
-                return true
+                -- [USER REQUEST] Tắt hoàn toàn Auto Farm
+                return nil
             end
         )
 
@@ -4081,11 +4068,6 @@ FunctionsHandler = {
         FunctionsHandler.BossesTask:RegisterMethod(
             "Refresh",
             function()
-                -- [USER INTENT FIX] Ưu tiên tuyệt đối kiểm tra và lấy võ/Godhuman trước khi farm boss
-                if Config.Items.AutoFullyMelees and not ScriptStorage.Melees.Godhuman then
-                    return nil
-                end
-
                 local Boss
                 for _, BossName in BossesOrder do
                     if BossName then 
@@ -6050,6 +6032,12 @@ FunctionsHandler = {
        
         while task.wait(0.15) do
             local success, response = xpcall(RefreshTasksData, debug.traceback)
+            local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
+            if not IsInRaid then
+                pcall(function()
+                    FunctionsHandler.MeleesController.Methods.Start:Call()
+                end)
+            end
             if not success then
                 Report(response)
             end
