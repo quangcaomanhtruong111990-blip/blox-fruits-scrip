@@ -37,7 +37,7 @@ repeat
 until game:IsLoaded()
 
 -- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
-task.wait(15)
+task.wait(30)
 
 -- Volt Performance Optimization Setup
 local Volt = nil
@@ -64,18 +64,11 @@ local PerformanceCache = {}
 
 function CheckKick(v)
     if v.Name == 'ErrorPrompt' then
-        task.wait(1.5)
-        pcall(function()
-            local serverBrowser = game:GetService("ReplicatedStorage"):FindFirstChild("__ServerBrowser")
-            if serverBrowser then
-                serverBrowser:InvokeServer("teleport", game.PlaceId)
-            else
-                game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer)
-            end
-        end)
-        -- [ĐÃ SỬA]: Không gọi v:Destroy() để tránh sập CoreGui PromptOverlay của Roblox
+        task.wait(2)
+        print(v.TitleFrame.ErrorTitle.Text)
+        game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer( "teleport",game.PlaceId)
+        v:Destroy()
     end
-end
 end
 -- print restored
 repeat
@@ -221,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "2222"
+        NameHub.Text = "sanglove v1.09"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2426,7 +2419,7 @@ ScriptStorage = {
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
-            while task.wait(.06) do
+            while task.wait(.15) do
                 if _G.FastAttack == os.time() then
                     pcall(
                         function()
@@ -2695,7 +2688,7 @@ CombatController = {
                     local Count, Debounce = 0, os.time()
                     local Count2, Debounce = 0, os.time()
                     -- Optimize: Add delay to reduce FPS impact
-                    while task.wait(0.1) do
+                    while task.wait(1) do
                         if _G.Stop then
                             return
                         end
@@ -3880,11 +3873,11 @@ FunctionsHandler = {
                                             if ((Melee == "Death Step" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyDeathStep", true) ==  3)  or
                                             (Melee == "Sharkman Karate" and
                                             type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "string" or (
-                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex == 2 then
-        -- [ĐÃ SỬA]: Chỉ teleport khi ĐANG Ở SEA 2, tuyệt đối không gọi khi ở Sea 3
-        alert("Go Back To Second Sea", "Water Key / Library Key")
-        Remotes.CommF_:InvokeServer("TravelDressrosa")
-    end
+                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
+                                                alert("Go Back To Second Sea", "Water Key / Library Key")
+
+                                                Remotes.CommF_:InvokeServer("TravelDressrosa")
+                                            end
                                             ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
                                         else
                                             MeleeLastCursor = Cursor + 1
@@ -5068,7 +5061,7 @@ FunctionsHandler = {
                     )
 
                     alert("attack")
-                    while task.wait() do
+                    while task.wait(1) do
                         CombatController.Attack("rip_indra")
                     end
                 end
@@ -5253,7 +5246,7 @@ FunctionsHandler = {
                     else
                         local StartTime19 = os.time()
                         for Idx, Object in Objects do
-                            while task.wait() and Object.Humanoid.Health > 7000 do
+                            while task.wait(1) and Object.Humanoid.Health > 7000 do
                                 SetTask("MainTask", "Soul Guitar task 1 / 5: Hit mob " .. Idx .. " / 6")
                                 FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                 if os.time() - StartTime19 > 60 then
@@ -5596,7 +5589,7 @@ FunctionsHandler = {
             print(#ArrayServers, "servers received")
 
             for i = 1, #ArrayServers do
-                while task.wait() do
+                while task.wait(1) do
                     local Index = math.random(1, #ArrayServers)
                     ServerData = ArrayServers[Index]
                     if ServerData then
@@ -5848,18 +5841,23 @@ FunctionsHandler = {
 
             -- Xóa cache folder trong ReplicatedStorage
             pcall(function()
-                -- [ĐÃ SỬA]: Giữ nguyên vẹn thư mục Cache của Sea 3 để bảo vệ animation và Remote
-    local candelete = {})
+                local candelete = {"Cache", "Cache2"}
+                for _, v in ipairs(ReplicatedStorage:GetChildren()) do
+                    if table.find(candelete, v.Name) then
+                        pcall(function() v:Destroy() end)
                     end
                 end
             end)
 
             -- Camera và Terrain child cleanup
-            -- [ĐÃ SỬA]: Vô hiệu hóa lệnh xóa Camera để không bị crash Roblox Sea 3
-        -- workspace.Camera.ChildAdded disabled for engine stability
+            workspace.Camera.ChildAdded:Connect(function(child)
+                pcall(function() child:Destroy() end)
             end)
 
-            -- [ĐÃ SỬA]: Vô hiệu hóa lệnh xóa Terrain)
+            if Terrain then
+                Terrain.ChildAdded:Connect(function(child)
+                    pcall(function() child:Destroy() end)
+                end)
             end
 
             -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
@@ -6069,7 +6067,7 @@ FunctionsHandler = {
         -- Optimized refresh loop with delay to reduce FPS impact
         task.spawn(
             function()
-                while task.wait(1) do  -- Changed from task.wait() to task.wait(1) to reduce FPS impact
+                while task.wait(5) do  -- Changed from task.wait() to task.wait(1) to reduce FPS impact
                     if not _G.Stop then
                         
                         if LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.Sit then
@@ -6136,7 +6134,7 @@ FunctionsHandler = {
         end)
 
        
-        while task.wait() do
+        while task.wait(1) do
             --[[
             if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
                 SendDataDelay = os.time() 
