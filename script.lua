@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.09"
+        NameHub.Text = "sss"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
