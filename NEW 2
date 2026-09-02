@@ -200,7 +200,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove v2"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1583,6 +1583,7 @@ ScriptStorage = {
         SeaIndexes = {"Main", "Dressrosa", "Zou"}
 
         TasksOrder = {
+            "MeleesController",
             
             "SoulGuitar",
             "Tushita",
@@ -1600,7 +1601,7 @@ ScriptStorage = {
             "CollectDrops",
             "BossesTask",
             "LevelFarm"
-        }
+        
 
         MaxLevel = 2800
 
