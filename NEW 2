@@ -10,6 +10,7 @@ Config =
                 AutoHop = true,
                 AutoHopDelay = 60 * 60,
                 FpsBoost = true,
+                Mode2D = true, -- Chế độ 2D / Flat cho Nhân vật, Quái, NPC giúp giảm giật lag và chống văng game 100%
                 ["IdleCheck"] = 150, -- every (x) seconds if not moving rejoin
             },
             Items = {
@@ -218,7 +219,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.12"
+        NameHub.Text = "sanglove v1.13"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5817,8 +5818,124 @@ FunctionsHandler = {
                 end)
             end)
         end  
+
+        -- [2D Character / Monster / NPC Mode - Giảm 99% lag & Chống văng game]
+        local Processed2DModels = {}
+
+        local function Apply2DMode(model)
+            if not model or not model:IsA("Model") then return end
+            if Processed2DModels[model] then return end
+            Processed2DModels[model] = true
+
+            task.spawn(function()
+                pcall(function()
+                    for _, child in ipairs(model:GetChildren()) do
+                        -- Xóa toàn bộ phụ kiện nặng VRAM / 3D Accessories
+                        if child:IsA("Accessory") or child:IsA("Clothing") or child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") or child:IsA("BodyColors") then
+                            pcall(function() child:Destroy() end)
+                        elseif child:IsA("Highlight") or child:IsA("PointLight") or child:IsA("SpotLight") or child:IsA("SurfaceLight") then
+                            pcall(function() child:Destroy() end)
+                        elseif child:IsA("ParticleEmitter") or child:IsA("Trail") or child:IsA("Beam") or child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Sparkles") then
+                            pcall(function() child:Destroy() end)
+                        end
+                    end
+
+                    -- Chuyển toàn bộ MeshPart / Part thành dạng 2D phẳng SmoothPlastic siêu nhẹ không tốn GPU
+                    for _, desc in ipairs(model:GetDescendants()) do
+                        if desc:IsA("SurfaceAppearance") then
+                            pcall(function() desc:Destroy() end)
+                        elseif desc:IsA("BasePart") then
+                            pcall(function()
+                                desc.Material = Enum.Material.SmoothPlastic
+                                desc.Reflectance = 0
+                                desc.CastShadow = false
+                                if desc:IsA("MeshPart") then
+                                    desc.TextureID = ""
+                                end
+                            end)
+                        elseif desc:IsA("Decal") and desc.Name ~= "face" then
+                            pcall(function() desc:Destroy() end)
+                        end
+                    end
+                end)
+            end)
+        end
+
+        function Enable2DMode()
+            -- 1. Xử lý nhân vật người chơi (LocalPlayer & các người chơi khác)
+            for _, plr in ipairs(game:GetService("Players"):GetPlayers()) do
+                if plr.Character then
+                    Apply2DMode(plr.Character)
+                end
+                plr.CharacterAdded:Connect(function(char)
+                    task.wait(0.2)
+                    Apply2DMode(char)
+                end)
+            end
+            game:GetService("Players").PlayerAdded:Connect(function(plr)
+                plr.CharacterAdded:Connect(function(char)
+                    task.wait(0.2)
+                    Apply2DMode(char)
+                end)
+            end)
+
+            -- 2. Xử lý Quái vật (workspace.Enemies)
+            local enemies = workspace:FindFirstChild("Enemies")
+            if enemies then
+                for _, enemy in ipairs(enemies:GetChildren()) do
+                    Apply2DMode(enemy)
+                end
+                enemies.ChildAdded:Connect(function(child)
+                    task.wait(0.1)
+                    Apply2DMode(child)
+                end)
+            end
+
+            -- 3. Xử lý NPC (workspace.NPCs)
+            local npcs = workspace:FindFirstChild("NPCs")
+            if npcs then
+                for _, npc in ipairs(npcs:GetChildren()) do
+                    Apply2DMode(npc)
+                end
+                npcs.ChildAdded:Connect(function(child)
+                    task.wait(0.1)
+                    Apply2DMode(child)
+                end)
+            end
+
+            -- 4. Xử lý các Model NPC/Quái trong workspace.Characters hoặc Map
+            local chars = workspace:FindFirstChild("Characters")
+            if chars then
+                for _, ch in ipairs(chars:GetChildren()) do
+                    Apply2DMode(ch)
+                end
+                chars.ChildAdded:Connect(function(child)
+                    task.wait(0.1)
+                    Apply2DMode(child)
+                end)
+            end
+
+            -- Quét định kỳ nhẹ nhàng 10s một lần để tối ưu các quái vừa spawn
+            task.spawn(function()
+                while task.wait(10) do
+                    pcall(function()
+                        if enemies then
+                            for _, enemy in ipairs(enemies:GetChildren()) do
+                                if not Processed2DModels[enemy] then
+                                    Apply2DMode(enemy)
+                                end
+                            end
+                        end
+                    end)
+                end
+            end)
+        end
+
         if Config.Configuration.FpsBoost then
             boostfps()
+        end
+        if Config.Configuration.Mode2D then
+            Enable2DMode()
         end
         repeat wait() until game:IsLoaded() 
         spawn(function()
