@@ -198,8 +198,12 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         -- Create a table to store UI references for blurring
         local UIReferences = {}
 
+        local CoreGuiParent = (typeof(gethui) == "function" and gethui()) or pcall(function() return game:GetService("CoreGui") end) and game:GetService("CoreGui") or (player and player:FindFirstChild("PlayerGui"))
+
         HopGui.Name = "CyndralDev"
-        HopGui.Parent = game:GetService("CoreGui")
+        pcall(function()
+            HopGui.Parent = CoreGuiParent
+        end)
         HopGui.Enabled = not Config.Configuration.HideGui
         HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         HopGui.IgnoreGuiInset = true
@@ -214,7 +218,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.11"
+        NameHub.Text = "sanglove v1.12"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2567,6 +2571,9 @@ CombatController = {
                     end
                 end
             end
+            if Count == 0 or not ForcePosition then
+                return
+            end
             MidPoint = CFrame.new(MidPoint / Count)
 
             table.foreach(
@@ -2663,7 +2670,12 @@ CombatController = {
                 return
             end
 
-            sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
+            -- [v1.11] Safe SimulationRadius without crash
+            pcall(function()
+                if typeof(sethiddenproperty) == "function" then
+                    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 1000)
+                end
+            end)
             MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
 
             for _, Child in (MobTable) do
@@ -5739,10 +5751,19 @@ FunctionsHandler = {
             end
         )
         CreateTraceback("Initalize", "Initalizing script...")
-        for _, Connection in getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame.FastMode.FirstButton.Activated
-        ) do
-            Connection.Function()
-        end
+        pcall(function()
+            if typeof(getconnections) == "function" then
+                local lp = game:GetService("Players").LocalPlayer
+                local fastBtn = lp and lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("Main") and lp.PlayerGui.Main:FindFirstChild("SettingsMenu") and lp.PlayerGui.Main.SettingsMenu:FindFirstChild("Content") and lp.PlayerGui.Main.SettingsMenu.Content:FindFirstChild("ScrollingFrame") and lp.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame:FindFirstChild("FastMode") and lp.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame.FastMode:FindFirstChild("FirstButton") and lp.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame.FastMode.FirstButton:FindFirstChild("Activated")
+                if fastBtn then
+                    for _, Connection in pairs(getconnections(fastBtn)) do
+                        if Connection and typeof(Connection.Function) == "function" then
+                            Connection.Function()
+                        end
+                    end
+                end
+            end
+        end)
       
         function boostfps()
             local Terrain = workspace:FindFirstChildOfClass('Terrain')
