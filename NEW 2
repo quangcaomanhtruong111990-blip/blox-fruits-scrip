@@ -93,12 +93,18 @@ local safeDelay = (Config and Config.Configuration and Config.Configuration.Load
 if Config and Config.Configuration and Config.Configuration.SafeLoad then
     print("[SafeLoad]: Chờ nạp map an toàn " .. tostring(safeDelay) .. "s...")
 
-    -- Tạo thông báo nhỏ hiển thị đếm ngược
+    -- Tạo thông báo nhỏ hiển thị đếm ngược (Parent an toàn vào gethui hoặc PlayerGui)
     pcall(function()
+        local parentGui = (gethui and gethui()) or (LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")) or (game.Players.LocalPlayer and game.Players.LocalPlayer:FindFirstChild("PlayerGui"))
+        if not parentGui then
+            pcall(function() parentGui = game:GetService("CoreGui") end)
+        end
+        if not parentGui then return end
+
         local sg = Instance.new("ScreenGui")
         sg.Name = "BloxSafeLoadUI"
         sg.ResetOnSpawn = false
-        sg.Parent = game:GetService("CoreGui")
+        sg.Parent = parentGui
 
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(0, 330, 0, 60)
@@ -284,9 +290,10 @@ local PerformanceCache = {}
         local isToggleOpen = false
         local player = game.Players.LocalPlayer
 
-        repeat
-            task.wait()
-        until game.CoreGui
+        local targetGuiParent = (gethui and gethui()) or (player and (player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui", 5)))
+        if not targetGuiParent then
+            pcall(function() targetGuiParent = game:GetService("CoreGui") end)
+        end
 
         local HopGui = Instance.new("ScreenGui")
         local NameHub = Instance.new("TextLabel")
@@ -302,7 +309,8 @@ local PerformanceCache = {}
         local UIReferences = {}
 
         HopGui.Name = "CyndralDev"
-        HopGui.Parent = game:GetService("CoreGui")
+        HopGui.ResetOnSpawn = false
+        HopGui.Parent = targetGuiParent
         HopGui.Enabled = not Config.Configuration.HideGui
         HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         HopGui.IgnoreGuiInset = true
@@ -317,7 +325,7 @@ local PerformanceCache = {}
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "moi"
+        NameHub.Text = "sap xong"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
