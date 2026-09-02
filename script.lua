@@ -64,11 +64,18 @@ local PerformanceCache = {}
 
 function CheckKick(v)
     if v.Name == 'ErrorPrompt' then
-        task.wait(2)
-        print(v.TitleFrame.ErrorTitle.Text)
-        game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer( "teleport",game.PlaceId)
-        v:Destroy()
+        task.wait(1.5)
+        pcall(function()
+            local serverBrowser = game:GetService("ReplicatedStorage"):FindFirstChild("__ServerBrowser")
+            if serverBrowser then
+                serverBrowser:InvokeServer("teleport", game.PlaceId)
+            else
+                game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer)
+            end
+        end)
+        -- [ĐÃ SỬA]: Không gọi v:Destroy() để tránh sập CoreGui PromptOverlay của Roblox
     end
+end
 end
 -- print restored
 repeat
@@ -214,7 +221,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "11111"
+        NameHub.Text = "2222"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3873,11 +3880,11 @@ FunctionsHandler = {
                                             if ((Melee == "Death Step" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyDeathStep", true) ==  3)  or
                                             (Melee == "Sharkman Karate" and
                                             type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "string" or (
-                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
-                                                alert("Go Back To Second Sea", "Water Key / Library Key")
-
-                                                Remotes.CommF_:InvokeServer("TravelDressrosa")
-                                            end
+                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex == 2 then
+        -- [ĐÃ SỬA]: Chỉ teleport khi ĐANG Ở SEA 2, tuyệt đối không gọi khi ở Sea 3
+        alert("Go Back To Second Sea", "Water Key / Library Key")
+        Remotes.CommF_:InvokeServer("TravelDressrosa")
+    end
                                             ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
                                         else
                                             MeleeLastCursor = Cursor + 1
@@ -5841,23 +5848,18 @@ FunctionsHandler = {
 
             -- Xóa cache folder trong ReplicatedStorage
             pcall(function()
-                local candelete = {"Cache", "Cache2"}
-                for _, v in ipairs(ReplicatedStorage:GetChildren()) do
-                    if table.find(candelete, v.Name) then
-                        pcall(function() v:Destroy() end)
+                -- [ĐÃ SỬA]: Giữ nguyên vẹn thư mục Cache của Sea 3 để bảo vệ animation và Remote
+    local candelete = {})
                     end
                 end
             end)
 
             -- Camera và Terrain child cleanup
-            workspace.Camera.ChildAdded:Connect(function(child)
-                pcall(function() child:Destroy() end)
+            -- [ĐÃ SỬA]: Vô hiệu hóa lệnh xóa Camera để không bị crash Roblox Sea 3
+        -- workspace.Camera.ChildAdded disabled for engine stability
             end)
 
-            if Terrain then
-                Terrain.ChildAdded:Connect(function(child)
-                    pcall(function() child:Destroy() end)
-                end)
+            -- [ĐÃ SỬA]: Vô hiệu hóa lệnh xóa Terrain)
             end
 
             -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
