@@ -214,7 +214,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "gacha"
+        NameHub.Text = "moi"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2166,6 +2166,7 @@ ScriptStorage = {
             if Character.Humanoid.Health <= 0 then return end
         
             -- Chuyển đổi Position sang CFrame nếu cần
+            if _G.IsGachaing then return end
             local TargetCFrame = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
             -- Chỉ giữ lại tọa độ Position, loại bỏ Rotation để tránh xoay người ảo
             TargetCFrame = CFrame.new(TargetCFrame.Position)
@@ -3227,7 +3228,7 @@ FunctionsHandler = {
                             )
 
                             Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
-                            return
+                            return task.wait(5)
                         end
 
                         SetTask("MainTask", "Material Farming | Godhuman | " .. Material .. " | In Progress" )
@@ -3252,13 +3253,14 @@ FunctionsHandler = {
                             
 
                             Remotes.CommF_:InvokeServer("TravelZou")
-
                             SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
+                            return task.wait(5)
                              
                         end
                     elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
                         SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
                         Remotes.CommF_:InvokeServer("TravelDressrosa")
+                        return task.wait(5)
                     end
                 
 
@@ -3875,8 +3877,8 @@ FunctionsHandler = {
                                             type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "string" or (
                                             type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
                                                 alert("Go Back To Second Sea", "Water Key / Library Key")
-
                                                 Remotes.CommF_:InvokeServer("TravelDressrosa")
+                                                return task.wait(5)
                                             end
                                             ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
                                         else
@@ -3969,6 +3971,7 @@ FunctionsHandler = {
                     CombatController.Attack("Ice Admiral")
                     alert("Traveling back to Dressrosa [ Ice Admiral ]")
                     Remotes.CommF_:InvokeServer("TravelDressrosa")
+                    return task.wait(5)
                 end
             end
         )
@@ -5215,7 +5218,8 @@ FunctionsHandler = {
                 elseif State == 1 then
                     if SeaIndex ~= 2 then
                         SetTask("MainTask", "Teleport to second sea to farm ectoplasm")
-                        return Remotes.CommF_:InvokeServer("TravelDressrosa")
+                        Remotes.CommF_:InvokeServer("TravelDressrosa")
+                        return task.wait(5)
                     else
                         SetTask("MainTask", "Farming ectoplasms for soul guitar")
                         CombatController.Attack({"Ship Deckhand", "Ship Engineer", "Ship Steward", "Ship Officer"})
@@ -6100,6 +6104,8 @@ FunctionsHandler = {
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local GuiService = game:GetService("GuiService")
 
+        _G.IsGachaing = false
+
         local GachaLocations = {
             Sea1 = Vector3.new(-1441.9, 61.9, 3.1),      -- Jungle
             Sea2 = Vector3.new(-422.3, 73.0, 393.7),     -- Cafe
@@ -6261,7 +6267,17 @@ FunctionsHandler = {
         end
 
         local function runGachaFruit()
+            _G.IsGachaing = true
             pcall(function()
+                if TweenInstance then TweenInstance:Cancel() end
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local head = character:FindFirstChild("Head")
+                    if head and head:FindFirstChild("eltrul") then
+                        head.eltrul:Destroy()
+                    end
+                end
+
                 local seaName, targetPos = getGachaTarget()
                 print("[AUTO GACHA]: Bắt đầu quay trái ở " .. seaName)
                 
@@ -6269,7 +6285,7 @@ FunctionsHandler = {
                 while not getDialogue() do
                     if tick() - startTime > 25 then
                         print("[AUTO GACHA]: Quá thời gian chờ thoại NPC!")
-                        return
+                        break
                     end
 
                     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -6305,45 +6321,47 @@ FunctionsHandler = {
                 autoStoreFruit()
                 print("[AUTO GACHA]: Hoàn thành Gacha & Cất trái!")
             end)
+            task.wait(1)
+            _G.IsGachaing = false
         end
 
         task.spawn(function()
-            -- 1. Đợi 3 phút (180 giây) khi mới vào game cho load ổn định
+            -- 1. Đợi 3 phút (180 giây) khi mới vào game cho load ổn định (chưa auto farm)
+            print("[AUTO GACHA]: Đợi 3 phút cho game load ổn định...")
             task.wait(180)
             
-            -- 2. Chạy lệnh Gacha đầu tiên
+            -- 2. Chạy lệnh Gacha đầu tiên TRƯỚC TIÊN (bật cờ IsGachaing để ngưng hết tác vụ khác)
+            print("[AUTO GACHA]: Thực hiện gacha trái ác quỷ đầu tiên...")
             runGachaFruit()
             
             -- 3. Đợi 20 giây sau khi gacha xong
+            print("[AUTO GACHA]: Gacha xong, đợi 20 giây trước khi bắt đầu auto farm...")
             task.wait(20)
             
-            -- 4. Vòng lặp định kỳ mỗi 2 tiếng 5 phút (7500 giây)
+            -- 4. Bắt đầu vòng lặp Gacha định kỳ mỗi 2 tiếng 5 phút (7500 giây)
+            task.spawn(function()
+                while true do
+                    task.wait(7500)
+                    runGachaFruit()
+                end
+            end)
+
+            -- 5. Sau khi gacha đầu tiên + 20s, bắt đầu chạy vòng lặp auto farm / nhiệm vụ chính (sẽ bị tạm ngưng khi IsGachaing = true)
             while true do
-                runGachaFruit()
-                task.wait(7500)
+                task.wait()
+                if not _G.Stop and not _G.IsGachaing then
+                    local success, response = xpcall(RefreshTasksData, debug.traceback)
+                    -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
+                    local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
+                    if not IsInRaid then
+                        FunctionsHandler.MeleesController.Methods.Start:Call()
+                    end
+                    if not success then
+                        Report(response)
+                    end
+                end
             end
         end)
-
-       
-        while task.wait() do
-            --[[
-            if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
-                SendDataDelay = os.time() 
-                pcall(SendData)
-            end ]]
-             print(0)
-            local success, response = xpcall(RefreshTasksData, debug.traceback)
-            print(1)
-            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
-            local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            if not IsInRaid then
-                FunctionsHandler.MeleesController.Methods.Start:Call()
-            end
-            print(2)
-            if not success then
-                Report(response)
-            end
-        end
 
     end
     -- Remote kunblox script removed
