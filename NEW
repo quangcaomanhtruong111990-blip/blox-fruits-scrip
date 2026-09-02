@@ -39,21 +39,7 @@ until game:IsLoaded()
 -- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
 task.wait(15)
 
--- Volt Performance Optimization Setup
-local Volt = nil
-pcall(function()
-    -- Try to load Volt if available
-    if typeof(volt) == "table" then
-        Volt = volt
-        print("[Volt] Volt detected and loaded")
-    elseif typeof(getgenv().volt) == "table" then
-        Volt = getgenv().volt
-        print("[Volt] Volt detected from getgenv()")
-    end
-end)
-
 -- Performance optimization flags
-local UseVoltActors = Volt ~= nil
 local PerformanceCache = {}
 -- task.spawn(function()
 --     while true do
@@ -214,7 +200,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.09"
+        NameHub.Text = "sanglove v1.10"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1258,13 +1244,13 @@ ScriptStorage = {
                 end
             end
         end
-        print(0)
+        
         SetText("MainTextLabel", "Refreshing Player Data 18219")
-        print(-1)
+        
         MeleeCheck(LocalPlayer.Character:FindFirstChildOfClass("Tool"))
-        print(-2)
+        
         RefreshPlayerData()
-        print(-3)
+        
         function RegisterLocalPlayerEventsConnection()
             task.spawn(
                 function()
@@ -1343,7 +1329,7 @@ ScriptStorage = {
         end
         RegisterLocalPlayerEventsConnection(LocalPlayer)
 
-        print(-4)
+        
         game.Players.LocalPlayer.CharacterAdded:Connect(
             function(Character)
                 print("[ Debug ] re-registering events")
@@ -1360,7 +1346,7 @@ ScriptStorage = {
             end
         )
 
-        print(1)
+        
         MeleesTable = {
             "Black Leg",
             "Electro",
@@ -1597,7 +1583,7 @@ ScriptStorage = {
         SeaIndexes = {"Main", "Dressrosa", "Zou"}
 
         TasksOrder = {
-            "ExpRedeem",
+            
             "SoulGuitar",
             "Tushita",
             "SpecialBossesTask",
@@ -2156,6 +2142,7 @@ ScriptStorage = {
         
         -- TweenController
         
+        local LastTweenTarget = nil
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
@@ -2179,7 +2166,13 @@ ScriptStorage = {
                 if CurrentDist < 5 then return end -- Đã đủ gần, không cần tạo thêm
             end
         
+            -- Smart Debounce: Nếu đang có Tween chạy và điểm đến mới rất gần điểm cũ (< 20 studs), bỏ qua để tránh giật
+            if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing and LastTweenTarget and (LastTweenTarget - TargetCFrame.Position).Magnitude < 20 then
+                return
+            end
+            
             TweenController._isCreating = true
+            LastTweenTarget = TargetCFrame.Position
         
             -- 3. XỬ LÝ NOCLIP (An toàn tuyệt đối cho v1.08)
             pcall(function()
@@ -2228,8 +2221,8 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (75)
-            local Speed = (CurrentDist < 18) and 25 or 75
+            -- Tốc độ bay mượt mà, vừa phải từ 25 đến 100 theo yêu cầu
+            local Speed = (CurrentDist < 25) and 25 or 100
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2417,7 +2410,7 @@ ScriptStorage = {
             RegisterHit:FireServer(unpack(args))
         end
 
-        -- Optimized FastAttack loop with Volt Actor support
+        -- Optimized FastAttack loop
         local FastAttackLoop = function()
             while task.wait(.06) do
                 if _G.FastAttack == os.time() then
@@ -2430,15 +2423,7 @@ ScriptStorage = {
             end
         end
         
-        if UseVoltActors and Volt and Volt.Actor then
-            -- Use Volt Actor to run on separate thread (if available)
-            pcall(function()
-                local actor = Volt.Actor.new()
-                actor:Call(FastAttackLoop)
-            end)
-        else
-            task.spawn(FastAttackLoop)
-        end
+        task.spawn(FastAttackLoop)
 
         function AttackController.Attack(MonResult)
             pcall(
@@ -2980,10 +2965,6 @@ FunctionsHandler = {
         -- LP Controller
 
         FunctionsHandler.LocalPlayerController.Register()
-        -- Exp Redeem
-
-        FunctionsHandler.ExpRedeem:Register()
-
         -- Level Farm
 
         FunctionsHandler.LevelFarm:Register()
@@ -3063,79 +3044,6 @@ FunctionsHandler = {
         -- Functions / UtillyItemsActivitation
 
         FunctionsHandler.UtillyItemsActivitation:Register()
-
-        -- Exp Redeem
-
-        FunctionsHandler.ExpRedeem:RegisterMethod(
-            "Refresh",
-            function()
-                --Report("Typeof: " .. typeof(Storage))
-
-                return ScriptStorage.PlayerData.Level < MaxLevel and
-                    GetExpBoost() == 0 and
-                    not Storage.Get(Storage, "IsCodesRanOut")
-            end
-        )
-
-        FunctionsHandler.ExpRedeem:RegisterMethod(
-            "Start",
-            function()
-                local Code = ({
-                    "BANEXPLOIT",
-                    "NOMOREHACK",
-                    "WildDares",
-                    "BossBuild",
-                    "GetPranked",
-                    "EARN_FRUITS",
-                    "Sub2UncleKizaru",
-                    "FIGHT4FRUIT",
-                    "kittgaming",
-                    "TRIPLEABUSE",
-                    "Sub2CaptainMaui",
-                    "Sub2Fer999",
-                    "Enyu_is_Pro",
-                    "Magicbus",
-                    "JCWK",
-                    "Starcodeheo",
-                    "Bluxxy",
-                    "SUB2GAMERROBOT_EXP1",
-                    "Sub2NoobMaster123",
-                    "Sub2Daigrock",
-                    "Axiore",
-                    "TantaiGaming",
-                    "StrawHatMaine",
-                    "Sub2OfficialNoobie",
-                    "TheGreatAce",
-                    "SEATROLLING",
-                    "24NOADMIN",
-                    "ADMIN_TROLL",
-                    "NEWTROLL",
-                    "SECRET_ADMIN",
-                    "staffbattle",
-                    "NOEXPLOIT",
-                    "NOOB2ADMIN",
-                    "CODESLIDE",
-                    "fruitconcepts"
-                })
-
-                for Index, Promo in Code do
-                    SetTask("MainTask", "Code Redemption | " .. Promo .. " | Redeeming...")
-                    local Response = (Remotes.Redeem:InvokeServer(Promo))
-                    task.wait()
-                    SetTask("MainTask", "Code Redemption | " .. Promo .. " | " .. (Response or "Failed"))
-                    if GetExpBoost() == 0 then
-                        if Response and string.find(Response, "SUCC") then
-                            return SetTask("MainTask", "Code Redemption | X2 Exp Boost Activated!") and task.wait(1)
-                        end
-                    else
-                        return
-                    end
-                end
-
-                Storage:Set("IsCodesRanOut", 1)
-                Storage:Save()
-            end
-        )
 
         -- Level Farm
 
@@ -5544,7 +5452,7 @@ FunctionsHandler = {
                 return true
             end
         end
-        print(1)
+        
         function GetServers()
             if LastServersDataPulled then
                 if os.time() - LastServersDataPulled < 60 then
@@ -6134,21 +6042,14 @@ FunctionsHandler = {
         end)
 
        
-        while task.wait() do
-            --[[
-            if not SendDataDelay or os.time() - SendDataDelay > Config.Authorize.SendDelay then 
-                SendDataDelay = os.time() 
-                pcall(SendData)
-            end ]]
-             print(0)
+        while task.wait(0.15) do
             local success, response = xpcall(RefreshTasksData, debug.traceback)
-            print(1)
-            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
             if not IsInRaid then
-                FunctionsHandler.MeleesController.Methods.Start:Call()
+                pcall(function()
+                    FunctionsHandler.MeleesController.Methods.Start:Call()
+                end)
             end
-            print(2)
             if not success then
                 Report(response)
             end
