@@ -219,7 +219,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.13"
+        NameHub.Text = "sanglove v1.14"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2185,10 +2185,10 @@ ScriptStorage = {
             -- 2. CHỐNG GIẬT / LẶP LẠI TWEEN (Smart Debounce)
             -- Nếu đang có Tween chạy đến cùng vị trí này (chênh lệch < 12 studs), không cần hủy và tạo lại
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
-                if LastTweenTarget and (LastTweenTarget - TargetCFrame.Position).Magnitude < 12 then
+                if LastTweenTarget and (LastTweenTarget - TargetCFrame.Position).Magnitude < 25 then
                     return -- Đang bay êm mượt đến đích rồi, không spam tạo thêm Tween
                 end
-                if CurrentDist < 4 then
+                if CurrentDist < 5 then
                     return -- Đã ở ngay sát đích
                 end
             end
@@ -6164,7 +6164,7 @@ FunctionsHandler = {
 
        
         local IsTaskRunning = false
-        while task.wait(0.25) do
+        while task.wait(1.0) do
             if not _G.Stop and not IsTaskRunning then
                 IsTaskRunning = true
                 local success, response = xpcall(RefreshTasksData, debug.traceback)
