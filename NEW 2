@@ -200,7 +200,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v2"
+        NameHub.Text = "sanglove v3"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3644,6 +3644,12 @@ FunctionsHandler = {
         FunctionsHandler.MeleesController:RegisterMethod(
             "Refresh",
             function()
+                -- [USER INTENT FIX] Ưu tiên tuyệt đối: Nếu chưa có Godhuman, luôn trả về true để MeleesController chạy đầu tiên và duy nhất
+                if Config.Items.AutoFullyMelees then
+                    if not ScriptStorage.Melees.Godhuman then
+                        return true
+                    end
+                end
                 return Config.Items.AutoFullyMelees
             end
         )
@@ -4081,6 +4087,11 @@ FunctionsHandler = {
         FunctionsHandler.BossesTask:RegisterMethod(
             "Refresh",
             function()
+                -- [USER INTENT FIX] Ưu tiên tuyệt đối kiểm tra và lấy võ/Godhuman trước khi farm boss
+                if Config.Items.AutoFullyMelees and not ScriptStorage.Melees.Godhuman then
+                    return nil
+                end
+
                 local Boss
                 for _, BossName in BossesOrder do
                     if BossName then 
