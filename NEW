@@ -200,7 +200,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.12"
+        NameHub.Text = "sanglove v1.13"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3050,20 +3050,8 @@ FunctionsHandler = {
         FunctionsHandler.LevelFarm:RegisterMethod(
             "Refresh",
             function()
-                -- Don't run LevelFarm if currently in raid process
-                if FunctionsHandler.RaidController:Get("IsInRaidProcess") then
-                    return
-                end
-                
-                local Level = ScriptStorage.PlayerData.Level
-                if Level < 10 then
-                    return 1
-                elseif Level < 70 then
-                    return 2
-                else
-                    return 4
-                end
-                return true
+                -- [USER REQUEST] Tắt hoàn toàn Auto Farm
+                return nil
             end
         )
 
