@@ -1619,9 +1619,9 @@ ScriptStorage = {
             "Saber",
             "PirateRaid",
             "SecondSeaPuzzle",
-            "ThirdSeaPuzzle",
             "CollectDrops",
             "BossesTask",
+            "MeleesController",
             "LevelFarm"
         }
 
@@ -2164,7 +2164,7 @@ ScriptStorage = {
         end
         
         -- TweenController
-        
+        local LastTweenTarget = nil
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
@@ -2182,18 +2182,24 @@ ScriptStorage = {
             local RootPart = Character.HumanoidRootPart
             local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
         
-            -- 2. CHỐNG GIẬT (Smarter Check)
-            -- Nếu đang có Tween chạy và mục tiêu mới quá gần mục tiêu cũ, hoặc nhân vật đã gần đích -> Bỏ qua
+            -- 2. CHỐNG GIẬT / LẶP LẠI TWEEN (Smart Debounce)
+            -- Nếu đang có Tween chạy đến cùng vị trí này (chênh lệch < 12 studs), không cần hủy và tạo lại
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
-                if CurrentDist < 5 then return end -- Đã đủ gần, không cần tạo thêm
+                if LastTweenTarget and (LastTweenTarget - TargetCFrame.Position).Magnitude < 12 then
+                    return -- Đang bay êm mượt đến đích rồi, không spam tạo thêm Tween
+                end
+                if CurrentDist < 4 then
+                    return -- Đã ở ngay sát đích
+                end
             end
         
             TweenController._isCreating = true
+            LastTweenTarget = TargetCFrame.Position
         
-            -- 3. XỬ LÝ NOCLIP (An toàn tuyệt đối cho v1.08)
+            -- 3. XỬ LÝ NOCLIP (An toàn, không quét lại nếu không cần thiết)
             pcall(function()
                 for _, part in ipairs(Character:GetChildren()) do
-                    if part:IsA("BasePart") then
+                    if part:IsA("BasePart") and part.CanCollide then
                         part.CanCollide = false
                     end
                 end
@@ -2210,7 +2216,7 @@ ScriptStorage = {
             end
         
             -- 5. LOGIC DI CHUYỂN ĐẶC BIỆT (Sea 3 Submarine / Portals)
-            if CurrentDist > 500 then
+            if CurrentDist > 600 then
                 if SeaIndex ~= 3 then
                     GetPortal(TargetCFrame)
                 end
@@ -2231,15 +2237,14 @@ ScriptStorage = {
                 return
             end
         
-            -- 6. THỰC THI TWEEN
-            -- Hủy Tween cũ trước khi tạo mới
+            -- 6. THỰC THI TWEEN MƯỢT MÀ VÀ AN TOÀN
             if TweenInstance then
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (75)
-            local Speed = (CurrentDist < 18) and 25 or 75
-            local Time = CurrentDist / Speed
+            -- Tốc độ chuẩn mượt mà (Gần: 60, Xa: 300)
+            local Speed = (CurrentDist < 25) and 60 or 300
+            local Time = math.max(0.05, CurrentDist / Speed)
         
             TweenInstance = Services.TweenService:Create(
                 RootPart,
@@ -2249,8 +2254,7 @@ ScriptStorage = {
             
             TweenInstance:Play()
         
-            -- Reset flag sau một khoảng thời gian ngắn để tránh spam
-            task.delay(0.1, function()
+            task.delay(0.05, function()
                 TweenController._isCreating = false
             end)
         end
@@ -2661,15 +2665,10 @@ CombatController = {
         end
 
         function CombatController.Attack(MobTable, NearbyHit, Range, Callback)
-            -- Cache GuideModule env để tránh gọi getsenv nhiều lần
-            local GuideEnv = pcall(function()
-                return GetGuideEnv()
-            end) and GetGuideEnv()
-
-            if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
-                TweenController.Create(Vector3.new(0, 0, 0))
+            if CombatController.IsAttacking then
                 return
             end
+            CombatController.IsAttacking = true
 
             -- [v1.11] Safe SimulationRadius without crash
             pcall(function()
@@ -2679,177 +2678,174 @@ CombatController = {
             end)
             MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
 
-            for _, Child in (MobTable) do
-                local ChildName = tostring(Child)
-                if
-                    ChildName == "Deandre" or ChildName == "Urban" or
-                        ChildName == "Diablo" and (os.time() - (LastFire12 or 0)) > 180
-                 then
-                    LastFire12 = os.time()
-                    Remotes.CommF_:InvokeServer("EliteHunter")
-                end
-
-                if NearbyHit then
-                    local Mon = GetMonAsSortedRange()[1]
-
-                    local MonPosition = Mon and Mon:FindFirstChild("HumanoidRootPart") and Mon.HumanoidRootPart.Position
-                    if MonPosition and CaculateDistance(MonPosition) < Range then
-                        MonResult = Mon
+            local ok, err = pcall(function()
+                for _, Child in (MobTable) do
+                    local ChildName = tostring(Child)
+                    if
+                        ChildName == "Deandre" or ChildName == "Urban" or
+                            ChildName == "Diablo" and (os.time() - (LastFire12 or 0)) > 180
+                     then
+                        LastFire12 = os.time()
+                        Remotes.CommF_:InvokeServer("EliteHunter")
                     end
-                else
-                    MonResult = CombatController.Search(MobTable)
-                end
 
-                if MonResult then
-                    LastFound = os.time()
-                    local Count, Debounce = 0, os.time()
-                    local Count2, Debounce = 0, os.time()
-                    -- Optimize: Add delay to reduce FPS impact
-                    while task.wait(0.1) do
-                        if _G.Stop then
-                            return
+                    if NearbyHit then
+                        local Mon = GetMonAsSortedRange()[1]
+
+                        local MonPosition = Mon and Mon:FindFirstChild("HumanoidRootPart") and Mon.HumanoidRootPart.Position
+                        if MonPosition and CaculateDistance(MonPosition) < Range then
+                            MonResult = Mon
                         end
+                    else
+                        MonResult = CombatController.Search(MobTable)
+                    end
 
-                        -- Cache lại InCombat mỗi lần loop để kiểm tra trạng thái combat
-                        if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
-                            TweenController.Create(Vector3.new(0, 0, 0))
-                            return
-                        end
-
-                        local MobHumanoid = MonResult:FindFirstChild("Humanoid")
-                        local MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart")
-
-                        if not MobHumanoid or MobHumanoid.Health <= 0 then
-                            if MonResult.Name == "Don Swan" then
-                                Storage:Set("SwanDefeated", true)
-                                
+                    if MonResult then
+                        LastFound = os.time()
+                        local Count, Debounce = 0, os.time()
+                        local Count2, Debounce = 0, os.time()
+                        -- Optimize: Add delay to reduce FPS impact
+                        while task.wait(0.1) do
+                            if _G.Stop then
+                                return
                             end
-                            break
-                        end
 
-                        TweenController.Create(
-                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
-                        )
+                            local MobHumanoid = MonResult:FindFirstChild("Humanoid")
+                            local MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart")
 
-                        if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
-                            CombatController.Grab(Child or "")
-                            if MonResult.Name ~= "Core" then
-                                if
-                                    ScriptStorage.PlayerData.Level > 100 and
-                                        Count2 >= CombatController.MAX_ATTACK_DURATION_2 and
-                                        MobHumanoid.Health - MobHumanoid.MaxHealth == 0
-                                 then
-                                    SetTask(
-                                        "SubTask",
-                                        "Hop Server - Mob Health Unchanged ( " ..
-                                            MobHumanoid.Health .. " / " .. MobHumanoid.MaxHealth .. ")"
-                                    )
-                                    alert("Stuck", "Mob health unchanged")
-                                    _G.Stop = true
-                                    SafeRejoinOrHop("Rejoin")
-
+                            if not MobHumanoid or MobHumanoid.Health <= 0 then
+                                if MonResult.Name == "Don Swan" then
+                                    Storage:Set("SwanDefeated", true)
+                                    
                                 end
-
-                              
-                                if
-                                    Count >= CombatController.MAX_ATTACK_DURATION and
-                                        MobHumanoid.Health - MobHumanoid.MaxHealth == 0
-                                 then
-                                    Count = 0
-
-                                    local OldPosition = MonResult:GetAttribute("OldPosition")
-
-                                    if OldPosition then
-                                        MonResult:SetPrimaryPartCFrame(CFrame.new(OldPosition))
-                                        MonResult:SetAttribute("IgnoreGrab", true)
-                                        MonResult:SetAttribute(
-                                            "FailureCount",
-                                            (MonResult:GetAttribute("FailureCount") or 0) + 1
-                                        )
-                                        alert(
-                                            "Failed to attack",
-                                            "Returning to the old position ( #" ..
-                                                MonResult:GetAttribute("FailureCount") .. " )"
-                                        )
-                                       MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
-                                        task.wait()
-
-                                        return
-                                    end
-                                end
-                            end
-                         
-                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
-                                    ScriptStorage.ForceToUseSword and "Sword" or "Melee"
-                                )
-
-                            AttackController:Attack(MonResult)
-                            if os.time() ~= Debounce then
-                                Debounce = os.time()
-
-                                Count = Count + 1
-                                Count2 = Count2 + 1
-                            end
-                            if Count > 30 and MonResult.Name ~= "Core" then
-                                alert("Take more than 30s to attack, cancelling")
                                 break
                             end
-                       
-                        end
-                    end
-                elseif not NearbyHit then
-                    if (os.time() - LastFound) > 600 then
-                        alert("KUN", "Error while farming, rejoin")
-                        SafeRejoinOrHop("Rejoin")
-                        return
-                    end
 
-                    local Region = ScriptStorage.MobRegions[Child]
+                            TweenController.Create(
+                                CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
+                            )
 
-                    if not Region then
-                        local Inst =
-                            Services.Workspace.Enemies:FindFirstChild(Child) or
-                            game.ReplicatedStorage:FindFirstChild(Child)
+                            if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
+                                CombatController.Grab(Child or "")
+                                if MonResult.Name ~= "Core" then
+                                    if
+                                        ScriptStorage.PlayerData.Level > 100 and
+                                            Count2 >= CombatController.MAX_ATTACK_DURATION_2 and
+                                            MobHumanoid.Health - MobHumanoid.MaxHealth == 0
+                                     then
+                                        SetTask(
+                                            "SubTask",
+                                            "Hop Server - Mob Health Unchanged ( " ..
+                                                MobHumanoid.Health .. " / " .. MobHumanoid.MaxHealth .. ")"
+                                        )
+                                        alert("Stuck", "Mob health unchanged")
+                                        _G.Stop = true
+                                        SafeRejoinOrHop("Rejoin")
 
-                        Region = Inst and {Inst:GetPrimaryPartCFrame().p}
-                    end
+                                    end
 
-                    if not Region and MobPositionsFallback and MobPositionsFallback[Child] then
-                        Region = {MobPositionsFallback[Child]}
-                    end
+                                  
+                                    if
+                                        Count >= CombatController.MAX_ATTACK_DURATION and
+                                            MobHumanoid.Health - MobHumanoid.MaxHealth == 0
+                                     then
+                                        Count = 0
 
-                    if not Region then
-                        -- Thử tìm nhanh trong EnemySpawns
-                        local spawns = workspace:FindFirstChild("_WorldOrigin") and workspace._WorldOrigin:FindFirstChild("EnemySpawns")
-                        if spawns then
-                            local spawnObj = spawns:FindFirstChild(Child)
-                            if spawnObj and spawnObj:IsA("BasePart") then
-                                Region = {spawnObj.Position}
+                                        local OldPosition = MonResult:GetAttribute("OldPosition")
+
+                                        if OldPosition then
+                                            MonResult:SetPrimaryPartCFrame(CFrame.new(OldPosition))
+                                            MonResult:SetAttribute("IgnoreGrab", true)
+                                            MonResult:SetAttribute(
+                                                "FailureCount",
+                                                (MonResult:GetAttribute("FailureCount") or 0) + 1
+                                            )
+                                            alert(
+                                                "Failed to attack",
+                                                "Returning to the old position ( #" ..
+                                                    MonResult:GetAttribute("FailureCount") .. " )"
+                                            )
+                                           MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
+                                            task.wait()
+
+                                            return
+                                        end
+                                    end
+                                end
+                             
+                                FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
+                                        ScriptStorage.ForceToUseSword and "Sword" or "Melee"
+                                    )
+
+                                AttackController:Attack(MonResult)
+                                if os.time() ~= Debounce then
+                                    Debounce = os.time()
+
+                                    Count = Count + 1
+                                    Count2 = Count2 + 1
+                                end
+                                if Count > 30 and MonResult.Name ~= "Core" then
+                                    alert("Take more than 30s to attack, cancelling")
+                                    break
+                                end
+                           
                             end
                         end
+                    elseif not NearbyHit then
+                        if (os.time() - LastFound) > 600 then
+                            alert("KUN", "Error while farming, rejoin")
+                            SafeRejoinOrHop("Rejoin")
+                            return
+                        end
+
+                        local Region = ScriptStorage.MobRegions[Child]
+
+                        if not Region then
+                            local Inst =
+                                Services.Workspace.Enemies:FindFirstChild(Child) or
+                                game.ReplicatedStorage:FindFirstChild(Child)
+
+                            Region = Inst and {Inst:GetPrimaryPartCFrame().p}
+                        end
+
+                        if not Region and MobPositionsFallback and MobPositionsFallback[Child] then
+                            Region = {MobPositionsFallback[Child]}
+                        end
+
+                        if not Region then
+                            -- Thử tìm nhanh trong EnemySpawns
+                            local spawns = workspace:FindFirstChild("_WorldOrigin") and workspace._WorldOrigin:FindFirstChild("EnemySpawns")
+                            if spawns then
+                                local spawnObj = spawns:FindFirstChild(Child)
+                                if spawnObj and spawnObj:IsA("BasePart") then
+                                    Region = {spawnObj.Position}
+                                end
+                            end
+                        end
+
+                        if not Region then
+                            -- Trả về an toàn nếu không tìm thấy vị trí quái, không quét toàn bộ map
+                            return
+                        end
+
+                        local CurrentPosition
+
+                        if not Region[CombatController.CurrentIndex] then
+                            CombatController.CurrentIndex = 1
+                        end
+
+                        CurrentPosition = Region[CombatController.CurrentIndex]
+
+                        local Count2 = os.time()
+                        TweenController.Create(CurrentPosition + Vector3.new(0, 35, 35))
+                        if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 35)) < 15 then
+                            CombatController.CurrentIndex = CombatController.CurrentIndex + 1
+                        end
+
                     end
-
-                    if not Region then
-                        -- Trả về an toàn nếu không tìm thấy vị trí quái, không quét toàn bộ map
-                        return
-                    end
-
-                    local CurrentPosition
-
-                    if not Region[CombatController.CurrentIndex] then
-                        CombatController.CurrentIndex = 1
-                    end
-
-                    CurrentPosition = Region[CombatController.CurrentIndex]
-
-                    local Count2 = os.time()
-                    TweenController.Create(CurrentPosition + Vector3.new(0, 35, 35))
-                    if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 35)) < 15 then
-                        CombatController.CurrentIndex = CombatController.CurrentIndex + 1
-                    end
-
                 end
-            end
+            end)
+            CombatController.IsAttacking = false
         end
 
         LevelFarmTTL = 0
@@ -3876,10 +3872,6 @@ FunctionsHandler = {
                                         FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                     end
                                 end)
-                                -- Cày quái theo cấp độ hiện tại để tăng Mastery cho võ đang cầm
-                                if FunctionsHandler.LevelFarm and FunctionsHandler.LevelFarm.Methods and FunctionsHandler.LevelFarm.Methods.Start then
-                                    FunctionsHandler.LevelFarm.Methods.Start:Call()
-                                end
                                 return
                             end
 
@@ -6171,17 +6163,15 @@ FunctionsHandler = {
         end)
 
        
+        local IsTaskRunning = false
         while task.wait(0.25) do
-            local success, response = xpcall(RefreshTasksData, debug.traceback)
-            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
-            local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            if not IsInRaid and FunctionsHandler.MeleesController and FunctionsHandler.MeleesController.Methods and FunctionsHandler.MeleesController.Methods.Start then
-                pcall(function()
-                    FunctionsHandler.MeleesController.Methods.Start:Call()
-                end)
-            end
-            if not success then
-                Report(response)
+            if not _G.Stop and not IsTaskRunning then
+                IsTaskRunning = true
+                local success, response = xpcall(RefreshTasksData, debug.traceback)
+                IsTaskRunning = false
+                if not success then
+                    Report(response)
+                end
             end
         end
 
