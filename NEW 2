@@ -325,7 +325,7 @@ local PerformanceCache = {}
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sap xong"
+        NameHub.Text = "thua"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
