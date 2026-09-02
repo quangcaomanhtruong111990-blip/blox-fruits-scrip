@@ -3,6 +3,9 @@ Config =
         {
             Team = "Pirates",
             Configuration = {
+                SafeLoad = true,           -- [MỚI] Chế độ tải chậm an toàn, chống văng game khi load map
+                LoadingDelay = 25,         -- [MỚI] Số giây chờ map & dữ liệu game nạp ổn định hoàn toàn (khuyên dùng 20-35s nếu máy yếu/giả lập)
+                LowGraphicsMode = true,    -- [MỚI] Tự động hạ đồ họa nhẹ để giảm tải RAM tránh tràn bộ nhớ (OOM)
                 HideallPath = false,
                 blackscreen = false,
                 HideGui = false,
@@ -32,12 +35,114 @@ Config =
                 ["Fragments"] = 5000 -- Auto farm fragments until you have 5000 fragments to buy the chip
             }
 }
-repeat
-    task.wait(0.5)
-until game:IsLoaded()
 
--- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
-task.wait(15)
+-- =========================================================================
+-- [BƯỚC 1]: CHỜ ROBLOX TẢI XONG BẢN ĐỒ CƠ BẢN
+-- =========================================================================
+if not game:IsLoaded() then
+    repeat
+        task.wait(1)
+    until game:IsLoaded()
+end
+
+-- =========================================================================
+-- [BƯỚC 2]: CHẾ ĐỘ TẢI CHẬM AN TOÀN (SAFE SLOW-LOADING) CHỐNG VĂNG GAME
+-- =========================================================================
+local safeDelay = (Config.Configuration and Config.Configuration.LoadingDelay) or 25
+if Config.Configuration and Config.Configuration.SafeLoad then
+    print("[SafeLoad]: Chế độ tải chậm chống văng game được kích hoạt (" .. tostring(safeDelay) .. "s)...")
+    
+    -- Tạo thông báo nhỏ trực quan trên màn hình
+    pcall(function()
+        local sg = Instance.new("ScreenGui")
+        sg.Name = "BloxSafeLoadUI"
+        sg.ResetOnSpawn = false
+        sg.Parent = game:GetService("CoreGui")
+
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(0, 340, 0, 65)
+        frame.Position = UDim2.new(0.5, -170, 0.08, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(15, 18, 25)
+        frame.BackgroundTransparency = 0.1
+        frame.BorderSizePixel = 0
+        frame.Parent = sg
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = frame
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(9, 255, 248)
+        stroke.Thickness = 1.5
+        stroke.Parent = frame
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -20, 1, 0)
+        label.Position = UDim2.new(0, 10, 0, 0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(240, 240, 240)
+        label.Font = Enum.Font.GothamMedium
+        label.TextSize = 13
+        label.TextWrapped = true
+        label.Parent = frame
+
+        task.spawn(function()
+            for sec = safeDelay, 1, -1 do
+                label.Text = string.format("⏳ Đang tải map & ổn định RAM... Còn %d giây\n(Chế độ tải chậm chống văng khi load map)", sec)
+                task.wait(1)
+            end
+            label.Text = "✅ Map đã tải xong hoàn toàn! Đang khởi động script..."
+            task.wait(1.5)
+            sg:Destroy()
+        end)
+    end)
+
+    task.wait(safeDelay)
+else
+    task.wait(10)
+end
+
+-- =========================================================================
+-- [BƯỚC 3]: ĐỢI NHÂN VẬT & CÁC DỊCH VỤ CỐT LÕI KHỞI ĐỘNG XONG
+-- =========================================================================
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+
+local function WaitForPlayerRoot()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart", 60)
+    local hum = char:WaitForChild("Humanoid", 60)
+    return char, hrp, hum
+end
+WaitForPlayerRoot()
+task.wait(2)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RemotesFolder = ReplicatedStorage:WaitForChild("Remotes", 60)
+local CommF_Remote = RemotesFolder and RemotesFolder:WaitForChild("CommF_", 60)
+
+-- Chọn phe an toàn 1 lần, có bọc pcall chống disconnect
+if CommF_Remote then
+    local team = (Config and Config.Team) or "Pirates"
+    pcall(function()
+        CommF_Remote:InvokeServer('SetTeam', team)
+    end)
+    task.wait(2)
+end
+
+function CheckKick(v)
+    if v.Name == 'ErrorPrompt' then
+        task.wait(2)
+        pcall(function()
+            print(v.TitleFrame.ErrorTitle.Text)
+            ReplicatedStorage:WaitForChild("__ServerBrowser", 10):InvokeServer("teleport", game.PlaceId)
+            v:Destroy()
+        end)
+    end
+end
+pcall(function()
+    game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
+end)
 
 -- Volt Performance Optimization Setup
 local Volt = nil
@@ -55,27 +160,6 @@ end)
 -- Performance optimization flags
 local UseVoltActors = Volt ~= nil
 local PerformanceCache = {}
--- task.spawn(function()
---     while true do
---         setfpscap(7)
---         task.wait(10)
---     end
--- end)
-
-function CheckKick(v)
-    if v.Name == 'ErrorPrompt' then
-        task.wait(2)
-        print(v.TitleFrame.ErrorTitle.Text)
-        game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer( "teleport",game.PlaceId)
-        v:Destroy()
-    end
-end
--- print restored
-repeat
-    task.wait(1) 
-    game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
-until game.Players.LocalPlayer.Character
-game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
     if os.time() >= 1756319996 then
     --  while true do end
     end
@@ -5728,197 +5812,99 @@ FunctionsHandler = {
             end
         )
         CreateTraceback("Initalize", "Initalizing script...")
-        for _, Connection in getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame.FastMode.FirstButton.Activated
-        ) do
-            Connection.Function()
-        end
+        pcall(function()
+            local playerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+            if playerGui and playerGui:FindFirstChild("Main") then
+                local settingsMenu = playerGui.Main:FindFirstChild("SettingsMenu")
+                local fastBtn = settingsMenu and settingsMenu:FindFirstChild("Content")
+                    and settingsMenu.Content:FindFirstChild("ScrollingFrame")
+                    and settingsMenu.Content.ScrollingFrame:FindFirstChild("FastMode")
+                    and settingsMenu.Content.ScrollingFrame.FastMode:FindFirstChild("FirstButton")
+                if fastBtn then
+                    for _, Connection in getconnections(fastBtn.Activated) do
+                        Connection.Function()
+                    end
+                end
+            end
+        end)
       
         function boostfps()
             local Terrain = workspace:FindFirstChildOfClass('Terrain')
-            local ReplicatedStorage = game.ReplicatedStorage
-            local Players = game.Players
-            local Player = Players.LocalPlayer
-            local RunService = game:GetService("RunService")
             local Lighting = game:GetService("Lighting")
 
-            -- Tắt nước
-            if Terrain then
-                Terrain.WaterWaveSize = 0
-                Terrain.WaterWaveSpeed = 0
-                Terrain.WaterReflectance = 0
-                Terrain.WaterTransparency = 1
-            end
-
-            -- Xóa map không cần thiết để tăng FPS
-            pcall(function()
-                -- Xóa clouds trong workspace
-                for _, v in ipairs(workspace:GetChildren()) do
-                    if v.Name == "Clouds" or v.Name == "Cloud" then
-                        pcall(function() v:Destroy() end)
-                    end
-                end
-
-                -- Xóa skybox/decoration trong lighting
-                for _, v in ipairs(Lighting:GetChildren()) do
-                    if v:IsA("Sky") or v:IsA("Decal") then
-                        pcall(function() v:Destroy() end)
-                    end
-                end
-
-                -- Xóa map decorations (part nằm trong Map folder)
-                local Map = workspace:FindFirstChild("Map")
-                if Map then
-                    for _, v in ipairs(Map:GetChildren()) do
-                        local name = v.Name:lower()
-                        if name:find("tree") or name:find("plant") or name:find("rock") or
-                           name:find("fence") or name:find("decoration") or name:find("grass") or
-                           name:find("bush") or name:find("flower") or name:find("sign") then
-                            pcall(function() v:Destroy() end)
-                        end
-                    end
-                end
-
-                -- Xóa spawn location effects
-                for _, v in ipairs(workspace:GetDescendants()) do
-                    if v:IsA("Sound") then
-                        pcall(function() v:Destroy() end)
-                    end
-                end
-            end)
-
-            -- Tắt lighting
-            Lighting.GlobalShadows = false
-            Lighting.FogEnd = 9e9
-            Lighting.FogStart = 9e9
-
-            -- Giảm quality level
+            -- Hạ đồ họa an toàn, giảm tải VRAM & RAM
             pcall(function()
                 settings().Rendering.QualityLevel = 1
             end)
 
-            -- Xóa lighting children
+            -- Tắt hiệu ứng ánh sáng nặng
             pcall(function()
-                Lighting:ClearAllChildren()
+                Lighting.GlobalShadows = false
+                Lighting.FogEnd = 9e9
+                Lighting.FogStart = 9e9
             end)
 
-            -- Xóa effect particles cho non-character parts
-            pcall(function()
-                for _, v in ipairs(game:GetDescendants()) do
-                    if v:IsA("ParticleEmitter") or v:IsA("Trail") then
-                        pcall(function() v.Lifetime = NumberRange.new(0) end)
-                    elseif v:IsA("AnimationController") then
-                        pcall(function() v:Destroy() end)
-                    end
-                end
-            end)
-
-            -- Xử lý existing characters
-            for _, player1 in pairs(Players:GetChildren()) do
-                if player1.Character then
-                    task.spawn(function()
-                        task.wait(0.5)
-                        for _, part in pairs(player1.Character:GetChildren()) do
-                            if part:IsA("Accessory") or part.Name == "Radio" then
-                                pcall(function() part:Destroy() end)
-                            end
-                        end
-                    end)
-                end
-                player1.CharacterAdded:Connect(function(char)
-                    task.wait(0.5)
-                    for _, part in pairs(char:GetChildren()) do
-                        if part:IsA("Accessory") or part.Name == "Radio" then
-                            pcall(function() part:Destroy() end)
-                        end
-                    end
-                end)
-            end
-
-            -- Bug 1 FIX: Chỉ destroy thứ KHÔNG phải Model/Folder trong _WorldOrigin
-            workspace._WorldOrigin.ChildAdded:Connect(function(child)
-                pcall(function()
-                    if not child:IsA("Model") and not child:IsA("Folder") then
-                        child:Destroy()
-                    end
-                end)
-            end)
-
-            -- Xóa cache folder trong ReplicatedStorage
-            pcall(function()
-                local candelete = {"Cache", "Cache2"}
-                for _, v in ipairs(ReplicatedStorage:GetChildren()) do
-                    if table.find(candelete, v.Name) then
-                        pcall(function() v:Destroy() end)
-                    end
-                end
-            end)
-
-            -- Camera và Terrain child cleanup
-            workspace.Camera.ChildAdded:Connect(function(child)
-                pcall(function() child:Destroy() end)
-            end)
-
+            -- Tắt hiệu ứng sóng nước
             if Terrain then
-                Terrain.ChildAdded:Connect(function(child)
-                    pcall(function() child:Destroy() end)
+                pcall(function()
+                    Terrain.WaterWaveSize = 0
+                    Terrain.WaterWaveSpeed = 0
+                    Terrain.WaterReflectance = 0
+                    Terrain.WaterTransparency = 1
                 end)
             end
 
-            -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
-            workspace.DescendantAdded:Connect(function(child)
-                task.spawn(function()
-                    pcall(function()
-                        -- Chỉ xử lý effect, KHÔNG transparent player character
-                        if child:IsA("ForceField") or child:IsA("Sparkles") or
-                           child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
-                            child:Destroy()
-                            return
+            -- Dọn dẹp mây và hiệu ứng hạt nhẹ nhàng theo luồng an toàn (không lag CPU)
+            task.spawn(function()
+                pcall(function()
+                    -- Xóa clouds trong workspace
+                    for _, v in ipairs(workspace:GetChildren()) do
+                        if v.Name == "Clouds" or v.Name == "Cloud" then
+                            pcall(function() v:Destroy() end)
                         end
+                    end
 
-                        -- Bỏ qua character parts của player
-                        local char = Player.Character
-                        if char and (child:IsDescendantOf(char) or child == char) then
-                            return
+                    -- Xóa skybox / decals trong lighting
+                    for _, v in ipairs(Lighting:GetChildren()) do
+                        if v:IsA("Sky") or v:IsA("Decal") then
+                            pcall(function() v:Destroy() end)
                         end
+                    end
 
-                        if child:IsA("BasePart") then
-                            child.Material = "Plastic"
-                            child.Reflectance = 0
-                            child.BackSurface = "SmoothNoOutlines"
-                            child.BottomSurface = "SmoothNoOutlines"
-                            child.FrontSurface = "SmoothNoOutlines"
-                            child.LeftSurface = "SmoothNoOutlines"
-                            child.RightSurface = "SmoothNoOutlines"
-                            child.TopSurface = "SmoothNoOutlines"
-                            child.Transparency = 1
-                            child.CastShadow = false
-                        elseif child:IsA("Decal") then
-                            child.Transparency = 1
-                        elseif child:IsA("AnimationController") then
-                            child:Destroy()
+                    -- Dọn dẹp hạt hiệu ứng theo mẻ, nghỉ giữa các mẻ để không làm đơ game
+                    local items = workspace:GetDescendants()
+                    for idx, v in ipairs(items) do
+                        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+                            pcall(function() v.Enabled = false end)
                         end
-                    end)
+                        if idx % 300 == 0 then
+                            task.wait() -- Tránh freeze main thread
+                        end
+                    end
                 end)
             end)
         end  
+
         if Config.Configuration.FpsBoost then
             boostfps()
         end
-        repeat wait() until game:IsLoaded() 
-        spawn(function()
-            while wait() do 
-                    pcall(function()
-                        repeat wait() until game.Players.LocalPlayer and game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                    local old = tick()
 
-                    local oldpos = game.Players.LocalPlayer.Character.HumanoidRootPart.Position 
-                    repeat wait() 
-                    until tick() - old >= 5*60 or oldpos ~= game.Players.LocalPlayer.Character.HumanoidRootPart.Position 
-                    if tick() - old >= 5*60 then 
-                        Hop("Stuck start Rejoin")
+        -- Vòng lặp kiểm tra kẹt nhân vật an toàn (chạy mỗi 10s, không spam mỗi frame)
+        task.spawn(function()
+            while task.wait(10) do 
+                pcall(function()
+                    local player = game.Players.LocalPlayer
+                    local char = player and player.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    if hrp and not _G.IsGachaing and not _G.Stop then
+                        local startPos = hrp.Position
+                        task.wait(150)
+                        local currentHrp = char and char:FindFirstChild("HumanoidRootPart")
+                        if currentHrp and (currentHrp.Position - startPos).Magnitude < 3 and not _G.IsGachaing and not _G.Stop then
+                            Hop("Stuck start Rejoin")
+                        end
                     end
                 end)
-
             end
         end)
         
