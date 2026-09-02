@@ -37,7 +37,8 @@ Config =
 }
 
 -- =========================================================================
--- [BƯỚC 1]: CHỜ ROBLOX TẢI XONG BẢN ĐỒ CƠ BẢN
+-- =========================================================================
+-- [BƯỚC 1]: CHỜ ROBLOX TẢI XONG GAME
 -- =========================================================================
 if not game:IsLoaded() then
     repeat
@@ -47,110 +48,71 @@ end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local targetTeam = (Config and Config.Team) or "Pirates"
 
 -- =========================================================================
--- [BƯỚC 2]: TỰ ĐỘNG CHỌN PHE (HẢI TẶC / HẢI QUÂN) NGAY LẬP TỨC
+-- [BƯỚC 2]: TỰ ĐỘNG CHỌN PHE & ĐÓNG GIAO DIỆN CHỌN PHE (TRÁNH BỊ TREO MÀN HÌNH)
 -- =========================================================================
-local function AutoSelectTeam()
-    local attempts = 0
-    while attempts < 30 do
-        if LocalPlayer.Team ~= nil and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            break
-        end
-
-        pcall(function()
-            -- 1. Bấm nút Chế Độ Nhanh (Fast Mode) trên giao diện chọn phe nếu bật LowGraphicsMode
-            local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-            local mainGui = pGui and pGui:FindFirstChild("Main")
-            if mainGui then
-                local chooseTeam = mainGui:FindFirstChild("ChooseTeam")
-                if chooseTeam and chooseTeam.Visible then
-                    if Config and Config.Configuration and Config.Configuration.LowGraphicsMode then
-                        for _, elem in ipairs(chooseTeam:GetDescendants()) do
-                            if elem:IsA("TextButton") or elem:IsA("ImageButton") then
-                                local text = tostring(elem.Text or "")
-                                if text:find("Nhanh") or text:find("Fast") then
-                                    for _, c in pairs(getconnections(elem.Activated)) do
-                                        c.Function()
-                                    end
-                                end
-                            end
-                        end
-                    end
-
-                    -- 2. Kích hoạt nút chọn phe trên UI (Pirates / Marines)
-                    local container = chooseTeam:FindFirstChild("Container")
-                    if container then
-                        local teamButton = (targetTeam == "Marines" and container:FindFirstChild("Marines")) or container:FindFirstChild("Pirates")
-                        if teamButton then
-                            for _, c in pairs(getconnections(teamButton.Activated)) do
-                                c.Function()
-                            end
-                            local frame = teamButton:FindFirstChild("Frame")
-                            local viewport = frame and frame:FindFirstChild("ViewportFrame")
-                            if viewport then
-                                for _, c in pairs(getconnections(viewport.Activated)) do
-                                    c.Function()
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-
-            -- 3. Gọi Remote CommF_ SetTeam trực tiếp
-            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-            local commF = remotes and remotes:FindFirstChild("CommF_")
-            if commF then
-                commF:InvokeServer("SetTeam", targetTeam)
-            end
-        end)
-
-        attempts = attempts + 1
-        task.wait(0.8)
-    end
-end
-
-AutoSelectTeam()
-
--- =========================================================================
--- [BƯỚC 3]: ĐỢI NHÂN VẬT SPAWN VÀO ĐẢO HOÀN TẤT
--- =========================================================================
-local function WaitForPlayerRoot()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart", 60)
-    local hum = char:WaitForChild("Humanoid", 60)
-    return char, hrp, hum
-end
-WaitForPlayerRoot()
-task.wait(1)
-
--- =========================================================================
--- [BƯỚC 4]: CHẾ ĐỘ TẢI CHẬM AN TOÀN (SAFE SLOW-LOADING) CHỐNG VĂNG GAME
--- =========================================================================
-local safeDelay = (Config.Configuration and Config.Configuration.LoadingDelay) or 25
-if Config.Configuration and Config.Configuration.SafeLoad then
-    print("[SafeLoad]: Chế độ tải chậm chống văng game được kích hoạt (" .. tostring(safeDelay) .. "s)...")
-    
-    -- Tạo thông báo nhỏ trực quan trên màn hình
+local function DoSelectTeam()
     pcall(function()
+        local remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 10)
+        local commF = remotes and remotes:WaitForChild("CommF_", 10)
+        if commF then
+            commF:InvokeServer("SetTeam", targetTeam)
+        end
+    end)
+
+    pcall(function()
+        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+        local mainGui = pGui and pGui:FindFirstChild("Main")
+        if mainGui then
+            local chooseTeam = mainGui:FindFirstChild("ChooseTeam")
+            if chooseTeam and chooseTeam.Visible then
+                chooseTeam.Visible = false
+            end
+            local bottomHUD = mainGui:FindFirstChild("BottomHUD")
+            if bottomHUD then
+                bottomHUD.Visible = true
+            end
+        end
+    end)
+end
+
+-- Chọn phe và đợi nhân vật xuất hiện ở đảo
+local selectAttempts = 0
+while not (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) and selectAttempts < 25 do
+    DoSelectTeam()
+    selectAttempts = selectAttempts + 1
+    task.wait(1)
+end
+
+-- =========================================================================
+-- [BƯỚC 3]: CHẾ ĐỘ TẢI CHẬM AN TOÀN (SAFE SLOW-LOADING) CHỐNG VĂNG GAME
+-- =========================================================================
+local safeDelay = (Config and Config.Configuration and Config.Configuration.LoadingDelay) or 25
+if Config and Config.Configuration and Config.Configuration.SafeLoad then
+    print("[SafeLoad]: Chờ nạp map an toàn " .. tostring(safeDelay) .. "s...")
+
+    -- Tạo thông báo nhỏ hiển thị đếm ngược (Parent an toàn vào PlayerGui hoặc gethui, tránh crash CoreGui)
+    pcall(function()
+        local parentGui = (gethui and gethui()) or LocalPlayer:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
+        if not parentGui then return end
+
         local sg = Instance.new("ScreenGui")
         sg.Name = "BloxSafeLoadUI"
         sg.ResetOnSpawn = false
-        sg.Parent = game:GetService("CoreGui")
+        sg.Parent = parentGui
 
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(0, 340, 0, 65)
-        frame.Position = UDim2.new(0.5, -170, 0.08, 0)
+        frame.Size = UDim2.new(0, 330, 0, 60)
+        frame.Position = UDim2.new(0.5, -165, 0.05, 0)
         frame.BackgroundColor3 = Color3.fromRGB(15, 18, 25)
-        frame.BackgroundTransparency = 0.1
+        frame.BackgroundTransparency = 0.15
         frame.BorderSizePixel = 0
         frame.Parent = sg
 
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 12)
+        corner.CornerRadius = UDim.new(0, 10)
         corner.Parent = frame
 
         local stroke = Instance.new("UIStroke")
@@ -164,18 +126,18 @@ if Config.Configuration and Config.Configuration.SafeLoad then
         label.BackgroundTransparency = 1
         label.TextColor3 = Color3.fromRGB(240, 240, 240)
         label.Font = Enum.Font.GothamMedium
-        label.TextSize = 13
+        label.TextSize = 12
         label.TextWrapped = true
         label.Parent = frame
 
         task.spawn(function()
             for sec = safeDelay, 1, -1 do
-                label.Text = string.format("⏳ Đang tải map & ổn định RAM... Còn %d giây\n(Chế độ tải chậm chống văng khi load map)", sec)
+                label.Text = string.format("⏳ Đang tải map & ổn định RAM... Còn %d giây\n(Chế độ tải chậm chống văng)", sec)
                 task.wait(1)
             end
-            label.Text = "✅ Map đã tải xong hoàn toàn! Đang khởi động script..."
+            label.Text = "✅ Tải map hoàn tất! Đang khởi động script..."
             task.wait(1.5)
-            sg:Destroy()
+            pcall(function() sg:Destroy() end)
         end)
     end)
 
@@ -189,13 +151,19 @@ function CheckKick(v)
         task.wait(2)
         pcall(function()
             print(v.TitleFrame.ErrorTitle.Text)
-            ReplicatedStorage:WaitForChild("__ServerBrowser", 10):InvokeServer("teleport", game.PlaceId)
+            game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 10):InvokeServer("teleport", game.PlaceId)
             v:Destroy()
         end)
     end
 end
+
 pcall(function()
-    game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
+    local coreGui = game:GetService('CoreGui')
+    local promptGui = coreGui and coreGui:FindFirstChild('RobloxPromptGui')
+    local overlay = promptGui and promptGui:FindFirstChild('promptOverlay')
+    if overlay then
+        overlay.ChildAdded:Connect(CheckKick)
+    end
 end)
 
 -- Volt Performance Optimization Setup
@@ -319,9 +287,7 @@ local PerformanceCache = {}
         local isToggleOpen = false
         local player = game.Players.LocalPlayer
 
-        repeat
-            task.wait()
-        until game.CoreGui
+        local targetGuiParent = (gethui and gethui()) or (LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")) or game:GetService("CoreGui")
 
         local HopGui = Instance.new("ScreenGui")
         local NameHub = Instance.new("TextLabel")
@@ -337,7 +303,7 @@ local PerformanceCache = {}
         local UIReferences = {}
 
         HopGui.Name = "CyndralDev"
-        HopGui.Parent = game:GetService("CoreGui")
+        HopGui.Parent = targetGuiParent
         HopGui.Enabled = not Config.Configuration.HideGui
         HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         HopGui.IgnoreGuiInset = true
@@ -352,7 +318,7 @@ local PerformanceCache = {}
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "co len"
+        NameHub.Text = "moi"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -949,15 +915,22 @@ ScriptStorage = {
             Interface = Interface,
             NPCs = {}
         }
-        hookfunction(require(game.ReplicatedStorage.Reparent).Unparent, newcclosure(function()
-            return function(...) end
-        end)) 
+        pcall(function()
+            if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" and game.ReplicatedStorage:FindFirstChild("Reparent") then
+                local reparent = require(game.ReplicatedStorage.Reparent)
+                if reparent and reparent.Unparent then
+                    hookfunction(reparent.Unparent, newcclosure(function()
+                        return function(...) end
+                    end))
+                end
+            end
+        end)
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
-        Character = LocalPlayer.Character
+        Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
-        Humanoid = Character:WaitForChild("Humanoid")
-        HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+        Humanoid = Character:WaitForChild("Humanoid", 30) or Character:FindFirstChildOfClass("Humanoid")
+        HumanoidRootPart = Character:WaitForChild("HumanoidRootPart", 30)
 
         PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
         Lighting = game:GetService("Lighting")
@@ -3795,25 +3768,6 @@ FunctionsHandler = {
         Remotes.RefreshQuestPro.OnClientEvent:Connect(function(...) if FunctionsHandler.Saber.Methods.Refresh then FunctionsHandler.Saber.Methods.Refresh.Callback(...) end end)
 
         -- Auto Melees
-
-        local MT = getrawmetatable(game)
-        local OldNameCall = MT.__namecall
-        setreadonly(MT, false)
-        MT.__namecall =
-            newcclosure(
-            function(self, ...)
-                local Method = getnamecallmethod()
-                local Args = {...}
-                if Method == "FireServer" and self.Name == "RemoteEvent" then
-                    if getgenv().LastestLockDate and os.time() - LastestLockDate < 3 then
-                        Args[1] = getgenv().LockPosition
-                    end
-                end
-
-                return OldNameCall(self, unpack(Args))
-            end
-        )
-
         function LockAimPositionTo(LockedPosition)
             getgenv().LastestLockDate = os.time()
             getgenv().LockPosition = LockedPosition
@@ -5661,21 +5615,25 @@ FunctionsHandler = {
         )
 
         local old
-
-        old =
-            hookfunction(
-            require(game.ReplicatedStorage.Notification).new,
-           newcclosure(function(a, b)
-                v21 = tostring(tostring(a or "") .. tostring(b or "")) or ""
-
-                getgenv().NotificationCallBack(v21)
-
-                return {
-                    Display = function() end  
-                }
-                --return old(a, b)
+        pcall(function()
+            if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" and game.ReplicatedStorage:FindFirstChild("Notification") then
+                local notifModule = require(game.ReplicatedStorage.Notification)
+                if notifModule and notifModule.new then
+                    old = hookfunction(
+                        notifModule.new,
+                        newcclosure(function(a, b)
+                            local v21 = tostring(tostring(a or "") .. tostring(b or "")) or ""
+                            if getgenv().NotificationCallBack then
+                                getgenv().NotificationCallBack(v21)
+                            end
+                            return {
+                                Display = function() end  
+                            }
+                        end)
+                    )
+                end
             end
-        ))
+        end)
 
      
         if SeaIndex ~= 1 then
@@ -5908,31 +5866,18 @@ FunctionsHandler = {
                 end)
             end
 
-            -- Dọn dẹp mây và hiệu ứng hạt nhẹ nhàng theo luồng an toàn (không lag CPU)
+            -- Dọn dẹp mây, ánh sáng và skybox nhẹ nhàng không làm tốn RAM hay đơ máy
             task.spawn(function()
                 pcall(function()
-                    -- Xóa clouds trong workspace
                     for _, v in ipairs(workspace:GetChildren()) do
                         if v.Name == "Clouds" or v.Name == "Cloud" then
                             pcall(function() v:Destroy() end)
                         end
                     end
 
-                    -- Xóa skybox / decals trong lighting
                     for _, v in ipairs(Lighting:GetChildren()) do
-                        if v:IsA("Sky") or v:IsA("Decal") then
+                        if v:IsA("Sky") or v:IsA("Decal") or v:IsA("Atmosphere") then
                             pcall(function() v:Destroy() end)
-                        end
-                    end
-
-                    -- Dọn dẹp hạt hiệu ứng theo mẻ, nghỉ giữa các mẻ để không làm đơ game
-                    local items = workspace:GetDescendants()
-                    for idx, v in ipairs(items) do
-                        if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
-                            pcall(function() v.Enabled = false end)
-                        end
-                        if idx % 300 == 0 then
-                            task.wait() -- Tránh freeze main thread
                         end
                     end
                 end)
