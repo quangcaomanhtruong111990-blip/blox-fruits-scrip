@@ -317,7 +317,7 @@ local PerformanceCache = {}
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "cu"
+        NameHub.Text = "moi"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2489,8 +2489,17 @@ ScriptStorage = {
 
         local Net = (Services.ReplicatedStorage.Modules.Net)
 
-        local RegisterAttack = require(Net):RemoteEvent("RegisterAttack", true)
-        local RegisterHit = require(Net):RemoteEvent("RegisterHit", true)
+        local RegisterAttack, RegisterHit
+        pcall(function()
+            RegisterAttack = require(Net):RemoteEvent("RegisterAttack", true)
+            RegisterHit = require(Net):RemoteEvent("RegisterHit", true)
+        end)
+        if not RegisterAttack then
+            RegisterAttack = Net:FindFirstChild("RE/RegisterAttack") or Net:WaitForChild("RE/RegisterAttack", 5)
+        end
+        if not RegisterHit then
+            RegisterHit = Net:FindFirstChild("RE/RegisterHit") or Net:WaitForChild("RE/RegisterHit", 5)
+        end
 
         function Funcs:Attack()
             local bladehits = {}
@@ -3802,9 +3811,13 @@ FunctionsHandler = {
             return 0, bfMaxLevel
         end
 
-        Remotes.Redeem:InvokeServer("KITT_RESET")
-        Remotes.Redeem:InvokeServer("Sub2UncleKizaru")
-        Remotes.Redeem:InvokeServer("SUB2GAMERROBOT_RESET1")
+        pcall(function()
+            if Remotes and Remotes.Redeem then
+                Remotes.Redeem:InvokeServer("KITT_RESET")
+                Remotes.Redeem:InvokeServer("Sub2UncleKizaru")
+                Remotes.Redeem:InvokeServer("SUB2GAMERROBOT_RESET1")
+            end
+        end)
 
         function ResetStat(PrimaryPoint)
             if (LocalPlayer.Data.Stats:FindFirstChild(PrimaryPoint).Level.Value < 2000) then
@@ -3824,7 +3837,7 @@ FunctionsHandler = {
             return true
         end
  
-        print(GetCurrentFruitMastery())
+        pcall(function() print(GetCurrentFruitMastery()) end)
         FunctionsHandler.MeleesController:RegisterMethod(
             "Refresh",
             function()
@@ -5798,20 +5811,29 @@ FunctionsHandler = {
         end
 
         function Storage.Save(Self)
-            writefile(StoragePath, Encode(Self.Data))
+            pcall(function()
+                if typeof(writefile) == "function" then
+                    writefile(StoragePath, Encode(Self.Data))
+                end
+            end)
         end
 
-        if not isfile(StoragePath) then
-            writefile(StoragePath, "{}")
-            task.wait(1)
-        end
+        pcall(function()
+            if typeof(isfile) == "function" and typeof(writefile) == "function" then
+                if not isfile(StoragePath) then
+                    writefile(StoragePath, "{}")
+                    task.wait(0.5)
+                end
+            end
+        end)
 
         Storage.Data = {}
 
-        --Report(readfile(StoragePath))
         pcall(
             function()
-                Storage.Data = Decode(readfile(StoragePath) or "{}")
+                if typeof(readfile) == "function" then
+                    Storage.Data = Decode(readfile(StoragePath) or "{}")
+                end
             end
         )
 
@@ -5831,185 +5853,83 @@ FunctionsHandler = {
                     and settingsMenu.Content:FindFirstChild("ScrollingFrame")
                     and settingsMenu.Content.ScrollingFrame:FindFirstChild("FastMode")
                     and settingsMenu.Content.ScrollingFrame.FastMode:FindFirstChild("FirstButton")
-                if fastBtn then
+                if fastBtn and typeof(getconnections) == "function" then
                     for _, Connection in getconnections(fastBtn.Activated) do
-                        Connection.Function()
+                        if type(Connection.Function) == "function" then
+                            Connection.Function()
+                        end
                     end
                 end
             end
         end)
       
         function boostfps()
-            local Terrain = workspace:FindFirstChildOfClass('Terrain')
-            local ReplicatedStorage = game.ReplicatedStorage
-            local Players = game.Players
-            local Player = Players.LocalPlayer
-            local RunService = game:GetService("RunService")
-            local Lighting = game:GetService("Lighting")
-
-            -- Tắt nước
-            if Terrain then
-                Terrain.WaterWaveSize = 0
-                Terrain.WaterWaveSpeed = 0
-                Terrain.WaterReflectance = 0
-                Terrain.WaterTransparency = 1
-            end
-
-            -- Xóa map không cần thiết để tăng FPS
             pcall(function()
-                -- Xóa clouds trong workspace
+                local Terrain = workspace:FindFirstChildOfClass('Terrain')
+                local Lighting = game:GetService("Lighting")
+
+                -- Tắt hiệu ứng nước
+                if Terrain then
+                    Terrain.WaterWaveSize = 0
+                    Terrain.WaterWaveSpeed = 0
+                    Terrain.WaterReflectance = 0
+                    Terrain.WaterTransparency = 1
+                end
+
+                -- Xóa clouds trong workspace (chỉ GetChildren, an toàn)
                 for _, v in ipairs(workspace:GetChildren()) do
                     if v.Name == "Clouds" or v.Name == "Cloud" then
                         pcall(function() v:Destroy() end)
                     end
                 end
 
-                -- Xóa skybox/decoration trong lighting
+                -- Xóa skybox / decals / hiệu ứng nặng trong lighting
                 for _, v in ipairs(Lighting:GetChildren()) do
-                    if v:IsA("Sky") or v:IsA("Decal") then
+                    if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("BloomEffect") or v:IsA("SunRaysEffect") then
                         pcall(function() v:Destroy() end)
                     end
                 end
 
-                -- Xóa map decorations (part nằm trong Map folder)
+                -- Xóa map decoration cơ bản nếu có Map folder (an toàn, không đệ quy toàn game)
                 local Map = workspace:FindFirstChild("Map")
                 if Map then
                     for _, v in ipairs(Map:GetChildren()) do
                         local name = v.Name:lower()
-                        if name:find("tree") or name:find("plant") or name:find("rock") or
-                           name:find("fence") or name:find("decoration") or name:find("grass") or
-                           name:find("bush") or name:find("flower") or name:find("sign") then
+                        if name:find("tree") or name:find("plant") or name:find("grass") or
+                           name:find("bush") or name:find("flower") then
                             pcall(function() v:Destroy() end)
                         end
                     end
                 end
 
-                -- Xóa spawn location effects
-                for _, v in ipairs(workspace:GetDescendants()) do
-                    if v:IsA("Sound") then
-                        pcall(function() v:Destroy() end)
-                    end
-                end
-            end)
+                -- Tắt hiệu ứng bóng và sương mù Lighting
+                Lighting.GlobalShadows = false
+                Lighting.FogEnd = 9e9
+                Lighting.FogStart = 9e9
 
-            -- Tắt lighting
-            Lighting.GlobalShadows = false
-            Lighting.FogEnd = 9e9
-            Lighting.FogStart = 9e9
-
-            -- Giảm quality level
-            pcall(function()
-                settings().Rendering.QualityLevel = 1
-            end)
-
-            -- Xóa lighting children
-            pcall(function()
-                Lighting:ClearAllChildren()
-            end)
-
-            -- Xóa effect particles cho non-character parts
-            pcall(function()
-                for _, v in ipairs(game:GetDescendants()) do
-                    if v:IsA("ParticleEmitter") or v:IsA("Trail") then
-                        pcall(function() v.Lifetime = NumberRange.new(0) end)
-                    elseif v:IsA("AnimationController") then
-                        pcall(function() v:Destroy() end)
-                    end
-                end
-            end)
-
-            -- Xử lý existing characters
-            for _, player1 in pairs(Players:GetChildren()) do
-                if player1.Character then
-                    task.spawn(function()
-                        task.wait(0.5)
-                        for _, part in pairs(player1.Character:GetChildren()) do
-                            if part:IsA("Accessory") or part.Name == "Radio" then
-                                pcall(function() part:Destroy() end)
-                            end
-                        end
-                    end)
-                end
-                player1.CharacterAdded:Connect(function(char)
-                    task.wait(0.5)
-                    for _, part in pairs(char:GetChildren()) do
-                        if part:IsA("Accessory") or part.Name == "Radio" then
-                            pcall(function() part:Destroy() end)
-                        end
-                    end
-                end)
-            end
-
-            -- Bug 1 FIX: Chỉ destroy thứ KHÔNG phải Model/Folder trong _WorldOrigin
-            workspace._WorldOrigin.ChildAdded:Connect(function(child)
+                -- Giảm quality level an toàn
                 pcall(function()
-                    if not child:IsA("Model") and not child:IsA("Folder") then
-                        child:Destroy()
-                    end
+                    settings().Rendering.QualityLevel = 1
                 end)
-            end)
 
-            -- Xóa cache folder trong ReplicatedStorage
-            pcall(function()
-                local candelete = {"Cache", "Cache2"}
-                for _, v in ipairs(ReplicatedStorage:GetChildren()) do
-                    if table.find(candelete, v.Name) then
-                        pcall(function() v:Destroy() end)
+                -- Xóa phụ kiện thừa của người chơi khác (an toàn, giảm lag)
+                local Players = game:GetService("Players")
+                for _, player1 in pairs(Players:GetPlayers()) do
+                    if player1 ~= Players.LocalPlayer and player1.Character then
+                        task.spawn(function()
+                            for _, part in pairs(player1.Character:GetChildren()) do
+                                if part:IsA("Accessory") or part.Name == "Radio" then
+                                    pcall(function() part:Destroy() end)
+                                end
+                            end
+                        end)
                     end
                 end
-            end)
-
-            -- Camera và Terrain child cleanup
-            workspace.Camera.ChildAdded:Connect(function(child)
-                pcall(function() child:Destroy() end)
-            end)
-
-            if Terrain then
-                Terrain.ChildAdded:Connect(function(child)
-                    pcall(function() child:Destroy() end)
-                end)
-            end
-
-            -- Bug 3 FIX: Thêm pcall cho DescendantAdded, bỏ qua character
-            workspace.DescendantAdded:Connect(function(child)
-                task.spawn(function()
-                    pcall(function()
-                        -- Chỉ xử lý effect, KHÔNG transparent player character
-                        if child:IsA("ForceField") or child:IsA("Sparkles") or
-                           child:IsA("Smoke") or child:IsA("Fire") or child:IsA("Beam") then
-                            child:Destroy()
-                            return
-                        end
-
-                        -- Bỏ qua character parts của player
-                        local char = Player.Character
-                        if char and (child:IsDescendantOf(char) or child == char) then
-                            return
-                        end
-
-                        if child:IsA("BasePart") then
-                            child.Material = "Plastic"
-                            child.Reflectance = 0
-                            child.BackSurface = "SmoothNoOutlines"
-                            child.BottomSurface = "SmoothNoOutlines"
-                            child.FrontSurface = "SmoothNoOutlines"
-                            child.LeftSurface = "SmoothNoOutlines"
-                            child.RightSurface = "SmoothNoOutlines"
-                            child.TopSurface = "SmoothNoOutlines"
-                            child.Transparency = 1
-                            child.CastShadow = false
-                        elseif child:IsA("Decal") then
-                            child.Transparency = 1
-                        elseif child:IsA("AnimationController") then
-                            child:Destroy()
-                        end
-                    end)
-                end)
             end)
         end  
 
         if Config.Configuration.FpsBoost then
-            boostfps()
+            pcall(boostfps)
         end
 
         -- Vòng lặp kiểm tra kẹt nhân vật an toàn (chạy mỗi 10s, không spam mỗi frame)
