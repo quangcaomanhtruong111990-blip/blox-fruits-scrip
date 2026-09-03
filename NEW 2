@@ -236,7 +236,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "moi"
+        NameHub.Text = "toi uu"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3011,19 +3011,40 @@ FunctionsHandler = {
 
  
         -- LP Controller
-
         FunctionsHandler.LocalPlayerController.Register()
-        -- Exp Redeem
 
+        -- Exp Redeem
         FunctionsHandler.ExpRedeem:Register()
 
-        -- Level Farm
+        -- Utilly / Drops / Events
+        FunctionsHandler.PirateRaid:Register()
+        FunctionsHandler.CollectDrops:Register()
+        FunctionsHandler.UtillyItemsActivitation:Register()
 
-        FunctionsHandler.LevelFarm:Register()
-
-        -- Items / Sword
-
+        -- Puzzles & Sea Travel Unlock Quests (Priority over Level Farm)
+        FunctionsHandler.SecondSeaPuzzle:Register()
+        FunctionsHandler.ThirdSeaPuzzle:Register()
+        FunctionsHandler.ColosseumPuzzle:Register()
+        FunctionsHandler.Trevor:Register()
         FunctionsHandler.Saber:Register()
+        FunctionsHandler.EvoRace:Register()
+        FunctionsHandler.DarkBladeV2:Register()
+        FunctionsHandler.DarkBladeV3:Register()
+        FunctionsHandler.Wenlocktoad:Register()
+        FunctionsHandler.DojoQuest:Register()
+        FunctionsHandler.RaceAwakening:Register()
+
+        -- Functions / Raid & Auto Melees
+        FunctionsHandler.RaidController:Register()
+        FunctionsHandler.MeleesController:Register()
+        FunctionsHandler.Superhuman:Register()
+        FunctionsHandler.DeathStep:Register()
+        FunctionsHandler.SharkmanKarate:Register()
+        FunctionsHandler.ElectricClaw:Register()
+        FunctionsHandler.DragonTalon:Register()
+        FunctionsHandler.Godhuman:Register()
+
+        -- Items / Swords
         FunctionsHandler.Rengoku:Register()
         FunctionsHandler.Yama:Register()
         FunctionsHandler.Tushita:Register()
@@ -3036,66 +3057,21 @@ FunctionsHandler = {
         FunctionsHandler.BuddySword:Register()
         FunctionsHandler.HallowScythe:Register()
 
-        -- Items / Guns
-
+        -- Items / Guns & Etc
         FunctionsHandler.AcidumRifle:Register()
         FunctionsHandler.Kabucha:Register()
         FunctionsHandler.VenomBow:Register()
         FunctionsHandler.SoulGuitar:Register()
         FunctionsHandler.DragonStorm:Register()
-
-        -- Items / Etc
-
         FunctionsHandler.InsictV2:Register()
         FunctionsHandler.RainbowSaviour:Register()
 
-        -- Puzzles / First Sea
-
-        FunctionsHandler.DarkBladeV2:Register()
-        FunctionsHandler.SecondSeaPuzzle:Register()
-
-        -- Puzzles / Second Sea
-
-        FunctionsHandler.ColosseumPuzzle:Register()
-        FunctionsHandler.Trevor:Register()
-        FunctionsHandler.EvoRace:Register()
-        FunctionsHandler.Wenlocktoad:Register()
-        FunctionsHandler.DarkBladeV3:Register()
-        FunctionsHandler.ThirdSeaPuzzle:Register()
-
-        -- Puzzles / Third Sea
-
-        FunctionsHandler.DojoQuest:Register()
-        FunctionsHandler.RaceAwakening:Register()
-        FunctionsHandler.PirateRaid:Register()
-
-        -- Functions / Raid
-        
-
-        FunctionsHandler.RaidController:Register()
-
-        
-        -- Functions / Auto Melees
-
-        FunctionsHandler.MeleesController:Register()
-
-        FunctionsHandler.Superhuman:Register()
-        FunctionsHandler.DeathStep:Register()
-        FunctionsHandler.SharkmanKarate:Register()
-        FunctionsHandler.ElectricClaw:Register()
-        FunctionsHandler.DragonTalon:Register()
-        FunctionsHandler.Godhuman:Register()
-
         -- Functions / Boss Task
-
         FunctionsHandler.BossesTask:Register()
         FunctionsHandler.SpecialBossesTask:Register()
-        -- Functions / CollectDrops
-        FunctionsHandler.CollectDrops:Register()
 
-        -- Functions / UtillyItemsActivitation
-
-        FunctionsHandler.UtillyItemsActivitation:Register()
+        -- Level Farm (Fallback task when no active quests, puzzles, or items remain)
+        FunctionsHandler.LevelFarm:Register()
 
         -- Exp Redeem
 
@@ -3280,19 +3256,44 @@ FunctionsHandler = {
 
                     LastTravel = os.time()
                     if PlayerLevel >= 1500 and (SeaIndex == 2) then
-                        
-                        if not Services.Workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor")  then
-                            
+                        -- Safe check: Ensure Sea 2 quests/puzzles are complete before traveling to Sea 3
+                        local sea3QuestPending = false
+                        pcall(function()
+                            if FunctionsHandler.ThirdSeaPuzzle and FunctionsHandler.ThirdSeaPuzzle.Methods and FunctionsHandler.ThirdSeaPuzzle.Methods.Refresh then
+                                if FunctionsHandler.ThirdSeaPuzzle.Methods.Refresh:Call() then sea3QuestPending = true end
+                            end
+                            if FunctionsHandler.ColosseumPuzzle and FunctionsHandler.ColosseumPuzzle.Methods and FunctionsHandler.ColosseumPuzzle.Methods.Refresh then
+                                if FunctionsHandler.ColosseumPuzzle.Methods.Refresh:Call() then sea3QuestPending = true end
+                            end
+                            if FunctionsHandler.Trevor and FunctionsHandler.Trevor.Methods and FunctionsHandler.Trevor.Methods.Refresh then
+                                if FunctionsHandler.Trevor.Methods.Refresh:Call() then sea3QuestPending = true end
+                            end
+                        end)
 
+                        if not sea3QuestPending and not Services.Workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor") then
                             Remotes.CommF_:InvokeServer("TravelZou")
                             SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
                             return task.wait(5)
-                             
                         end
-                    elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
-                        SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
-                        Remotes.CommF_:InvokeServer("TravelDressrosa")
-                        return task.wait(5)
+                    elseif PlayerLevel >= 700 and (SeaIndex == 1) then
+                        -- Safe check: Ensure Sea 1 quests/puzzles are complete before traveling to Sea 2
+                        local sea2QuestPending = false
+                        pcall(function()
+                            if FunctionsHandler.SecondSeaPuzzle and FunctionsHandler.SecondSeaPuzzle.Methods and FunctionsHandler.SecondSeaPuzzle.Methods.Refresh then
+                                if FunctionsHandler.SecondSeaPuzzle.Methods.Refresh:Call() then sea2QuestPending = true end
+                            end
+                            if Config and Config.Items and Config.Items.Saber and not ScriptStorage.Backpack.Saber then
+                                if FunctionsHandler.Saber and FunctionsHandler.Saber.Methods and FunctionsHandler.Saber.Methods.Refresh then
+                                    if FunctionsHandler.Saber.Methods.Refresh:Call() then sea2QuestPending = true end
+                                end
+                            end
+                        end)
+
+                        if not sea2QuestPending then
+                            SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
+                            Remotes.CommF_:InvokeServer("TravelDressrosa")
+                            return task.wait(5)
+                        end
                     end
                 
 
