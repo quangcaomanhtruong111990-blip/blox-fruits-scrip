@@ -330,7 +330,7 @@ local PerformanceCache = {}
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "moi"
+        NameHub.Text = "theo doi"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3912,11 +3912,10 @@ FunctionsHandler = {
                 return Config.Items.AutoFullyMelees
             end
         )
+
         FunctionsHandler.MeleesController:RegisterMethod(
             "Start",
             function()
-
-                ScriptStorage.IsFarmingMelee = false
                 ScriptStorage.IsGettingMelee = false  -- luôn reset flag trước khi bắt đầu
 
                 for Cursor, Melee in MeleesTable do
@@ -3992,6 +3991,7 @@ FunctionsHandler = {
                                 for Index, Value in Data.Price do
                                     if PlayerData[Index] < Value and not FirstCall then
                                         ValuementPassed = false
+
                                         if not ScriptStorage.Melees[Melee] then
                                             MSet = true
                                             SetTask(
@@ -4018,7 +4018,6 @@ FunctionsHandler = {
                                                     " / " .. Data.NextLevelRequirement .. " )."
                                 )
                                 -- Luôn attack ĐỂ TĂNG MASTERY, bất kể đã sở hữu melee chưa
-                                ScriptStorage.IsFarmingMelee = true
                                 CombatController.Attack(Melee)
                                 -- Chỉ mua nếu chưa có — KHÔNG block raid khi farm mastery
                                 if not ScriptStorage.Tools[Melee] then
@@ -6038,11 +6037,6 @@ FunctionsHandler = {
             if _G.Stop then
                 return
             end
-            
-            if getgenv().IsCheckingMelees or ScriptStorage.IsGettingMelee or ScriptStorage.IsFarmingMelee then
-                return
-            end
-
             for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
                 if Task then
