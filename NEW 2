@@ -39,21 +39,7 @@ until game:IsLoaded()
 -- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
 task.wait(15)
 
--- Volt Performance Optimization Setup
-local Volt = nil
-pcall(function()
-    -- Try to load Volt if available
-    if typeof(volt) == "table" then
-        Volt = volt
-        print("[Volt] Volt detected and loaded")
-    elseif typeof(getgenv().volt) == "table" then
-        Volt = getgenv().volt
-        print("[Volt] Volt detected from getgenv()")
-    end
-end)
-
 -- Performance optimization flags
-local UseVoltActors = Volt ~= nil
 local PerformanceCache = {}
 -- task.spawn(function()
 --     while true do
@@ -214,7 +200,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "moi"
+        NameHub.Text = "sanglove v1.13"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1194,7 +1180,7 @@ ScriptStorage = {
             end
         end
         function MeleeCheck(Child)
-            print("Melee check", Child)
+            return
 
             if Child and typeof(Child) == "Instance" and Child:IsA("Tool") then
                 if Child.ToolTip == "Melee" then
@@ -1258,13 +1244,13 @@ ScriptStorage = {
                 end
             end
         end
-        print(0)
+        
         SetText("MainTextLabel", "Refreshing Player Data 18219")
-        print(-1)
+        
         MeleeCheck(LocalPlayer.Character:FindFirstChildOfClass("Tool"))
-        print(-2)
+        
         RefreshPlayerData()
-        print(-3)
+        
         function RegisterLocalPlayerEventsConnection()
             task.spawn(
                 function()
@@ -1343,7 +1329,7 @@ ScriptStorage = {
         end
         RegisterLocalPlayerEventsConnection(LocalPlayer)
 
-        print(-4)
+        
         game.Players.LocalPlayer.CharacterAdded:Connect(
             function(Character)
                 print("[ Debug ] re-registering events")
@@ -1360,7 +1346,7 @@ ScriptStorage = {
             end
         )
 
-        print(1)
+        
         MeleesTable = {
             "Black Leg",
             "Electro",
@@ -1597,7 +1583,7 @@ ScriptStorage = {
         SeaIndexes = {"Main", "Dressrosa", "Zou"}
 
         TasksOrder = {
-            "ExpRedeem",
+            
             "SoulGuitar",
             "Tushita",
             "SpecialBossesTask",
@@ -2156,6 +2142,7 @@ ScriptStorage = {
         
         -- TweenController
         
+        local LastTweenTarget = nil
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
@@ -2166,7 +2153,6 @@ ScriptStorage = {
             if Character.Humanoid.Health <= 0 then return end
         
             -- Chuyển đổi Position sang CFrame nếu cần
-            if _G.IsGachaing then return end
             local TargetCFrame = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
             -- Chỉ giữ lại tọa độ Position, loại bỏ Rotation để tránh xoay người ảo
             TargetCFrame = CFrame.new(TargetCFrame.Position)
@@ -2180,7 +2166,13 @@ ScriptStorage = {
                 if CurrentDist < 5 then return end -- Đã đủ gần, không cần tạo thêm
             end
         
+            -- Smart Debounce: Nếu đang có Tween chạy và điểm đến mới rất gần điểm cũ (< 20 studs), bỏ qua để tránh giật
+            if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing and LastTweenTarget and (LastTweenTarget - TargetCFrame.Position).Magnitude < 20 then
+                return
+            end
+            
             TweenController._isCreating = true
+            LastTweenTarget = TargetCFrame.Position
         
             -- 3. XỬ LÝ NOCLIP (An toàn tuyệt đối cho v1.08)
             pcall(function()
@@ -2229,8 +2221,8 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
         
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (75)
-            local Speed = (CurrentDist < 18) and 25 or 75
+            -- Tốc độ bay mượt mà, vừa phải từ 25 đến 100 theo yêu cầu
+            local Speed = (CurrentDist < 25) and 25 or 100
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2418,7 +2410,7 @@ ScriptStorage = {
             RegisterHit:FireServer(unpack(args))
         end
 
-        -- Optimized FastAttack loop with Volt Actor support
+        -- Optimized FastAttack loop
         local FastAttackLoop = function()
             while task.wait(.06) do
                 if _G.FastAttack == os.time() then
@@ -2431,15 +2423,7 @@ ScriptStorage = {
             end
         end
         
-        if UseVoltActors and Volt and Volt.Actor then
-            -- Use Volt Actor to run on separate thread (if available)
-            pcall(function()
-                local actor = Volt.Actor.new()
-                actor:Call(FastAttackLoop)
-            end)
-        else
-            task.spawn(FastAttackLoop)
-        end
+        task.spawn(FastAttackLoop)
 
         function AttackController.Attack(MonResult)
             pcall(
@@ -2981,10 +2965,6 @@ FunctionsHandler = {
         -- LP Controller
 
         FunctionsHandler.LocalPlayerController.Register()
-        -- Exp Redeem
-
-        FunctionsHandler.ExpRedeem:Register()
-
         -- Level Farm
 
         FunctionsHandler.LevelFarm:Register()
@@ -3065,98 +3045,13 @@ FunctionsHandler = {
 
         FunctionsHandler.UtillyItemsActivitation:Register()
 
-        -- Exp Redeem
-
-        FunctionsHandler.ExpRedeem:RegisterMethod(
-            "Refresh",
-            function()
-                --Report("Typeof: " .. typeof(Storage))
-
-                return ScriptStorage.PlayerData.Level < MaxLevel and
-                    GetExpBoost() == 0 and
-                    not Storage.Get(Storage, "IsCodesRanOut")
-            end
-        )
-
-        FunctionsHandler.ExpRedeem:RegisterMethod(
-            "Start",
-            function()
-                local Code = ({
-                    "BANEXPLOIT",
-                    "NOMOREHACK",
-                    "WildDares",
-                    "BossBuild",
-                    "GetPranked",
-                    "EARN_FRUITS",
-                    "Sub2UncleKizaru",
-                    "FIGHT4FRUIT",
-                    "kittgaming",
-                    "TRIPLEABUSE",
-                    "Sub2CaptainMaui",
-                    "Sub2Fer999",
-                    "Enyu_is_Pro",
-                    "Magicbus",
-                    "JCWK",
-                    "Starcodeheo",
-                    "Bluxxy",
-                    "SUB2GAMERROBOT_EXP1",
-                    "Sub2NoobMaster123",
-                    "Sub2Daigrock",
-                    "Axiore",
-                    "TantaiGaming",
-                    "StrawHatMaine",
-                    "Sub2OfficialNoobie",
-                    "TheGreatAce",
-                    "SEATROLLING",
-                    "24NOADMIN",
-                    "ADMIN_TROLL",
-                    "NEWTROLL",
-                    "SECRET_ADMIN",
-                    "staffbattle",
-                    "NOEXPLOIT",
-                    "NOOB2ADMIN",
-                    "CODESLIDE",
-                    "fruitconcepts"
-                })
-
-                for Index, Promo in Code do
-                    SetTask("MainTask", "Code Redemption | " .. Promo .. " | Redeeming...")
-                    local Response = (Remotes.Redeem:InvokeServer(Promo))
-                    task.wait()
-                    SetTask("MainTask", "Code Redemption | " .. Promo .. " | " .. (Response or "Failed"))
-                    if GetExpBoost() == 0 then
-                        if Response and string.find(Response, "SUCC") then
-                            return SetTask("MainTask", "Code Redemption | X2 Exp Boost Activated!") and task.wait(1)
-                        end
-                    else
-                        return
-                    end
-                end
-
-                Storage:Set("IsCodesRanOut", 1)
-                Storage:Save()
-            end
-        )
-
         -- Level Farm
 
         FunctionsHandler.LevelFarm:RegisterMethod(
             "Refresh",
             function()
-                -- Don't run LevelFarm if currently in raid process
-                if FunctionsHandler.RaidController:Get("IsInRaidProcess") then
-                    return
-                end
-                
-                local Level = ScriptStorage.PlayerData.Level
-                if Level < 10 then
-                    return 1
-                elseif Level < 70 then
-                    return 2
-                else
-                    return 4
-                end
-                return true
+                -- [USER REQUEST] Tắt hoàn toàn Auto Farm
+                return nil
             end
         )
 
@@ -3228,7 +3123,7 @@ FunctionsHandler = {
                             )
 
                             Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
-                            return task.wait(5)
+                            return
                         end
 
                         SetTask("MainTask", "Material Farming | Godhuman | " .. Material .. " | In Progress" )
@@ -3253,14 +3148,13 @@ FunctionsHandler = {
                             
 
                             Remotes.CommF_:InvokeServer("TravelZou")
+
                             SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
-                            return task.wait(5)
                              
                         end
                     elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
                         SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
                         Remotes.CommF_:InvokeServer("TravelDressrosa")
-                        return task.wait(5)
                     end
                 
 
@@ -3877,8 +3771,8 @@ FunctionsHandler = {
                                             type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "string" or (
                                             type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
                                                 alert("Go Back To Second Sea", "Water Key / Library Key")
+
                                                 Remotes.CommF_:InvokeServer("TravelDressrosa")
-                                                return task.wait(5)
                                             end
                                             ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
                                         else
@@ -3971,7 +3865,6 @@ FunctionsHandler = {
                     CombatController.Attack("Ice Admiral")
                     alert("Traveling back to Dressrosa [ Ice Admiral ]")
                     Remotes.CommF_:InvokeServer("TravelDressrosa")
-                    return task.wait(5)
                 end
             end
         )
@@ -5218,8 +5111,7 @@ FunctionsHandler = {
                 elseif State == 1 then
                     if SeaIndex ~= 2 then
                         SetTask("MainTask", "Teleport to second sea to farm ectoplasm")
-                        Remotes.CommF_:InvokeServer("TravelDressrosa")
-                        return task.wait(5)
+                        return Remotes.CommF_:InvokeServer("TravelDressrosa")
                     else
                         SetTask("MainTask", "Farming ectoplasms for soul guitar")
                         CombatController.Attack({"Ship Deckhand", "Ship Engineer", "Ship Steward", "Ship Officer"})
@@ -5548,7 +5440,7 @@ FunctionsHandler = {
                 return true
             end
         end
-        print(1)
+        
         function GetServers()
             if LastServersDataPulled then
                 if os.time() - LastServersDataPulled < 60 then
@@ -6100,268 +5992,56 @@ FunctionsHandler = {
             
         )
 
-        -- Tự động Auto Gacha (Cập nhật mới)
-        local VirtualInputManager = game:GetService("VirtualInputManager")
-        local GuiService = game:GetService("GuiService")
-
-        _G.IsGachaing = false
-
-        local GachaLocations = {
-            Sea1 = Vector3.new(-1441.9, 61.9, 3.1),      -- Jungle
-            Sea2 = Vector3.new(-422.3, 73.0, 393.7),     -- Cafe
-            Sea3 = Vector3.new(-12492.0, 337.0, -7447.1) -- Mansion
-        }
-
-        local function getGachaTarget()
-            local placeId = game.PlaceId
-            if placeId == 2753915549 then
-                return "Sea 1", GachaLocations.Sea1
-            elseif placeId == 4442272183 then
-                return "Sea 2", GachaLocations.Sea2
-            elseif placeId == 7449423635 then
-                return "Sea 3", GachaLocations.Sea3
-            end
-
-            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-            if playerGui and playerGui:FindFirstChild("Main") then
-                for _, v in pairs(playerGui.Main:GetDescendants()) do
-                    if v:IsA("TextLabel") and string.find(v.Text, "Sea") then
-                        local txt = v.Text
-                        if string.find(txt, "Sea2") or string.find(txt, "Sea 2") then
-                            return "Sea 2 (UI)", GachaLocations.Sea2
-                        elseif string.find(txt, "Sea3") or string.find(txt, "Sea 3") then
-                            return "Sea 3 (UI)", GachaLocations.Sea3
-                        elseif string.find(txt, "Sea1") or string.find(txt, "Sea 1") then
-                            return "Sea 1 (UI)", GachaLocations.Sea1
-                        end
-                    end
-                end
-            end
-
-            local map = workspace:FindFirstChild("Map")
-            if map then
-                if map:FindFirstChild("Kingdom of Rose") or map:FindFirstChild("Cafe") then
-                    return "Sea 2 (Map)", GachaLocations.Sea2
-                elseif map:FindFirstChild("Floating Turtle") or map:FindFirstChild("Castle on the Sea") then
-                    return "Sea 3 (Map)", GachaLocations.Sea3
-                elseif map:FindFirstChild("Jungle") then
-                    return "Sea 1 (Map)", GachaLocations.Sea1
-                end
-            end
-
-            return "Sea 2 (Fallback)", GachaLocations.Sea2
-        end
-
-        local function getDialogue()
-            local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-            if playerGui and playerGui:FindFirstChild("Main") then
-                local dialogue = playerGui.Main:FindFirstChild("Dialogue")
-                if dialogue and dialogue.Visible then return dialogue end
-            end
-            return nil
-        end
-
-        local function clickRedSafeSpot()
-            local camera = workspace.CurrentCamera
-            if camera then
-                local viewportSize = camera.ViewportSize
-                VirtualInputManager:SendMouseButtonEvent(viewportSize.X * 0.50, viewportSize.Y * 0.58, 0, true, game, 0)
-                task.wait(0.02)
-                VirtualInputManager:SendMouseButtonEvent(viewportSize.X * 0.50, viewportSize.Y * 0.58, 0, false, game, 0)
-            end
-        end
-
-        local function clickGuiButton(btn)
-            if not btn or not btn.Visible then return false end
-            if firesignal then
-                pcall(function()
-                    firesignal(btn.MouseButton1Click)
-                    firesignal(btn.Activated)
-                end)
-            end
-            local guiInset = GuiService:GetGuiInset()
-            local absPos, absSize = btn.AbsolutePosition, btn.AbsoluteSize
-            if absSize.X > 0 and absSize.Y > 0 then
-                local centerX = absPos.X + (absSize.X / 2)
-                local centerY = absPos.Y + (absSize.Y / 2) + guiInset.Y
-                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
-                return true
-            end
-            return false
-        end
-
-        local function clickDialogueOption1()
-            local dialogue = getDialogue()
-            if not dialogue then return false end
-            local opt1 = dialogue:FindFirstChild("Option1", true) or dialogue:FindFirstChild("Option", true)
-            if opt1 then
-                local btn = opt1:IsA("TextButton") and opt1 or opt1:FindFirstChildOfClass("TextButton") or opt1.Parent
-                if btn and btn:IsA("GuiObject") then return clickGuiButton(btn) end
-            end
-            for _, v in pairs(dialogue:GetDescendants()) do
-                if (v:IsA("TextButton") or v:IsA("ImageButton")) and v.Visible then
-                    local txt = v:IsA("TextButton") and string.lower(v.Text) or ""
-                    if not string.find(txt, "bỏ qua") and not string.find(txt, "cancel") and not string.find(txt, "leave") then
-                        return clickGuiButton(v)
-                    end
-                end
-            end
-            return false
-        end
-
-        local function clickGachaBuyByCoordinates()
-            local camera = workspace.CurrentCamera
-            if camera then
-                local viewportSize = camera.ViewportSize
-                VirtualInputManager:SendMouseButtonEvent(viewportSize.X * 0.73, viewportSize.Y * 0.765, 0, true, game, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(viewportSize.X * 0.73, viewportSize.Y * 0.765, 0, false, game, 0)
-            end
-        end
-
-        local function clickCloseButton()
-            local camera = workspace.CurrentCamera
-            if camera then
-                local viewportSize = camera.ViewportSize
-                VirtualInputManager:SendMouseButtonEvent(viewportSize.X * 0.50, viewportSize.Y * 0.91, 0, true, game, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(viewportSize.X * 0.50, viewportSize.Y * 0.91, 0, false, game, 0)
-            end
-        end
-
-        local function autoStoreFruit()
-            pcall(function()
-                if not Remotes.CommF_ then return end
-                local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid then humanoid:UnequipTools() end
-                task.wait(0.5)
-
-                local fruits = {}
-                local backpack = LocalPlayer:FindFirstChild("Backpack")
-                if backpack then
-                    for _, tool in pairs(backpack:GetChildren()) do
-                        if tool:IsA("Tool") and (string.find(tool.Name, "Fruit") or string.find(tool.Name, "Trái") or tool:FindFirstChild("Fruit")) then
-                            table.insert(fruits, tool)
-                        end
-                    end
-                end
-                if character then
-                    for _, tool in pairs(character:GetChildren()) do
-                        if tool:IsA("Tool") and (string.find(tool.Name, "Fruit") or string.find(tool.Name, "Trái") or tool:FindFirstChild("Fruit")) then
-                            table.insert(fruits, tool)
-                        end
-                    end
-                end
-
-                for _, tool in pairs(fruits) do
-                    local fullName = tool.Name
-                    local cleanName = fullName:gsub(" Fruit", ""):gsub("Trái ", "")
-                    local success = Remotes.CommF_:InvokeServer("StoreFruit", fullName, tool)
-                    if not success then success = Remotes.CommF_:InvokeServer("StoreFruit", cleanName, tool) end
-                    if not success then Remotes.CommF_:InvokeServer("StoreFruit", cleanName .. "-" .. cleanName, tool) end
-                end
-            end)
-        end
-
-        local function runGachaFruit()
-            _G.IsGachaing = true
-            pcall(function()
-                if TweenInstance then TweenInstance:Cancel() end
-                local character = LocalPlayer.Character
-                if character and character:FindFirstChild("HumanoidRootPart") then
-                    local head = character:FindFirstChild("Head")
-                    if head and head:FindFirstChild("eltrul") then
-                        head.eltrul:Destroy()
-                    end
-                end
-
-                local seaName, targetPos = getGachaTarget()
-                print("[AUTO GACHA]: Bắt đầu quay trái ở " .. seaName)
-                
-                local startTime = tick()
-                while not getDialogue() do
-                    if tick() - startTime > 25 then
-                        print("[AUTO GACHA]: Quá thời gian chờ thoại NPC!")
-                        break
-                    end
-
-                    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-                    local hrp = character:FindFirstChild("HumanoidRootPart")
-                    if hrp then hrp.CFrame = CFrame.new(targetPos) end
-
-                    pcall(function()
-                        if Remotes.CommF_ then Remotes.CommF_:InvokeServer("Cousin", "Buy") end
-                    end)
-
-                    clickRedSafeSpot()
-                    task.wait(0.2)
-                end
-
-                print("[AUTO GACHA]: Đang mua Trái Ác Quỷ...")
-                task.wait(1.5)
-
-                if getDialogue() then clickDialogueOption1() task.wait(2.2) end
-                if getDialogue() then clickDialogueOption1() task.wait(2.2) end
-
-                for i = 1, 3 do
-                    clickGachaBuyByCoordinates()
-                    task.wait(0.2)
-                end
-
-                task.wait(1.5)
-                for i = 1, 2 do
-                    clickCloseButton()
-                    task.wait(0.2)
-                end
-
-                task.wait(1.5)
-                autoStoreFruit()
-                print("[AUTO GACHA]: Hoàn thành Gacha & Cất trái!")
-            end)
-            task.wait(1)
-            _G.IsGachaing = false
-        end
+        -- Cấu hình thời gian
+        local CHECK_INTERVAL = 60 -- Kiểm tra mỗi 1 phút để đảm bảo không lỡ nhịp
+        local lastBuy = 0
 
         task.spawn(function()
-            -- 1. Đợi 3 phút (180 giây) khi mới vào game cho load ổn định (chưa auto farm)
-            print("[AUTO GACHA]: Đợi 3 phút cho game load ổn định...")
-            task.wait(180)
-            
-            -- 2. Chạy lệnh Gacha đầu tiên TRƯỚC TIÊN (bật cờ IsGachaing để ngưng hết tác vụ khác)
-            print("[AUTO GACHA]: Thực hiện gacha trái ác quỷ đầu tiên...")
-            runGachaFruit()
-            
-            -- 3. Đợi 20 giây sau khi gacha xong
-            print("[AUTO GACHA]: Gacha xong, đợi 20 giây trước khi bắt đầu auto farm...")
-            task.wait(20)
-            
-            -- 4. Bắt đầu vòng lặp Gacha định kỳ mỗi 2 tiếng 5 phút (7500 giây)
-            task.spawn(function()
-                while true do
-                    task.wait(7500)
-                    runGachaFruit()
-                end
-            end)
-
-            -- 5. Sau khi gacha đầu tiên + 20s, bắt đầu chạy vòng lặp auto farm / nhiệm vụ chính (sẽ bị tạm ngưng khi IsGachaing = true)
             while true do
-                task.wait()
-                if not _G.Stop and not _G.IsGachaing then
-                    local success, response = xpcall(RefreshTasksData, debug.traceback)
-                    -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
-                    local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-                    if not IsInRaid then
-                        FunctionsHandler.MeleesController.Methods.Start:Call()
+                pcall(function()
+                    -- 1. Kiểm tra sự tồn tại của Remotes
+                    if Remotes and Remotes.CommF_ then
+                        
+                        -- 2. Gọi hàm cộng điểm (nếu có)
+                        if type(AddPoint) == "function" then
+                            AddPoint()
+                        end
+
+                        -- 3. Thực hiện mua trái ác quỷ
+                        -- Blox Fruits trả về thông tin thời gian nếu chưa đủ 2 tiếng
+                        local result = Remotes.CommF_:InvokeServer("Cousin", "Buy")
+                        
+                        if result then
+                            print("[Random Fruit] Kết quả: ", tostring(result))
+                            
+                            -- Nếu mua thành công hoặc thông báo liên quan đến thời gian
+                            -- Bạn có thể thêm logic cất trái ác quỷ vào kho ở đây
+                            if string.find(tostring(result), "Unboxed") or string.find(tostring(result), "Eat") then
+                                print("success: " .. tostring(result))
+                            end
+                        end
+                    else
+                        warn("error: " .. tostring(result))
                     end
-                    if not success then
-                        Report(response)
-                    end
-                end
+                end)
+                
+                task.wait(CHECK_INTERVAL)
             end
         end)
+
+       
+        while task.wait(0.15) do
+            local success, response = xpcall(RefreshTasksData, debug.traceback)
+            local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
+            if not IsInRaid then
+                pcall(function()
+                    FunctionsHandler.MeleesController.Methods.Start:Call()
+                end)
+            end
+            if not success then
+                Report(response)
+            end
+        end
 
     end
     -- Remote kunblox script removed
