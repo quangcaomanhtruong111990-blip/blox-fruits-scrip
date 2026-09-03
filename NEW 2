@@ -161,11 +161,16 @@ function CheckKick(v)
 end
 
 pcall(function()
-    local coreGui = game:GetService('CoreGui')
-    local promptGui = coreGui and coreGui:FindFirstChild('RobloxPromptGui')
-    local overlay = promptGui and promptGui:FindFirstChild('promptOverlay')
-    if overlay then
-        overlay.ChildAdded:Connect(CheckKick)
+    local GuiService = game:GetService("GuiService")
+    if GuiService and GuiService.ErrorMessageChanged then
+        GuiService.ErrorMessageChanged:Connect(function(errorMessage)
+            if errorMessage and errorMessage ~= "" then
+                task.wait(2)
+                pcall(function()
+                    game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 10):InvokeServer("teleport", game.PlaceId)
+                end)
+            end
+        end)
     end
 end)
 
@@ -325,7 +330,7 @@ local PerformanceCache = {}
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "thua"
+        NameHub.Text = "fix"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -839,10 +844,15 @@ local PerformanceCache = {}
 
         StartTime = os.time()
 
-        OldSessionTime =
-            isfile(".tdif-" .. game.Players.LocalPlayer.Name) and
-            tonumber(readfile(".tdif-" .. game.Players.LocalPlayer.Name)) or
-            0
+        OldSessionTime = 0
+        pcall(function()
+            if typeof(isfile) == "function" and typeof(readfile) == "function" then
+                local filename = ".tdif-" .. tostring(game.Players.LocalPlayer.Name)
+                if isfile(filename) then
+                    OldSessionTime = tonumber(readfile(filename)) or 0
+                end
+            end
+        end)
 
            
         if Config.Configuration.blackscreen then 
@@ -932,14 +942,16 @@ ScriptStorage = {
                 end
             end
         end)
-        Players = game.Players
+        Players = game:GetService("Players")
         LocalPlayer = Players.LocalPlayer
-        Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        Character = LocalPlayer and (LocalPlayer.Character or (LocalPlayer.CharacterAdded and LocalPlayer.CharacterAdded:Wait()))
 
-        Humanoid = Character:WaitForChild("Humanoid", 30) or Character:FindFirstChildOfClass("Humanoid")
-        HumanoidRootPart = Character:WaitForChild("HumanoidRootPart", 30)
+        if Character then
+            Humanoid = Character:FindFirstChildOfClass("Humanoid") or Character:WaitForChild("Humanoid", 10)
+            HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart") or Character:WaitForChild("HumanoidRootPart", 10)
+        end
 
-        PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
+        PlayerGui = LocalPlayer and (LocalPlayer:FindFirstChild("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui", 10))
         Lighting = game:GetService("Lighting")
 
         Services = {}
@@ -1055,6 +1067,18 @@ ScriptStorage = {
             ScriptStorage.Task[Index .. "-d"] = os.time()
         end
 
+        local function getCommFRemote()
+            local rs = game:GetService("ReplicatedStorage")
+            local rems = rs:FindFirstChild("Remotes")
+            if rems and rems:FindFirstChild("CommF_") then
+                return rems.CommF_
+            end
+            if rs:FindFirstChild("CommF_") then
+                return rs.CommF_
+            end
+            return rems and rems:WaitForChild("CommF_", 5)
+        end
+
         Remotes = {}
         BindedMeleeNPCNames = {
             DragonClaw = "Sabi",
@@ -1072,44 +1096,48 @@ ScriptStorage = {
         setmetatable(Remotes, {
             __index = function(Self, Key)
                 if Key ~= "CommF_" then
-                    print("captured unregistered signal", key)
-                    return Services.ReplicatedStorage.Remotes[Key]
+                    local rs = game:GetService("ReplicatedStorage")
+                    local rems = rs:FindFirstChild("Remotes")
+                    if rems and rems:FindFirstChild(Key) then
+                        return rems[Key]
+                    end
+                    if rs:FindFirstChild(Key) then
+                        return rs[Key]
+                    end
+                    return {
+                        InvokeServer = function(...) return nil end,
+                        FireServer = function(...) return nil end
+                    }
                 end
         
                 local tbl = {
                     InvokeServer = function(Self, ...)
-                        print("remote fired", ...)
                         local RemoteAction, IsValidate = ...
-                        -- warn(RemoteAction, IsValidate,string.gsub(RemoteAction, "Buy", ''))
-                        -- if string.find(RemoteAction, "Buy") == 1 then 
-                        --     warn(string.gsub(RemoteAction, "Buy", '')) 
-                        -- end
-                        if string.find(RemoteAction, "Buy") == 1 and not IsValidate then
+                        if RemoteAction and type(RemoteAction) == "string" and string.find(RemoteAction, "Buy") == 1 and not IsValidate then
                             local MeleeName = string.gsub(RemoteAction, "Buy", '')
-                            warn(table.find(MeleeCanBuy, MeleeName), MeleeName, #MeleeCanBuy)
-                            if BindedMeleeNPCNames then
-                                if table.find(MeleeCanBuy, MeleeName) then
-        
-                                    local NPC = ScriptStorage.NPCs[BindedMeleeNPCNames[MeleeName]]
-                                    if NPC then
-                                        local NPCPos = NPC.WorldPivot
-                                        SetTask("SubTask", "Buying Melee - " .. MeleeName)
-                                        getgenv().anchored = true
-                                        if CaculateDistance(NPCPos) > 10 then
-                                            repeat
-                                                wait()
-                                                TweenController.Create(NPCPos.Position)
-        
-                                            until CaculateDistance(NPCPos) < 10
-                                            task.wait(3)
-                                            Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
-                                        end
+                            if BindedMeleeNPCNames and table.find(MeleeCanBuy, MeleeName) then
+                                local npcName = BindedMeleeNPCNames[MeleeName]
+                                local NPC = npcName and ScriptStorage.NPCs and ScriptStorage.NPCs[npcName]
+                                if NPC then
+                                    local NPCPos = NPC.WorldPivot
+                                    SetTask("SubTask", "Buying Melee - " .. MeleeName)
+                                    getgenv().anchored = true
+                                    if CaculateDistance(NPCPos) > 10 then
+                                        local startBuy = os.time()
+                                        repeat
+                                            task.wait(0.2)
+                                            TweenController.Create(NPCPos.Position)
+                                        until CaculateDistance(NPCPos) < 10 or os.time() - startBuy > 15
+                                        task.wait(1)
                                     end
                                 end
                             end
                         end
-                        return Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
-        
+                        local commF = getCommFRemote()
+                        if commF then
+                            return commF:InvokeServer(...)
+                        end
+                        return nil
                     end
                 }
         
@@ -1121,15 +1149,13 @@ ScriptStorage = {
         Tasks = {}
 
         function AwaitUntilPlayerLoaded(Player, Timeout)
-            repeat
-                task.wait()
-            until Player.Character
-
-            Player.Character:WaitForChild("Humanoid")
-
-            repeat
-                task.wait()
-            until Player.Character.Humanoid.Health > 0
+            pcall(function()
+                local maxWait = (type(Timeout) == "number" and Timeout) or 15
+                local start = tick()
+                while (not Player.Character or not Player.Character:FindFirstChild("Humanoid")) and (tick() - start < maxWait) do
+                    task.wait(0.2)
+                end
+            end)
         end
 
         function AddPoint()
@@ -1384,80 +1410,89 @@ ScriptStorage = {
         RefreshPlayerData()
         print(-3)
         function RegisterLocalPlayerEventsConnection()
-            task.spawn(
-                function()
-                    task.wait(2)
-                    if LocalPlayer.Character:FindFirstChild("HasBuso") then
-                        return
-                    end
-                    Remotes.CommF_:InvokeServer("Buso")
-                end
-            )
-
-            for _, Connection in ScriptStorage.Connections.LocalPlayer do
-                pcall(
+            pcall(function()
+                task.spawn(
                     function()
-                        Connection:Disconnect()
-                    end
-                )
-            end
-
-            AwaitUntilPlayerLoaded(LocalPlayer)
-
-            LocalPlayer:SetAttribute("IsAvailable", true)
-
-            ScriptStorage.Connections.LocalPlayer["HealthCheck"] =
-                LocalPlayer.Character:WaitForChild("Humanoid"):GetPropertyChangedSignal("Health"):Connect(
-                function()
-                    local Health = LocalPlayer.Character.Humanoid.Health
-
-                    LocalPlayer:SetAttribute("IsAvailable", Health > 10)
-                    ScriptStorage.LocalPlayerHealth = Health
-                end
-            )
-
-            ScriptStorage.Connections.LocalPlayer["Melee"] = LocalPlayer.Character.ChildAdded:Connect(MeleeCheck)
-            ScriptStorage.Connections.LocalPlayer["Fruit"] = LocalPlayer.Backpack.ChildAdded:Connect(MeleeCheck)
-
-            table.foreach(
-                LocalPlayer.Backpack:GetChildren(),
-                function(_, Melee)
-                    MeleeCheck(Melee)
-                end
-            )
-
-            LastIdleCheck = os.time()
-            ScriptStorage.Connections.LocalPlayer.PositionChecker =
-                LocalPlayer.Character.HumanoidRootPart:GetPropertyChangedSignal("CFrame"):Connect(
-                function()
-                    if os.time() == LastIdleCheck then
-                        return
-                    end
-                    LastIdleCheck = os.time()
-                    if oldPos then
-                        if (LocalPlayer.Character.HumanoidRootPart.CFrame.p - oldPos).magnitude < 2 then
+                        task.wait(2)
+                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HasBuso") then
                             return
                         end
+                        pcall(function() Remotes.CommF_:InvokeServer("Buso") end)
                     end
-                    oldPos = (LocalPlayer.Character.HumanoidRootPart.CFrame.p)
-                    LastIdling = os.time()
-                end
-            )
+                )
 
-            local PointsInstance = LocalPlayer.Data:WaitForChild("Points")
-            ScriptStorage.Connections.LocalPlayer.PointConnection =
-                PointsInstance:GetPropertyChangedSignal("Value"):Connect(
-                function()
-                    local CurrentValue = LocalPlayer.Data:WaitForChild("Points")
-                    if OldPointValue == CurrentValue then
-                        return
+                if ScriptStorage.Connections and ScriptStorage.Connections.LocalPlayer then
+                    for _, Connection in pairs(ScriptStorage.Connections.LocalPlayer) do
+                        pcall(
+                            function()
+                                Connection:Disconnect()
+                            end
+                        )
                     end
-
-                    OldPointValue = CurrentValue
-                    task.wait(1)
-                    AddPoint()
                 end
-            )
+
+                AwaitUntilPlayerLoaded(LocalPlayer, 10)
+
+                LocalPlayer:SetAttribute("IsAvailable", true)
+
+                local char = LocalPlayer.Character
+                local hum = char and (char:FindFirstChild("Humanoid") or char:WaitForChild("Humanoid", 5))
+                if hum then
+                    ScriptStorage.Connections.LocalPlayer["HealthCheck"] =
+                        hum:GetPropertyChangedSignal("Health"):Connect(
+                        function()
+                            local Health = hum.Health
+                            LocalPlayer:SetAttribute("IsAvailable", Health > 10)
+                            ScriptStorage.LocalPlayerHealth = Health
+                        end
+                    )
+                end
+
+                if char then
+                    ScriptStorage.Connections.LocalPlayer["Melee"] = char.ChildAdded:Connect(MeleeCheck)
+                end
+                if LocalPlayer:FindFirstChild("Backpack") then
+                    ScriptStorage.Connections.LocalPlayer["Fruit"] = LocalPlayer.Backpack.ChildAdded:Connect(MeleeCheck)
+                    for _, Melee in ipairs(LocalPlayer.Backpack:GetChildren()) do
+                        pcall(MeleeCheck, Melee)
+                    end
+                end
+
+                LastIdleCheck = os.time()
+                local hrp = char and (char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5))
+                if hrp then
+                    task.spawn(function()
+                        while LocalPlayer and LocalPlayer.Character and hrp and hrp.Parent do
+                            task.wait(2)
+                            pcall(function()
+                                local currentPos = hrp.Position
+                                if oldPos and (currentPos - oldPos).Magnitude >= 2 then
+                                    LastIdling = os.time()
+                                end
+                                oldPos = currentPos
+                            end)
+                        end
+                    end)
+                end
+
+                local dataFolder = LocalPlayer:FindFirstChild("Data")
+                local PointsInstance = dataFolder and (dataFolder:FindFirstChild("Points") or dataFolder:WaitForChild("Points", 5))
+                if PointsInstance then
+                    ScriptStorage.Connections.LocalPlayer.PointConnection =
+                        PointsInstance:GetPropertyChangedSignal("Value"):Connect(
+                        function()
+                            local CurrentValue = PointsInstance.Value
+                            if OldPointValue == CurrentValue then
+                                return
+                            end
+
+                            OldPointValue = CurrentValue
+                            task.wait(1)
+                            pcall(AddPoint)
+                        end
+                    )
+                end
+            end)
         end
         RegisterLocalPlayerEventsConnection(LocalPlayer)
 
@@ -2021,13 +2056,28 @@ ScriptStorage = {
             }
         }
 
-        local NpcList = require(game.ReplicatedStorage.GuideModule).Data.NPCList
+        local NpcList = nil
+        pcall(function()
+            local guideMod = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule") or game:GetService("ReplicatedStorage"):WaitForChild("GuideModule", 5)
+            if guideMod then
+                NpcList = require(guideMod).Data.NPCList
+            end
+        end)
 
-        repeat
-            task.wait()
-        until game.Players.LocalPlayer.DataLoaded and ScriptStorage
+        pcall(function()
+            local attempts = 0
+            repeat
+                task.wait(0.1)
+                attempts = attempts + 1
+            until (LocalPlayer:FindFirstChild("Data") or attempts > 30) and ScriptStorage
+        end)
 
-        QuestManager.Quests = require(game.ReplicatedStorage.Quests)
+        pcall(function()
+            local questsMod = game:GetService("ReplicatedStorage"):FindFirstChild("Quests") or game:GetService("ReplicatedStorage"):WaitForChild("Quests", 5)
+            if questsMod then
+                QuestManager.Quests = require(questsMod)
+            end
+        end)
 
         function QuestManager.Set(Self, Index, Value)
             Self[Index] = Value
@@ -2144,28 +2194,41 @@ ScriptStorage = {
         end
 
         ScriptStorage.MobRegions = {}
-        for _, Region in game:GetService("ReplicatedStorage").FortBuilderReplicatedSpawnPositionsFolder:GetChildren() do
-            ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
-            table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
-        end
+        pcall(function()
+            local folder = game:GetService("ReplicatedStorage"):FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
+            if folder then
+                for _, Region in folder:GetChildren() do
+                    ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
+                    table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
+                end
+            end
+        end)
 
         TweenController = {}
         local LastestTeleportToHomePoint = 0
         local Entries = {}
-        for _, NPC in game.ReplicatedStorage.NPCs:GetChildren() do
-            if NPC.Name == "Set Home Point" then
-                table.insert(Entries, NPC:GetModelCFrame())
-            end
-        end
-        local function NoclipLoop()
-            speaker = LocalPlayer
-            if speaker.Character ~= nil then
-                for _, child in pairs(speaker.Character:GetDescendants()) do
-                    if child:IsA("BasePart") and child.CanCollide == true and child.Name ~= nil then
-                        child.CanCollide = false
+        pcall(function()
+            local npcs = game:GetService("ReplicatedStorage"):FindFirstChild("NPCs")
+            if npcs then
+                for _, NPC in npcs:GetChildren() do
+                    if NPC.Name == "Set Home Point" and NPC.GetModelCFrame then
+                        table.insert(Entries, NPC:GetModelCFrame())
                     end
                 end
             end
+        end)
+
+        local function NoclipLoop()
+            pcall(function()
+                local char = LocalPlayer and LocalPlayer.Character
+                if char then
+                    for _, child in ipairs(char:GetChildren()) do
+                        if child:IsA("BasePart") and child.CanCollide then
+                            child.CanCollide = false
+                        end
+                    end
+                end
+            end)
         end
         Noclipping = Services.RunService.Stepped:Connect(NoclipLoop)
         function GetPortal(Position)
@@ -2448,15 +2511,6 @@ ScriptStorage = {
         local Workspace = game:GetService("Workspace")
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local Player = Players.LocalPlayer
-        local Modules = ReplicatedStorage:WaitForChild("Modules")
-        local Net = Modules:WaitForChild("Net")
-        local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
-        local RegisterHit = Net:WaitForChild("RE/RegisterHit")
-        local ShootGunEvent = Net:WaitForChild("RE/ShootGunEvent")
-        local GunValidator = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Validator2")
-        local Modules = game.ReplicatedStorage.Modules
-        local Net = Modules.Net
-        local Register_Hit, Register_Attack = Net:WaitForChild("RE/RegisterHit"), Net:WaitForChild("RE/RegisterAttack")
         local Funcs = {}
         local lastBladeScan = 0
         local cachedBladeHits = {}
@@ -2674,8 +2728,14 @@ CombatController = {
                         Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
                             Mon.Humanoid.Health > 0 then
                         local MonPosition = Mon.HumanoidRootPart.Position
-                        --print("isnetworkowner", isnetworkowner(Mon.PrimaryPart))
-                        if MonPosition and isnetworkowner(Mon.PrimaryPart) then
+                        local hasNetOwner = true
+                        if typeof(isnetworkowner) == "function" and Mon.PrimaryPart then
+                            local okNet, resNet = pcall(isnetworkowner, Mon.PrimaryPart)
+                            if okNet then
+                                hasNetOwner = resNet
+                            end
+                        end
+                        if MonPosition and hasNetOwner then
                             if
                                 not ForcePosition or
                                     CaculateDistance(MonPosition, ForcePosition) < CombatController.GRAB_DISTANCE
@@ -5668,72 +5728,77 @@ FunctionsHandler = {
         function GetServers()
             if LastServersDataPulled then
                 if os.time() - LastServersDataPulled < 60 then
-                    return CachedServers
+                    return CachedServers or {}
                 end
             end
 
-            for i = 1, 100, 1 do
-                local data = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer(i)
-                if IfTableHaveIndex(data) then
-                    LastServersDataPulled = os.time()
-                    CachedServers = data
-                    return data
+            local sb = game:GetService("ReplicatedStorage"):FindFirstChild("__ServerBrowser")
+            if sb then
+                for i = 1, 10 do
+                    local ok, data = pcall(function() return sb:InvokeServer(i) end)
+                    if ok and IfTableHaveIndex(data) then
+                        LastServersDataPulled = os.time()
+                        CachedServers = data
+                        return data
+                    end
+                    task.wait(0.1)
                 end
             end
+            return CachedServers or {}
         end
-
-        spawn(
-            function()
-                GetServers()
-                while task.wait(180) do
-                    GetServers()
-                end
-            end
-        )
 
         function Hop(Reason, MaxPlayers, ForcedRegion)
             local Servers = GetServers()
             local ArrayServers = {}
 
-            for i, v in Servers do
-                table.insert(
-                    ArrayServers,
-                    {
-                        JobId = i,
-                        Players = v.Count,
-                        LastUpdate = v.__LastUpdate,
-                        Region = v.Region
-                    }
-                )
+            if type(Servers) == "table" then
+                for i, v in pairs(Servers) do
+                    if type(v) == "table" then
+                        table.insert(
+                            ArrayServers,
+                            {
+                                JobId = i,
+                                Players = v.Count or 0,
+                                LastUpdate = v.__LastUpdate,
+                                Region = v.Region
+                            }
+                        )
+                    end
+                end
             end
             print(#ArrayServers, "servers received")
 
-            for i = 1, #ArrayServers do
-                while task.wait() do
-                    local Index = math.random(1, #ArrayServers)
-                    ServerData = ArrayServers[Index]
-                    if ServerData then
-                        if not MaxPlayers or ServerData.Players < MaxPlayers then
-                            if not ForcedRegion or ServerData.Region == ForcedRegion then
-                                print(
-                                    "Found Server:",
-                                    ServerData.JobId,
-                                    "Player Count:",
-                                    ServerData.Players,
-                                    "Region:",
-                                    ServerData.Region
-                                )
-                                break
-                            end
+            if #ArrayServers == 0 then
+                return alert("Hop", "No servers found")
+            end
+
+            local ServerData = nil
+            for attempt = 1, 30 do
+                local Index = math.random(1, #ArrayServers)
+                local candidate = ArrayServers[Index]
+                if candidate and candidate.JobId ~= game.JobId then
+                    if not MaxPlayers or candidate.Players < MaxPlayers then
+                        if not ForcedRegion or candidate.Region == ForcedRegion then
+                            ServerData = candidate
+                            break
                         end
                     end
                 end
+                task.wait(0.05)
+            end
 
+            if not ServerData then
+                ServerData = ArrayServers[1]
+            end
+
+            if ServerData and ServerData.JobId then
                 print("Teleporting to", ServerData.JobId, "...")
-                game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer(
-                    "teleport",
-                    ServerData.JobId
-                )
+                pcall(function()
+                    local sb = game:GetService("ReplicatedStorage"):FindFirstChild("__ServerBrowser")
+                    if sb then
+                        sb:InvokeServer("teleport", ServerData.JobId)
+                    end
+                end)
             end
         end
         
@@ -5780,8 +5845,9 @@ FunctionsHandler = {
 
 
 
+        local isStorageDirty = false
         Storage = {
-            WRITE_DELAY = .5,
+            WRITE_DELAY = 10,
             Data = {}
         }
 
@@ -5796,32 +5862,36 @@ FunctionsHandler = {
             }
         )
 
-        LocalPlayer = game.Players.LocalPlayer
+        LocalPlayer = game:GetService("Players").LocalPlayer
 
-        local StoragePath = ".storage_u_" .. tostring(LocalPlayer)
+        local StoragePath = ".storage_u_" .. tostring(LocalPlayer and LocalPlayer.Name or "default")
 
         function Decode(Content)
-            return Services.HttpService:JSONDecode(Content)
+            local ok, res = pcall(function() return Services.HttpService:JSONDecode(Content) end)
+            return (ok and res) or {}
         end
 
         function Encode(Content)
-            return Services.HttpService:JSONEncode(Content)
+            local ok, res = pcall(function() return Services.HttpService:JSONEncode(Content) end)
+            return (ok and res) or "{}"
         end
 
         print(5)
         function Storage.Set(Self, Key, Value)
             Self.Data[Key] = Value
+            isStorageDirty = true
         end
 
         function Storage.Get(Self, Key)
-            --Report("Get: " .. tostring(Key or "n/a") .. " Value: " .. tostring(Self.Data[Key] or "n/") )
             return Self.Data[Key]
         end
 
         function Storage.Save(Self)
+            if not isStorageDirty then return end
             pcall(function()
                 if typeof(writefile) == "function" then
                     writefile(StoragePath, Encode(Self.Data))
+                    isStorageDirty = false
                 end
             end)
         end
@@ -5830,7 +5900,7 @@ FunctionsHandler = {
             if typeof(isfile) == "function" and typeof(writefile) == "function" then
                 if not isfile(StoragePath) then
                     writefile(StoragePath, "{}")
-                    task.wait(0.5)
+                    task.wait(0.1)
                 end
             end
         end)
@@ -5839,13 +5909,13 @@ FunctionsHandler = {
 
         pcall(
             function()
-                if typeof(readfile) == "function" then
+                if typeof(readfile) == "function" and typeof(isfile) == "function" and isfile(StoragePath) then
                     Storage.Data = Decode(readfile(StoragePath) or "{}")
                 end
             end
         )
 
-        spawn(
+        task.spawn(
             function()
                 while task.wait(Storage.WRITE_DELAY) do
                     Storage:Save()
@@ -6009,26 +6079,33 @@ FunctionsHandler = {
         pcall(RefreshInventory)
         SetText("MainTextLabel", "Loading Race...")
         pcall(RefreshRace)
-        Remotes.CommE.OnClientEvent:Connect(
-            function(...)
-                local data = {...}
-                -- print(..., "additem")
-                if string.find(data[1], "Item") then
-                    RefreshInventory()
+        pcall(function()
+            if Remotes and Remotes.CommE then
+                Remotes.CommE.OnClientEvent:Connect(
+                    function(...)
+                        local data = {...}
+                        if data and data[1] and type(data[1]) == "string" and string.find(data[1], "Item") then
+                            pcall(RefreshInventory)
+                        end
+                    end
+                )
+            end
+        end)
+
+        pcall(RefreshRace)
+
+        pcall(function()
+            Players.LocalPlayer.Idled:Connect(
+                function()
+                    pcall(function()
+                        Services.VirtualUser:CaptureController()
+                        Services.VirtualUser:ClickButton2(Vector2.new())
+                    end)
                 end
-            end
-        )
+            )
+        end)
 
-        RefreshRace()
-
-        Players.LocalPlayer.Idled:Connect(
-            function()
-                Services.VirtualUser:CaptureController()
-                Services.VirtualUser:ClickButton2(Vector2.new())
-            end
-        )
-
-        SetText("MainTextLabel", "Loaded In " .. tick() - StartTick .. "ms!")
+        SetText("MainTextLabel", "Loaded In " .. string.format("%.1f", tick() - StartTick) .. "s!")
         Loaded = 1
         QueueList = {}
 
@@ -6090,21 +6167,36 @@ FunctionsHandler = {
             end
         end)
         
-        if ScriptStorage.PlayerData.Level > 2000 then 
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") 
+        if ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level and ScriptStorage.PlayerData.Level > 2000 then 
+            pcall(function()
+                local commF = Remotes.CommF_ or (game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_"))
+                if commF then
+                    commF:InvokeServer("BuyHaki", "Geppo")
+                    commF:InvokeServer("BuyHaki", "Buso")
+                    commF:InvokeServer("BuyHaki", "Soru")
+                    commF:InvokeServer("KenTalk", "Buy")
+                end
+            end)
         end
         
-         function getcandies()
-            for i,v in game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory") do
-                if v.Name ==  "Candy" then 
-                    return v.Count
+        function getcandies()
+            local count = 0
+            pcall(function()
+                local commF = Remotes.CommF_ or (game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_"))
+                if commF then
+                    local inv = commF:InvokeServer("getInventory")
+                    if type(inv) == "table" then
+                        for _, v in pairs(inv) do
+                            if type(v) == "table" and v.Name == "Candy" then 
+                                count = v.Count or 0
+                                break
+                            end
+                        end
+                    end
                 end
-            end
-            return 0
-         end
+            end)
+            return count
+        end
         -- Optimized refresh loop with delay to reduce FPS impact
         task.spawn(
             function()
@@ -6120,7 +6212,11 @@ FunctionsHandler = {
                             local Elapsed = os.time() - StartTime
                             local TotalElapsed = Elapsed + OldSessionTime
 
-                            writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
+                            pcall(function()
+                                if typeof(writefile) == "function" then
+                                    writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
+                                end
+                            end)
 
                             if ScriptStorage.Interface then
                                 SetText(
@@ -6362,41 +6458,40 @@ FunctionsHandler = {
             _G.IsGachaing = false
         end
 
+        -- Luồng Auto Farm chính (bắt đầu ngay sau 3s, không bị nghẽn)
         task.spawn(function()
-            -- 1. Đợi 3 phút (180 giây) khi mới vào game cho load ổn định (chưa auto farm)
-            print("[AUTO GACHA]: Đợi 3 phút cho game load ổn định...")
-            task.wait(180)
-            
-            -- 2. Chạy lệnh Gacha đầu tiên TRƯỚC TIÊN (bật cờ IsGachaing để ngưng hết tác vụ khác)
-            print("[AUTO GACHA]: Thực hiện gacha trái ác quỷ đầu tiên...")
-            runGachaFruit()
-            
-            -- 3. Đợi 20 giây sau khi gacha xong
-            print("[AUTO GACHA]: Gacha xong, đợi 20 giây trước khi bắt đầu auto farm...")
-            task.wait(20)
-            
-            -- 4. Bắt đầu vòng lặp Gacha định kỳ mỗi 2 tiếng 5 phút (7500 giây)
-            task.spawn(function()
-                while true do
-                    task.wait(7500)
-                    runGachaFruit()
-                end
-            end)
-
-            -- 5. Sau khi gacha đầu tiên + 20s, bắt đầu chạy vòng lặp auto farm / nhiệm vụ chính (sẽ bị tạm ngưng khi IsGachaing = true)
+            task.wait(3)
             while true do
                 task.wait()
                 if not _G.Stop and not _G.IsGachaing then
                     local success, response = xpcall(RefreshTasksData, debug.traceback)
                     -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
                     local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-                    if not IsInRaid then
-                        FunctionsHandler.MeleesController.Methods.Start:Call()
+                    if not IsInRaid and FunctionsHandler.MeleesController and FunctionsHandler.MeleesController.Methods and FunctionsHandler.MeleesController.Methods.Start then
+                        pcall(function()
+                            FunctionsHandler.MeleesController.Methods.Start:Call()
+                        end)
                     end
                     if not success then
                         Report(response)
                     end
                 end
+            end
+        end)
+
+        -- Luồng Auto Gacha riêng biệt (chạy nền, không chặn auto farm)
+        task.spawn(function()
+            task.wait(15)
+            pcall(function()
+                print("[AUTO GACHA]: Bắt đầu kiểm tra gacha lần đầu...")
+                runGachaFruit()
+            end)
+            while true do
+                task.wait(7500)
+                pcall(function()
+                    print("[AUTO GACHA]: Bắt đầu chu kỳ gacha...")
+                    runGachaFruit()
+                end)
             end
         end)
 
