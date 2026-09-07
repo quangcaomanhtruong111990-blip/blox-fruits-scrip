@@ -1,3 +1,51 @@
+-- ========================================================
+-- [ULTRA COMPATIBILITY SHIM FOR ALL EXECUTORS]
+-- Tương thích 100% Delta, Fluxus, Codex, Arceus X, Solara, Wave
+-- ========================================================
+pcall(function()
+    if typeof(task) ~= "table" then
+        getfenv().task = {}
+    end
+    if typeof(task.wait) ~= "function" then
+        task.wait = function(n)
+            if typeof(wait) == "function" then return wait(n or 0) end
+            return 0
+        end
+    end
+    if typeof(task.spawn) ~= "function" then
+        task.spawn = function(f, ...)
+            if typeof(spawn) == "function" then return spawn(f) end
+            if typeof(coroutine) == "table" and coroutine.wrap then return coroutine.wrap(f)(...) end
+            return f(...)
+        end
+    end
+    if typeof(task.delay) ~= "function" then
+        task.delay = function(n, f)
+            if typeof(delay) == "function" then return delay(n, f) end
+            task.spawn(function() task.wait(n) f() end)
+        end
+    end
+    if typeof(task.defer) ~= "function" then
+        task.defer = task.spawn
+    end
+    if typeof(setfpscap) ~= "function" then
+        getfenv().setfpscap = function() end
+    end
+end)
+
+print("========================================")
+print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY!")
+print("[Bocchi Hub] Initializing modules...")
+print("========================================")
+
+pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Bocchi Hub",
+        Text = "Script đang khởi động... Vui lòng đợi!",
+        Duration = 5
+    })
+end)
+
 Config =
         Config or
         {
@@ -32,12 +80,13 @@ Config =
                 ["Fragments"] = 5000 -- Auto farm fragments until you have 5000 fragments to buy the chip
             }
 }
-repeat
-    task.wait(0.5)
-until game:IsLoaded()
 
--- [v1.09] Startup Safety Delay: Giảm xuống 2s để script phản hồi ngay lập tức
-task.wait(2)
+local loadedStart = tick()
+while not game:IsLoaded() and tick() - loadedStart < 10 do
+    task.wait(0.5)
+end
+
+task.wait(0.5)
 
 -- Volt Performance Optimization Setup
 local Volt = nil
@@ -55,26 +104,35 @@ end)
 -- Performance optimization flags
 local UseVoltActors = Volt ~= nil
 local PerformanceCache = {}
--- task.spawn(function()
---     while true do
---         setfpscap(7)
---         task.wait(10)
---     end
--- end)
 
 function CheckKick(v)
     if v.Name == 'ErrorPrompt' then
         task.wait(2)
-        print(v.TitleFrame.ErrorTitle.Text)
-        game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer( "teleport",game.PlaceId)
-        v:Destroy()
+        pcall(function()
+            print(v.TitleFrame.ErrorTitle.Text)
+            local browser = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 5)
+            if browser then
+                browser:InvokeServer("teleport", game.PlaceId)
+            end
+            v:Destroy()
+        end)
     end
 end
--- print restored
-repeat
-    task.wait(1) 
-    game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
-until game.Players.LocalPlayer.Character
+
+-- Auto Select Team with safe pcall and timeout
+pcall(function()
+    local teamTimeout = tick() + 10
+    while not (game.Players.LocalPlayer and game.Players.LocalPlayer.Character) and tick() < teamTimeout do
+        task.wait(1) 
+        pcall(function()
+            local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+            local commF = remotes and remotes:FindFirstChild("CommF_")
+            if commF then
+                commF:InvokeServer('SetTeam', (Config and Config.Team) or 'Pirates')
+            end
+        end)
+    end
+end)
 pcall(function()
     game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
 end)
@@ -185,6 +243,10 @@ end)
         local player = game.Players.LocalPlayer
 
         local getGuiParent = function()
+            if typeof(gethui) == "function" then
+                local ok, h = pcall(gethui)
+                if ok and h then return h end
+            end
             local success, cg = pcall(function() return game:GetService("CoreGui") end)
             if success and cg then
                 local testSuccess = pcall(function() 
@@ -194,8 +256,16 @@ end)
                 end)
                 if testSuccess then return cg end
             end
-            return player:WaitForChild("PlayerGui", 10) or player.PlayerGui
+            local lp = game:GetService("Players").LocalPlayer or player
+            local pg = lp and (lp:FindFirstChild("PlayerGui") or lp:WaitForChild("PlayerGui", 5))
+            return pg or game:GetService("CoreGui")
         end
+
+        local parentGui = getGuiParent()
+        pcall(function()
+            local old = parentGui:FindFirstChild("CyndralDev")
+            if old then old:Destroy() end
+        end)
 
         local HopGui = Instance.new("ScreenGui")
         local NameHub = Instance.new("TextLabel")
@@ -211,7 +281,7 @@ end)
         local UIReferences = {}
 
         HopGui.Name = "CyndralDev"
-        HopGui.Parent = getGuiParent()
+        HopGui.Parent = parentGui
         HopGui.Enabled = not Config.Configuration.HideGui
         HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         HopGui.IgnoreGuiInset = true
@@ -226,7 +296,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.12 (FIXED)"
+        NameHub.Text = "sanglove v1.10 (FIXED)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -701,34 +771,42 @@ end)
         Interface.ToggleUI = ToggleUI
         Interface.BlurManager = blurEffect
 
-        getgenv().alert = function(t1, t2)
-            pcall(function() print("[Alert]", tostring(t1), tostring(t2)) end)
+        function alert(t1, t2)
+            pcall(function() print("[Alert]", tostring(t1 or ""), tostring(t2 or "")) end)
+        end
+        _G.alert = alert
+        if typeof(getgenv) == "function" then
+            getgenv().alert = alert
         end
 
         pcall(function()
-            if not isfile("fluent.lua") then
-                pcall(function()
-                    writefile(
-                        "fluent.lua",
-                        game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
-                    )
-                end)
-            end
+            if typeof(isfile) == "function" and typeof(writefile) == "function" and typeof(game.HttpGet) == "function" then
+                if not isfile("fluent.lua") then
+                    pcall(function()
+                        writefile(
+                            "fluent.lua",
+                            game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
+                        )
+                    end)
+                end
 
-            if isfile("fluent.lua") then
-                local content = readfile("fluent.lua")
-                if content and #content > 0 then
-                    local okLoad, fluentLib = pcall(function() return loadstring(content)() end)
-                    if okLoad and fluentLib then
-                        local Fluent = fluentLib
-                        getgenv().alert = function(t1, t2)
-                            pcall(function()
-                                Fluent:Notify({
-                                    Title = t1 or "",
-                                    Content = t2 or "",
-                                    Duration = 5
-                                })
-                            end)
+                if isfile("fluent.lua") and typeof(readfile) == "function" then
+                    local content = readfile("fluent.lua")
+                    if content and #content > 0 then
+                        local okLoad, fluentLib = pcall(function() return loadstring(content)() end)
+                        if okLoad and fluentLib then
+                            local Fluent = fluentLib
+                            alert = function(t1, t2)
+                                pcall(function()
+                                    Fluent:Notify({
+                                        Title = t1 or "",
+                                        Content = t2 or "",
+                                        Duration = 5
+                                    })
+                                end)
+                            end
+                            _G.alert = alert
+                            if typeof(getgenv) == "function" then getgenv().alert = alert end
                         end
                     end
                 end
@@ -740,18 +818,27 @@ end)
 
         StartTime = os.time()
 
-        OldSessionTime =
-            isfile(".tdif-" .. game.Players.LocalPlayer.Name) and
-            tonumber(readfile(".tdif-" .. game.Players.LocalPlayer.Name)) or
-            0
+        OldSessionTime = 0
+        pcall(function()
+            if typeof(isfile) == "function" and typeof(readfile) == "function" then
+                local filename = ".tdif-" .. (game.Players.LocalPlayer and game.Players.LocalPlayer.Name or "default")
+                if isfile(filename) then
+                    OldSessionTime = tonumber(readfile(filename)) or 0
+                end
+            end
+        end)
 
-           
-        if Config.Configuration.blackscreen then 
-        game:GetService("Lighting").ExposureCompensation = -math.huge
+        if Config and Config.Configuration and Config.Configuration.blackscreen then 
+            pcall(function()
+                game:GetService("Lighting").ExposureCompensation = -math.huge
+            end)
         end
-        repeat
-            wait()
-        until game.Players.LocalPlayer.Character
+
+        local charWaitStart = tick()
+        while not (game.Players.LocalPlayer and game.Players.LocalPlayer.Character) and tick() - charWaitStart < 8 do
+            task.wait(0.5)
+        end
+
         spawn(
             function()
                 if true then return end
@@ -780,11 +867,15 @@ end)
         -- Interface.ToggleDarkScreen(Config.Utilly.BlackScreen)
 
         StartTick = tick()
-        repeat
-            task.wait()
-        until SetText
+        local setWaitStart = tick()
+        while not SetText and tick() - setWaitStart < 5 do
+            task.wait(0.1)
+        end
         alert("load 2")
-        SetText("MainTextLabel", "Initalizing Script...")
+        print("[Bocchi Hub] GUI Created! Initializing Script...")
+        if SetText then
+            SetText("MainTextLabel", "Initalizing Script...")
+        end
         
 
         local FolderPath = "Rua_Hub/Blox_Fruit/Assets/"
@@ -838,12 +929,23 @@ ScriptStorage = {
         end)
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
-        Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        Character = LocalPlayer.Character
+        if not Character then
+            local waitStart = tick()
+            local conn
+            conn = LocalPlayer.CharacterAdded:Connect(function(c)
+                Character = c
+            end)
+            while not Character and tick() - waitStart < 5 do
+                task.wait(0.2)
+            end
+            if conn then conn:Disconnect() end
+        end
 
-        Humanoid = Character and Character:WaitForChild("Humanoid", 10)
-        HumanoidRootPart = Character and Character:WaitForChild("HumanoidRootPart", 10)
+        Humanoid = Character and (Character:FindFirstChild("Humanoid") or Character:WaitForChild("Humanoid", 5))
+        HumanoidRootPart = Character and (Character:FindFirstChild("HumanoidRootPart") or Character:WaitForChild("HumanoidRootPart", 5))
 
-        PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
+        PlayerGui = LocalPlayer:FindFirstChild("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui", 5)
         Lighting = game:GetService("Lighting")
 
         Services = {}
@@ -861,7 +963,8 @@ ScriptStorage = {
             ScriptStorage.Enemies,
             {
                 __index = function(_, Index)
-                    return Services.Workspace.Enemies:FindFirstChild(Index) or
+                    local enemies = workspace:FindFirstChild("Enemies")
+                    return (enemies and enemies:FindFirstChild(Index)) or
                         Services.ReplicatedStorage:FindFirstChild(Index)
                 end
             }
@@ -871,7 +974,8 @@ ScriptStorage = {
             ScriptStorage.Tools,
             {
                 __index = function(Self, Index)
-                    return LocalPlayer.Character:FindFirstChild(Index) or LocalPlayer.Backpack:FindFirstChild(Index)
+                    return (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild(Index)) or
+                        (LocalPlayer:FindFirstChild("Backpack") and LocalPlayer.Backpack:FindFirstChild(Index))
                 end
             }
         )
@@ -1683,18 +1787,26 @@ ScriptStorage = {
         elseif placeId == 7449423635 or placeId == 100117331123089 then
             Sea = "Zou"
             SeaIndex = 3
+        else
+            -- Robust fallback detection using workspace Map
+            local map = workspace:FindFirstChild("Map")
+            if map and (map:FindFirstChild("Turtle") or map:FindFirstChild("Haunted Castle") or map:FindFirstChild("Port Town") or map:FindFirstChild("Great Tree")) then
+                Sea = "Zou"
+                SeaIndex = 3
+            elseif map and (map:FindFirstChild("Ice Castle") or map:FindFirstChild("Green Zone") or map:FindFirstChild("Colosseum") or map:FindFirstChild("Kingdom of Rose")) then
+                Sea = "Dressrosa"
+                SeaIndex = 2
+            elseif map and (map:FindFirstChild("Jungle") or map:FindFirstChild("Pirate") or map:FindFirstChild("Marine")) then
+                Sea = "Main"
+                SeaIndex = 1
+            else
+                Sea = "Zou"
+                SeaIndex = 3
+            end
         end
-    --    if ScriptStorage.PlayerData.Level >= 1500 and (SeaIndex == 2) then
-                               
-    --         elseif ScriptStorage.PlayerData.Level >= 700 and (SeaIndex == 1 ) then
-    --                            print("B")
-    --                             game.ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelDressrosa")
-    --                     end   
-        
-    
+
         Portals =
             (
-           
                 {
             {
                 Vector3.new(-7894.6201171875, 5545.49169921875, -380.246346191406),
@@ -1709,7 +1821,7 @@ ScriptStorage = {
                 Vector3.new(-6508.5581054688, 89.034996032715, -132.83953857422)
             },
             {}
-        })[SeaIndex]
+        })[SeaIndex] or {}
 
         BossesOrder = {
             "Awakened Ice Admiral", 
@@ -1785,7 +1897,11 @@ ScriptStorage = {
                 return 0
             end
 
-            Desnitation = Desnitation or game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+            local lp = game:GetService("Players").LocalPlayer
+            local myHrp = lp and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            Desnitation = Desnitation or (myHrp and myHrp.CFrame)
+            if not Desnitation then return 0 end
+
             local Origin, Desnitation = ConvertTo(Vector3, Origin), ConvertTo(Vector3, Desnitation)
 
             return (Origin - Desnitation).magnitude
@@ -1831,7 +1947,11 @@ ScriptStorage = {
 
     
         function RoundVector3Down(vec)
-            return Vector3.new(math.floor(vec.X / 10) * 10, math.floor(vec.Y / 10) * 10, math.floor(vec.Z / 10) * 10)
+            if not vec then return Vector3.new() end
+            local vx = vec.X or 0
+            local vy = vec.Y or 0
+            local vz = vec.Z or 0
+            return Vector3.new(math.floor(vx / 10) * 10, math.floor(vy / 10) * 10, math.floor(vz / 10) * 10)
         end
 
         local Angle = 30
@@ -1847,43 +1967,39 @@ ScriptStorage = {
                 lastChange = tick()
             end
 
-            local sum = Position + Vector3.new(math.cos(math.rad(Angle)) * 40, 0, math.sin(math.rad(Angle)) * 40)
-            return CFrame.new(RoundVector3Down(sum.p))
+            local posVec = (typeof(Position) == "CFrame" and Position.Position) or (typeof(Position) == "Vector3" and Position) or Vector3.new()
+            local sum = posVec + Vector3.new(math.cos(math.rad(Angle)) * 40, 0, math.sin(math.rad(Angle)) * 40)
+            return CFrame.new(RoundVector3Down(sum))
         end
 
         function GetMonAsSortedRange()
             local Result = {}
+            pcall(function()
+                local enemies = workspace:FindFirstChild("Enemies")
+                if enemies then
+                    for _, Mon in pairs(enemies:GetChildren()) do
+                        if Mon and Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and Mon.Humanoid.Health > 0 then
+                            table.insert(Result, Mon)
+                        end
+                    end
+                end
 
-            table.foreach(
-                Services.Workspace.Enemies:GetChildren(),
-                function(_, Mon)
-                    if
-                        Mon and Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
-                            Mon.Humanoid.Health > 0
-                     then
+                local rep = game:GetService("ReplicatedStorage")
+                for _, Mon in pairs(rep:GetChildren()) do
+                    if Mon and Mon:IsA("Model") and Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and Mon.Humanoid.Health > 0 then
                         table.insert(Result, Mon)
                     end
                 end
-            )
 
-            table.foreach(
-                game.ReplicatedStorage:GetChildren(),
-                function(_, Mon)
-                    if
-                        Mon and Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
-                            Mon.Humanoid.Health > 0
-                     then
-                        table.insert(Result, Mon)
+                table.sort(
+                    Result,
+                    function(C1, C2)
+                        local p1 = C1 and C1:FindFirstChild("HumanoidRootPart") and C1.HumanoidRootPart.CFrame
+                        local p2 = C2 and C2:FindFirstChild("HumanoidRootPart") and C2.HumanoidRootPart.CFrame
+                        return CaculateDistance(p1) < CaculateDistance(p2)
                     end
-                end
-            )
-
-            table.sort(
-                Result,
-                function(C1, C2)
-                    return CaculateDistance(C1.HumanoidRootPart.CFrame) < CaculateDistance(C2.HumanoidRootPart.CFrame)
-                end
-            )
+                )
+            end)
 
             return Result
         end
@@ -1896,20 +2012,26 @@ ScriptStorage = {
             end
         end
         function getpos(npcname)
-            for i,v in game:GetService("ReplicatedStorage").NPCs:GetChildren() do
-                if v.Name == npcname then
-                    local hrp = v:FindFirstChild("HumanoidRootPart")
-                    if hrp then return hrp.CFrame end
-                    if v.PrimaryPart then return v.PrimaryPart.CFrame end
-                    return v:GetPivot()
+            local repNpcs = game:GetService("ReplicatedStorage"):FindFirstChild("NPCs")
+            if repNpcs then
+                for _, v in pairs(repNpcs:GetChildren()) do
+                    if v.Name == npcname then
+                        local hrp = v:FindFirstChild("HumanoidRootPart")
+                        if hrp then return hrp.CFrame end
+                        if v.PrimaryPart then return v.PrimaryPart.CFrame end
+                        return v:GetPivot()
+                    end
                 end
             end
-            for i,v in workspace.NPCs:GetChildren() do
-                if v.Name == npcname then
-                    local hrp = v:FindFirstChild("HumanoidRootPart")
-                    if hrp then return hrp.CFrame end
-                    if v.PrimaryPart then return v.PrimaryPart.CFrame end
-                    return v:GetPivot()
+            local wsNpcs = workspace:FindFirstChild("NPCs")
+            if wsNpcs then
+                for _, v in pairs(wsNpcs:GetChildren()) do
+                    if v.Name == npcname then
+                        local hrp = v:FindFirstChild("HumanoidRootPart")
+                        if hrp then return hrp.CFrame end
+                        if v.PrimaryPart then return v.PrimaryPart.CFrame end
+                        return v:GetPivot()
+                    end
                 end
             end
         end
@@ -2118,19 +2240,31 @@ ScriptStorage = {
         end
 
         ScriptStorage.MobRegions = {}
-        for _, Region in game:GetService("ReplicatedStorage").FortBuilderReplicatedSpawnPositionsFolder:GetChildren() do
-            ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
-            table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
-        end
+        pcall(function()
+            local folder = game:GetService("ReplicatedStorage"):FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
+            if folder then
+                for _, Region in pairs(folder:GetChildren()) do
+                    ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
+                    table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
+                end
+            end
+        end)
 
         TweenController = {}
         local LastestTeleportToHomePoint = 0
         local Entries = {}
-        for _, NPC in game.ReplicatedStorage.NPCs:GetChildren() do
-            if NPC.Name == "Set Home Point" then
-                table.insert(Entries, NPC:GetModelCFrame())
+        pcall(function()
+            local npcsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("NPCs") or workspace:FindFirstChild("NPCs")
+            if npcsFolder then
+                for _, NPC in pairs(npcsFolder:GetChildren()) do
+                    if NPC.Name == "Set Home Point" and NPC:IsA("Model") then
+                        pcall(function()
+                            table.insert(Entries, NPC:GetModelCFrame())
+                        end)
+                    end
+                end
             end
-        end
+        end)
         local function NoclipLoop()
             speaker = LocalPlayer
             if speaker.Character ~= nil then
@@ -2446,13 +2580,18 @@ ScriptStorage = {
             end
             lastBladeScan = now
             cachedBladeHits = {}
-            local myPos = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and game.Players.LocalPlayer.Character.HumanoidRootPart.Position
+            local myChar = game.Players.LocalPlayer.Character
+            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local myPos = myHrp and myHrp.Position
             if not myPos then return cachedBladeHits end
 
-            for _, v in pairs(workspace.Enemies:GetChildren()) do
-                if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-                    if (v.HumanoidRootPart.Position - myPos).Magnitude <= 65 then
-                        table.insert(cachedBladeHits, v)
+            local enemies = workspace:FindFirstChild("Enemies")
+            if enemies then
+                for _, v in pairs(enemies:GetChildren()) do
+                    if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                        if (v.HumanoidRootPart.Position - myPos).Magnitude <= 65 then
+                            table.insert(cachedBladeHits, v)
+                        end
                     end
                 end
             end
@@ -2460,15 +2599,22 @@ ScriptStorage = {
         end
         function Getplayerhit()
             bladehits = {}
-            for _, v in pairs(workspace.Characters:GetChildren()) do
-                if
-                    v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild("Humanoid") and
-                        v:FindFirstChild("HumanoidRootPart") and
-                        v.Humanoid.Health > 0 and
-                        (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <=
-                            65
-                 then
-                    table.insert(bladehits, v)
+            local myChar = game.Players.LocalPlayer.Character
+            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local myPos = myHrp and myHrp.Position
+            if not myPos then return bladehits end
+
+            local chars = workspace:FindFirstChild("Characters")
+            if chars then
+                for _, v in pairs(chars:GetChildren()) do
+                    if
+                        v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild("Humanoid") and
+                            v:FindFirstChild("HumanoidRootPart") and
+                            v.Humanoid.Health > 0 and
+                            (v.HumanoidRootPart.Position - myPos).Magnitude <= 65
+                     then
+                        table.insert(bladehits, v)
+                    end
                 end
             end
             return bladehits
@@ -2651,24 +2797,33 @@ CombatController = {
             ForcePosition = nil
             local MobsTable = {}
 
-            for _, Mon in Services.Workspace.Enemies:GetChildren() do
-                if Mon.Name == MobName then
-                    if --not Mon:GetAttribute("IsGrabbedreci") and
-                        Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
-                            Mon.Humanoid.Health > 0 then
-                        local MonPosition = Mon.HumanoidRootPart.Position
-                        --print("isnetworkowner", isnetworkowner(Mon.PrimaryPart))
-                        if MonPosition and isnetworkowner(Mon.PrimaryPart) then
-                            if
-                                not ForcePosition or
-                                    CaculateDistance(MonPosition, ForcePosition) < CombatController.GRAB_DISTANCE
-                             then
-                                Count = Count + 1
-                                Mon:SetAttribute("OldPosition", Mon:GetAttribute("OldPosition") or MonPosition)
-                                MidPoint = MidPoint + MonPosition
-                                ForcePosition = ForcePosition or MonPosition
+            local enemies = workspace:FindFirstChild("Enemies")
+            if enemies then
+                for _, Mon in pairs(enemies:GetChildren()) do
+                    if Mon.Name == MobName then
+                        if --not Mon:GetAttribute("IsGrabbedreci") and
+                            Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
+                                Mon.Humanoid.Health > 0 then
+                            local MonPosition = Mon.HumanoidRootPart.Position
+                            local isOwner = true
+                            if typeof(isnetworkowner) == "function" and (Mon.PrimaryPart or Mon:FindFirstChild("HumanoidRootPart")) then
+                                local okOwner, resOwner = pcall(isnetworkowner, Mon.PrimaryPart or Mon.HumanoidRootPart)
+                                if okOwner and resOwner ~= nil then
+                                    isOwner = resOwner
+                                end
+                            end
+                            if MonPosition and isOwner then
+                                if
+                                    not ForcePosition or
+                                        CaculateDistance(MonPosition, ForcePosition) < CombatController.GRAB_DISTANCE
+                                 then
+                                    Count = Count + 1
+                                    Mon:SetAttribute("OldPosition", Mon:GetAttribute("OldPosition") or MonPosition)
+                                    MidPoint = MidPoint + MonPosition
+                                    ForcePosition = ForcePosition or MonPosition
 
-                                table.insert(MobsTable, Mon)
+                                    table.insert(MobsTable, Mon)
+                                end
                             end
                         end
                     end
@@ -5701,34 +5856,38 @@ FunctionsHandler = {
         function GetServers()
             if LastServersDataPulled then
                 if os.time() - LastServersDataPulled < 60 then
-                    return CachedServers
+                    return CachedServers or {}
                 end
             end
 
+            local browser = game:GetService("ReplicatedStorage"):FindFirstChild("__ServerBrowser") or game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 3)
+            if not browser then return CachedServers or {} end
+
             for i = 1, 100, 1 do
-                local data = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer(i)
-                if IfTableHaveIndex(data) then
+                local ok, data = pcall(function() return browser:InvokeServer(i) end)
+                if ok and IfTableHaveIndex(data) then
                     LastServersDataPulled = os.time()
                     CachedServers = data
                     return data
                 end
             end
+            return CachedServers or {}
         end
 
         spawn(
             function()
-                GetServers()
+                pcall(GetServers)
                 while task.wait(180) do
-                    GetServers()
+                    pcall(GetServers)
                 end
             end
         )
 
         function Hop(Reason, MaxPlayers, ForcedRegion)
-            local Servers = GetServers()
+            local Servers = GetServers() or {}
             local ArrayServers = {}
 
-            for i, v in Servers do
+            for i, v in pairs(Servers) do
                 table.insert(
                     ArrayServers,
                     {
@@ -5763,10 +5922,12 @@ FunctionsHandler = {
                 end
 
                 print("Teleporting to", ServerData.JobId, "...")
-                game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer(
-                    "teleport",
-                    ServerData.JobId
-                )
+                pcall(function()
+                    local browser = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 5)
+                    if browser then
+                        browser:InvokeServer("teleport", ServerData.JobId)
+                    end
+                end)
             end
         end
         
@@ -6230,21 +6391,34 @@ FunctionsHandler = {
             end
         end)
         
-        if ScriptStorage.PlayerData.Level > 2000 then 
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Geppo")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Soru")
-            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("KenTalk", "Buy") 
-        end
-        
-         function getcandies()
-            for i,v in game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory") do
-                if v.Name ==  "Candy" then 
-                    return v.Count
+        pcall(function()
+            if ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level and ScriptStorage.PlayerData.Level > 2000 then 
+                if Remotes and Remotes.CommF_ then
+                    Remotes.CommF_:InvokeServer("BuyHaki", "Geppo")
+                    Remotes.CommF_:InvokeServer("BuyHaki", "Buso")
+                    Remotes.CommF_:InvokeServer("BuyHaki", "Soru")
+                    Remotes.CommF_:InvokeServer("KenTalk", "Buy") 
                 end
             end
-            return 0
-         end
+        end)
+        
+        function getcandies()
+            local count = 0
+            pcall(function()
+                if Remotes and Remotes.CommF_ then
+                    local inv = Remotes.CommF_:InvokeServer("getInventory")
+                    if type(inv) == "table" then
+                        for _, v in pairs(inv) do
+                            if v and v.Name == "Candy" then 
+                                count = v.Count or 0
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+            return count
+        end
         -- Optimized refresh loop with delay to reduce FPS impact
         task.spawn(
             function()
@@ -6321,24 +6495,35 @@ FunctionsHandler = {
                 SendDataDelay = os.time() 
                 pcall(SendData)
             end ]]
-             print(0)
-            local success, response = xpcall(RefreshTasksData, debug.traceback)
-            print(1)
+            local success, response = pcall(RefreshTasksData)
             -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
             if not IsInRaid then
-                FunctionsHandler.MeleesController.Methods.Start:Call()
+                pcall(function()
+                    if FunctionsHandler.MeleesController and FunctionsHandler.MeleesController.Methods and FunctionsHandler.MeleesController.Methods.Start then
+                        FunctionsHandler.MeleesController.Methods.Start:Call()
+                    end
+                end)
             end
-            print(2)
-            if not success then
-                Report(response)
+            if not success and response then
+                pcall(function() Report(response) end)
             end
         end
 
     end
     -- Remote kunblox script removed
         
+    print("[Bocchi Hub] Starting mmb main function...")
     local success2, response2 = xpcall(mmb, debug.traceback)
     if not success2 then
         Report(response2)
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Bocchi Hub Error",
+                Text = tostring(response2):sub(1, 100),
+                Duration = 10
+            })
+        end)
+    else
+        print("[Bocchi Hub] Finished or exited.")
     end
