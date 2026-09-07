@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.23 (ULTRA SMOOTH NOCLIP & ZERO JITTER FLY)"
+        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -4766,14 +4766,6 @@ FunctionsHandler = {
             function()
                 pcall(RefreshInventory)
                 
-                local TrashFruits = {
-                    ["Rocket-Rocket"] = true, ["Spin-Spin"] = true, ["Blade-Blade"] = true, ["Chop-Chop"] = true,
-                    ["Spring-Spring"] = true, ["Bomb-Bomb"] = true, ["Smoke-Smoke"] = true, ["Spike-Spike"] = true,
-                    ["Flame-Flame"] = true, ["Falcon-Falcon"] = true, ["Ice-Ice"] = true, ["Sand-Sand"] = true,
-                    ["Dark-Dark"] = true, ["Diamond-Diamond"] = true, ["Light-Light"] = true, ["Rubber-Rubber"] = true,
-                    ["Barrier-Barrier"] = true, ["Ghost-Ghost"] = true, ["Magma-Magma"] = true, ["Quake-Quake"] = true
-                }
-                
                 local HighFruits = {
                     "Kitsune", "Dragon", "Leopard", "Spirit", "Control", "Venom", "Shadow", "Dough", 
                     "T-Rex", "Mammoth", "Gravity", "Blizzard", "Pain", "Rumble", "Portal", "Phoenix", 
@@ -4787,17 +4779,6 @@ FunctionsHandler = {
                     for _, Fruit in pairs(directFruits) do
                         if type(Fruit) == "table" and Fruit.Name then
                             local rawName = tostring(Fruit.Name)
-                            local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
-                            local isTrash = TrashFruits[rawName] or (price > 0 and price < 1000000)
-                            if not isTrash then
-                                for tName, _ in pairs(TrashFruits) do
-                                    local baseName = string.split(tName, "-")[1]
-                                    if string.find(rawName, baseName) then
-                                        isTrash = true
-                                        break
-                                    end
-                                end
-                            end
                             local isHighTier = false
                             for _, hName in ipairs(HighFruits) do
                                 if string.find(rawName, hName) then
@@ -4806,7 +4787,7 @@ FunctionsHandler = {
                                 end
                             end
                             local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
-                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList then
+                            if not isHighTier and not isEatList then
                                 Fruit.Type = "Blox Fruit"
                                 return Fruit
                             end
@@ -4820,17 +4801,6 @@ FunctionsHandler = {
                         local rawName = tostring(Fruit.Name)
                         local isBloxFruit = (Fruit.Type == "Blox Fruit") or string.find(rawName, "-") or string.find(rawName, "Fruit")
                         if isBloxFruit then
-                            local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
-                            local isTrash = TrashFruits[rawName] or (price > 0 and price < 1000000)
-                            if not isTrash then
-                                for tName, _ in pairs(TrashFruits) do
-                                    local baseName = string.split(tName, "-")[1]
-                                    if string.find(rawName, baseName) then
-                                        isTrash = true
-                                        break
-                                    end
-                                end
-                            end
                             local isHighTier = false
                             for _, hName in ipairs(HighFruits) do
                                 if string.find(rawName, hName) then
@@ -4839,7 +4809,7 @@ FunctionsHandler = {
                                 end
                             end
                             local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
-                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList then
+                            if not isHighTier and not isEatList then
                                 return Fruit
                             end
                         end
