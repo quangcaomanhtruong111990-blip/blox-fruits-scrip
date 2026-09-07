@@ -2551,7 +2551,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 280
+            local Speed = (CurrentDist < 30) and 45 or 170
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
