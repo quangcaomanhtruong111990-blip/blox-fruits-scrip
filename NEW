@@ -226,7 +226,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.10"
+        NameHub.Text = "sanglove v1.10 (FIXED)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1025,15 +1025,10 @@ ScriptStorage = {
         Tasks = {}
 
         function AwaitUntilPlayerLoaded(Player, Timeout)
+            local maxWait = tick() + (Timeout or 8)
             repeat
-                task.wait()
-            until Player.Character
-
-            Player.Character:WaitForChild("Humanoid")
-
-            repeat
-                task.wait()
-            until Player.Character.Humanoid.Health > 0
+                task.wait(0.2)
+            until (Player and Player.Character and Player.Character:FindFirstChild("Humanoid")) or tick() > maxWait
         end
 
         function AddPoint()
@@ -1281,7 +1276,7 @@ ScriptStorage = {
             end
         end
         print(0)
-        SetText("MainTextLabel", "Refreshing Player Data 18219")
+        SetText("MainTextLabel", "Loading Game Modules...")
         print(-1)
         MeleeCheck(LocalPlayer.Character:FindFirstChildOfClass("Tool"))
         print(-2)
@@ -1310,58 +1305,73 @@ ScriptStorage = {
 
             LocalPlayer:SetAttribute("IsAvailable", true)
 
-            ScriptStorage.Connections.LocalPlayer["HealthCheck"] =
-                LocalPlayer.Character:WaitForChild("Humanoid"):GetPropertyChangedSignal("Health"):Connect(
-                function()
-                    local Health = LocalPlayer.Character.Humanoid.Health
-
-                    LocalPlayer:SetAttribute("IsAvailable", Health > 10)
-                    ScriptStorage.LocalPlayerHealth = Health
-                end
-            )
-
-            ScriptStorage.Connections.LocalPlayer["Melee"] = LocalPlayer.Character.ChildAdded:Connect(MeleeCheck)
-            ScriptStorage.Connections.LocalPlayer["Fruit"] = LocalPlayer.Backpack.ChildAdded:Connect(MeleeCheck)
-
-            table.foreach(
-                LocalPlayer.Backpack:GetChildren(),
-                function(_, Melee)
-                    MeleeCheck(Melee)
-                end
-            )
-
-            LastIdleCheck = os.time()
-            ScriptStorage.Connections.LocalPlayer.PositionChecker =
-                LocalPlayer.Character.HumanoidRootPart:GetPropertyChangedSignal("CFrame"):Connect(
-                function()
-                    if os.time() == LastIdleCheck then
-                        return
-                    end
-                    LastIdleCheck = os.time()
-                    if oldPos then
-                        if (LocalPlayer.Character.HumanoidRootPart.CFrame.p - oldPos).magnitude < 2 then
-                            return
+            pcall(function()
+                local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                local hum = char and (char:FindFirstChild("Humanoid") or char:WaitForChild("Humanoid", 3))
+                if hum then
+                    ScriptStorage.Connections.LocalPlayer["HealthCheck"] =
+                        hum:GetPropertyChangedSignal("Health"):Connect(
+                        function()
+                            local Health = hum.Health
+                            LocalPlayer:SetAttribute("IsAvailable", Health > 10)
+                            ScriptStorage.LocalPlayerHealth = Health
                         end
-                    end
-                    oldPos = (LocalPlayer.Character.HumanoidRootPart.CFrame.p)
-                    LastIdling = os.time()
+                    )
                 end
-            )
 
-            local PointsInstance = LocalPlayer.Data:WaitForChild("Points")
-            ScriptStorage.Connections.LocalPlayer.PointConnection =
-                PointsInstance:GetPropertyChangedSignal("Value"):Connect(
-                function()
-                    local CurrentValue = LocalPlayer.Data:WaitForChild("Points")
-                    if OldPointValue == CurrentValue then
-                        return
-                    end
-
-                    OldPointValue = CurrentValue
-                    task.wait(1)
-                    AddPoint()
+                if char then
+                    ScriptStorage.Connections.LocalPlayer["Melee"] = char.ChildAdded:Connect(MeleeCheck)
                 end
-            )
+                if LocalPlayer:FindFirstChild("Backpack") then
+                    ScriptStorage.Connections.LocalPlayer["Fruit"] = LocalPlayer.Backpack.ChildAdded:Connect(MeleeCheck)
+                    for _, Melee in pairs(LocalPlayer.Backpack:GetChildren()) do
+                        pcall(function() MeleeCheck(Melee) end)
+                    end
+                end
+
+                local hrp = char and (char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 3))
+                if hrp then
+                    LastIdleCheck = os.time()
+                    ScriptStorage.Connections.LocalPlayer.PositionChecker =
+                        hrp:GetPropertyChangedSignal("CFrame"):Connect(
+                        function()
+                            if os.time() == LastIdleCheck then
+                                return
+                            end
+                            LastIdleCheck = os.time()
+                            if oldPos and hrp and hrp.Parent then
+                                if (hrp.CFrame.p - oldPos).magnitude < 2 then
+                                    return
+                                end
+                            end
+                            if hrp and hrp.Parent then
+                                oldPos = (hrp.CFrame.p)
+                            end
+                            LastIdling = os.time()
+                        end
+                    )
+                end
+            end)
+
+            pcall(function()
+                if not LocalPlayer or not LocalPlayer:FindFirstChild("Data") then return end
+                local PointsInstance = LocalPlayer.Data:FindFirstChild("Points") or LocalPlayer.Data:WaitForChild("Points", 3)
+                if PointsInstance then
+                    ScriptStorage.Connections.LocalPlayer.PointConnection =
+                        PointsInstance:GetPropertyChangedSignal("Value"):Connect(
+                        function()
+                            local CurrentValue = PointsInstance.Value
+                            if OldPointValue == CurrentValue then
+                                return
+                            end
+
+                            OldPointValue = CurrentValue
+                            task.wait(1)
+                            AddPoint()
+                        end
+                    )
+                end
+            end)
         end
         RegisterLocalPlayerEventsConnection(LocalPlayer)
 
@@ -2210,7 +2220,15 @@ ScriptStorage = {
                 [1] = "requestEntrance",
                 [2] = vector3
             }
-            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer(unpack(args))
+            pcall(function()
+                if Remotes and Remotes.CommF_ then
+                    Remotes.CommF_:InvokeServer(unpack(args))
+                else
+                    local rem = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+                    local comm = rem and rem:FindFirstChild("CommF_")
+                    if comm then comm:InvokeServer(unpack(args)) end
+                end
+            end)
         end
         
         -- TweenController
@@ -2388,15 +2406,13 @@ ScriptStorage = {
         local Workspace = game:GetService("Workspace")
         local VirtualInputManager = game:GetService("VirtualInputManager")
         local Player = Players.LocalPlayer
-        local Modules = ReplicatedStorage:WaitForChild("Modules")
-        local Net = Modules:WaitForChild("Net")
-        local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
-        local RegisterHit = Net:WaitForChild("RE/RegisterHit")
-        local ShootGunEvent = Net:WaitForChild("RE/ShootGunEvent")
-        local GunValidator = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Validator2")
-        local Modules = game.ReplicatedStorage.Modules
-        local Net = Modules.Net
-        local Register_Hit, Register_Attack = Net:WaitForChild("RE/RegisterHit"), Net:WaitForChild("RE/RegisterAttack")
+        local Modules = ReplicatedStorage:FindFirstChild("Modules") or ReplicatedStorage:WaitForChild("Modules", 3)
+        local Net = Modules and (Modules:FindFirstChild("Net") or Modules:WaitForChild("Net", 3))
+        local RegisterAttack = Net and (Net:FindFirstChild("RE/RegisterAttack") or Net:WaitForChild("RE/RegisterAttack", 3))
+        local RegisterHit = Net and (Net:FindFirstChild("RE/RegisterHit") or Net:WaitForChild("RE/RegisterHit", 3))
+        local ShootGunEvent = Net and (Net:FindFirstChild("RE/ShootGunEvent") or Net:WaitForChild("RE/ShootGunEvent", 3))
+        local GunValidator = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Validator2")
+        local Register_Hit, Register_Attack = RegisterHit, RegisterAttack
         local Funcs = {}
         local lastBladeScan = 0
         local cachedBladeHits = {}
@@ -2459,7 +2475,9 @@ ScriptStorage = {
                 [4] = "078da341"
             }
             for r, v in pairs(bladehits) do
-                RegisterAttack:FireServer(0)
+                if RegisterAttack then
+                    pcall(function() RegisterAttack:FireServer(0) end)
+                end
                 if not args[1] then
                     args[1] = v.Head
                 end
@@ -2473,7 +2491,9 @@ ScriptStorage = {
                 table.insert(args[2], v)
             end
 
-            RegisterHit:FireServer(unpack(args))
+            if RegisterHit then
+                pcall(function() RegisterHit:FireServer(unpack(args)) end)
+            end
         end
 
         -- Optimized FastAttack loop with Volt Actor support
