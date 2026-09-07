@@ -296,7 +296,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.16 (FIXED ALL)"
+        NameHub.Text = "sanglove v1.17 (PC & EMULATOR)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2082,15 +2082,116 @@ ScriptStorage = {
             }
         }
 
+        local BuiltInQuests = {
+            -- Sea 1
+            BanditQuest1 = { { Task = { ["Bandit"] = 5 }, LevelReq = 1, Name = "Bandit" } },
+            JungleQuest = { { Task = { ["Monkey"] = 6 }, LevelReq = 10, Name = "Monkey" }, { Task = { ["Gorilla"] = 8 }, LevelReq = 15, Name = "Gorilla" } },
+            BuggyQuest1 = { { Task = { ["Pirate"] = 8 }, LevelReq = 30, Name = "Pirate" }, { Task = { ["Brute"] = 8 }, LevelReq = 40, Name = "Brute" } },
+            DesertQuest = { { Task = { ["Desert Bandit"] = 8 }, LevelReq = 60, Name = "Desert Bandit" }, { Task = { ["Desert Officer"] = 6 }, LevelReq = 75, Name = "Desert Officer" } },
+            SnowQuest = { { Task = { ["Snow Bandit"] = 7 }, LevelReq = 90, Name = "Snow Bandit" }, { Task = { ["Snowman"] = 8 }, LevelReq = 100, Name = "Snowman" } },
+            MarineQuest2 = { { Task = { ["Chief Petty Officer"] = 8 }, LevelReq = 120, Name = "Chief Petty Officer" } },
+            SkyQuest = { { Task = { ["Sky Bandit"] = 7 }, LevelReq = 150, Name = "Sky Bandit" }, { Task = { ["Dark Master"] = 8 }, LevelReq = 175, Name = "Dark Master" } },
+            PrisonerQuest = { { Task = { ["Prisoner"] = 8 }, LevelReq = 190, Name = "Prisoner" }, { Task = { ["Dangerous Prisoner"] = 8 }, LevelReq = 210, Name = "Dangerous Prisoner" } },
+            ColosseumQuest = { { Task = { ["Toga Warrior"] = 7 }, LevelReq = 250, Name = "Toga Warrior" }, { Task = { ["Gladiator"] = 8 }, LevelReq = 275, Name = "Gladiator" } },
+            MagmaQuest = { { Task = { ["Military Soldier"] = 8 }, LevelReq = 300, Name = "Military Soldier" }, { Task = { ["Military Spy"] = 8 }, LevelReq = 325, Name = "Military Spy" } },
+            FishmanQuest = { { Task = { ["Fishman Warrior"] = 8 }, LevelReq = 375, Name = "Fishman Warrior" }, { Task = { ["Fishman Commando"] = 7 }, LevelReq = 400, Name = "Fishman Commando" } },
+            SkyExp1Quest = { { Task = { ["Gods Guard"] = 7 }, LevelReq = 450, Name = "Gods Guard" }, { Task = { ["Shanda"] = 8 }, LevelReq = 475, Name = "Shanda" } },
+            SkyExp2Quest = { { Task = { ["Royal Squad"] = 8 }, LevelReq = 525, Name = "Royal Squad" }, { Task = { ["Royal Soldier"] = 8 }, LevelReq = 550, Name = "Royal Soldier" } },
+            FountainQuest = { { Task = { ["Galley Pirate"] = 8 }, LevelReq = 625, Name = "Galley Pirate" }, { Task = { ["Galley Captain"] = 8 }, LevelReq = 650, Name = "Galley Captain" } },
+
+            -- Sea 2
+            Area1Quest = { { Task = { ["Raider"] = 8 }, LevelReq = 700, Name = "Raider" }, { Task = { ["Mercenary"] = 8 }, LevelReq = 725, Name = "Mercenary" } },
+            Area2Quest = { { Task = { ["Swan Pirate"] = 8 }, LevelReq = 775, Name = "Swan Pirate" }, { Task = { ["Factory Staff"] = 8 }, LevelReq = 800, Name = "Factory Staff" } },
+            MarineQuest3 = { { Task = { ["Marine Lieutenant"] = 8 }, LevelReq = 875, Name = "Marine Lieutenant" }, { Task = { ["Marine Captain"] = 8 }, LevelReq = 900, Name = "Marine Captain" } },
+            ZombieQuest = { { Task = { ["Zombie"] = 8 }, LevelReq = 950, Name = "Zombie" }, { Task = { ["Vampire"] = 8 }, LevelReq = 975, Name = "Vampire" } },
+            SnowMountainQuest = { { Task = { ["Snow Trooper"] = 8 }, LevelReq = 1000, Name = "Snow Trooper" }, { Task = { ["Winter Warrior"] = 8 }, LevelReq = 1050, Name = "Winter Warrior" } },
+            IceSideQuest = { { Task = { ["Lab Subordinate"] = 8 }, LevelReq = 1100, Name = "Lab Subordinate" }, { Task = { ["Horned Warrior"] = 8 }, LevelReq = 1125, Name = "Horned Warrior" } },
+            FireSideQuest = { { Task = { ["Magma Ninja"] = 8 }, LevelReq = 1175, Name = "Magma Ninja" }, { Task = { ["Lava Pirate"] = 8 }, LevelReq = 1200, Name = "Lava Pirate" } },
+            ShipQuest1 = { { Task = { ["Ship Deckhand"] = 8 }, LevelReq = 1250, Name = "Ship Deckhand" }, { Task = { ["Ship Engineer"] = 8 }, LevelReq = 1275, Name = "Ship Engineer" } },
+            ShipQuest2 = { { Task = { ["Ship Steward"] = 8 }, LevelReq = 1300, Name = "Ship Steward" }, { Task = { ["Ship Officer"] = 8 }, LevelReq = 1325, Name = "Ship Officer" } },
+            FrostQuest = { { Task = { ["Arctic Warrior"] = 8 }, LevelReq = 1350, Name = "Arctic Warrior" }, { Task = { ["Snow Lurker"] = 8 }, LevelReq = 1375, Name = "Snow Lurker" } },
+            ForgottenQuest = { { Task = { ["Sea Soldier"] = 8 }, LevelReq = 1425, Name = "Sea Soldier" }, { Task = { ["Water Fighter"] = 8 }, LevelReq = 1450, Name = "Water Fighter" } },
+
+            -- Sea 3
+            PiratePortQuest = { { Task = { ["Pirate Millionaire"] = 8 }, LevelReq = 1500, Name = "Pirate Millionaire" }, { Task = { ["Pistol Billionaire"] = 8 }, LevelReq = 1525, Name = "Pistol Billionaire" } },
+            AmazonQuest = { { Task = { ["Dragon Crew Warrior"] = 8 }, LevelReq = 1575, Name = "Dragon Crew Warrior" }, { Task = { ["Dragon Crew Archer"] = 8 }, LevelReq = 1600, Name = "Dragon Crew Archer" } },
+            AmazonQuest2 = { { Task = { ["Female Islander"] = 8 }, LevelReq = 1625, Name = "Female Islander" }, { Task = { ["Giant Islander"] = 8 }, LevelReq = 1650, Name = "Giant Islander" } },
+            MarineTreeIsland = { { Task = { ["Marine Commodore"] = 8 }, LevelReq = 1700, Name = "Marine Commodore" }, { Task = { ["Rear Admiral"] = 8 }, LevelReq = 1725, Name = "Rear Admiral" } },
+            DeepForestIsland = { { Task = { ["Fishman Raider"] = 8 }, LevelReq = 1775, Name = "Fishman Raider" }, { Task = { ["Fishman Captain"] = 8 }, LevelReq = 1800, Name = "Fishman Captain" } },
+            DeepForestIsland2 = { { Task = { ["Forest Pirate"] = 8 }, LevelReq = 1825, Name = "Forest Pirate" }, { Task = { ["Mythological Pirate"] = 8 }, LevelReq = 1850, Name = "Mythological Pirate" } },
+            HauntedQuest1 = { { Task = { ["Reborn Skeleton"] = 8 }, LevelReq = 1975, Name = "Reborn Skeleton" }, { Task = { ["Living Zombie"] = 8 }, LevelReq = 2000, Name = "Living Zombie" } },
+            HauntedQuest2 = { { Task = { ["Demonic Soul"] = 8 }, LevelReq = 2025, Name = "Demonic Soul" }, { Task = { ["Posessed Mummy"] = 8 }, LevelReq = 2050, Name = "Posessed Mummy" } },
+            PeanutQuest = { { Task = { ["Peanut Scout"] = 8 }, LevelReq = 2075, Name = "Peanut Scout" }, { Task = { ["Peanut President"] = 8 }, LevelReq = 2100, Name = "Peanut President" } },
+            IceCreamIslandQuest = { { Task = { ["Ice Cream Chef"] = 8 }, LevelReq = 2125, Name = "Ice Cream Chef" }, { Task = { ["Ice Cream Commander"] = 8 }, LevelReq = 2150, Name = "Ice Cream Commander" } },
+            CakeQuest1 = { { Task = { ["Cookie Crafter"] = 8 }, LevelReq = 2200, Name = "Cookie Crafter" }, { Task = { ["Cake Guard"] = 8 }, LevelReq = 2225, Name = "Cake Guard" } },
+            CakeQuest2 = { { Task = { ["Baking Staff"] = 8 }, LevelReq = 2275, Name = "Baking Staff" }, { Task = { ["Head Baker"] = 8 }, LevelReq = 2300, Name = "Head Baker" } },
+            ChocQuest1 = { { Task = { ["Cocoa Warrior"] = 8 }, LevelReq = 2300, Name = "Cocoa Warrior" }, { Task = { ["Chocolate Bar Battler"] = 8 }, LevelReq = 2325, Name = "Chocolate Bar Battler" } },
+            ChocQuest2 = { { Task = { ["Sweet Thief"] = 8 }, LevelReq = 2350, Name = "Sweet Thief" }, { Task = { ["Candy Rebel"] = 8 }, LevelReq = 2375, Name = "Candy Rebel" } },
+            CandyQuest1 = { { Task = { ["Candy Pirate"] = 8 }, LevelReq = 2400, Name = "Candy Pirate" }, { Task = { ["Snow Demon"] = 8 }, LevelReq = 2425, Name = "Snow Demon" } },
+            TikiQuest1 = { { Task = { ["Sun-kissed Warrior"] = 8 }, LevelReq = 2450, Name = "Sun-kissed Warrior" }, { Task = { ["Isle Outlaw"] = 8 }, LevelReq = 2475, Name = "Isle Outlaw" } },
+            TikiQuest2 = { { Task = { ["Island Boy"] = 8 }, LevelReq = 2500, Name = "Island Boy" }, { Task = { ["Sun-kissed Champion"] = 8 }, LevelReq = 2525, Name = "Sun-kissed Champion" } },
+            SubmergedQuest1 = { { Task = { ["Deepsea Raider"] = 8 }, LevelReq = 2550, Name = "Deepsea Raider" }, { Task = { ["Ocean Prophet"] = 8 }, LevelReq = 2575, Name = "Ocean Prophet" } },
+            SubmergedQuest2 = { { Task = { ["Abyssal Sentinel"] = 8 }, LevelReq = 2600, Name = "Abyssal Sentinel" }, { Task = { ["Grand Devotee"] = 8 }, LevelReq = 2625, Name = "Grand Devotee" } }
+        }
+
+        local BuiltInNpcPositions = {
+            BanditQuest1 = Vector3.new(1060, 16, 1549),
+            JungleQuest = Vector3.new(-1600, 37, 153),
+            BuggyQuest1 = Vector3.new(-1140, 4, 3828),
+            DesertQuest = Vector3.new(896, 6, 4390),
+            SnowQuest = Vector3.new(1386, 87, -1298),
+            MarineQuest2 = Vector3.new(-5035, 29, 4325),
+            SkyQuest = Vector3.new(-4840, 718, -2620),
+            PrisonerQuest = Vector3.new(4840, 6, 743),
+            ColosseumQuest = Vector3.new(-1575, 7, -2985),
+            MagmaQuest = Vector3.new(-5315, 9, 8515),
+            FishmanQuest = Vector3.new(61122, 18, 1568),
+            SkyExp1Quest = Vector3.new(-4721, 845, -1954),
+            SkyExp2Quest = Vector3.new(-7903, 5636, -1412),
+            FountainQuest = Vector3.new(5258, 39, 4050),
+            Area1Quest = Vector3.new(-426, 73, 1836),
+            Area2Quest = Vector3.new(634, 73, 918),
+            MarineQuest3 = Vector3.new(-2443, 73, -3217),
+            ZombieQuest = Vector3.new(-5492, 49, -795),
+            SnowMountainQuest = Vector3.new(607, 401, -5371),
+            IceSideQuest = Vector3.new(-6061, 16, -4904),
+            FireSideQuest = Vector3.new(-5430, 16, -5296),
+            ShipQuest1 = Vector3.new(1038, 125, 32911),
+            ShipQuest2 = Vector3.new(969, 125, 33243),
+            FrostQuest = Vector3.new(5668, 28, -6485),
+            ForgottenQuest = Vector3.new(-3055, 237, -10145),
+            PiratePortQuest = Vector3.new(-288, 44, 5580),
+            AmazonQuest = Vector3.new(5833, 52, -1103),
+            AmazonQuest2 = Vector3.new(5446, 602, 749),
+            MarineTreeIsland = Vector3.new(2180, 29, -6737),
+            DeepForestIsland = Vector3.new(-10582, 331, -8758),
+            DeepForestIsland2 = Vector3.new(-13274, 332, -7628),
+            HauntedQuest1 = Vector3.new(-9482, 142, 5565),
+            HauntedQuest2 = Vector3.new(-9515, 142, 5520),
+            PeanutQuest = Vector3.new(-2104, 38, -10193),
+            IceCreamIslandQuest = Vector3.new(-822, 66, -10965),
+            CakeQuest1 = Vector3.new(-2020, 38, -12025),
+            CakeQuest2 = Vector3.new(-1928, 38, -12850),
+            ChocQuest1 = Vector3.new(231, 25, -12200),
+            ChocQuest2 = Vector3.new(151, 25, -12775),
+            CandyQuest1 = Vector3.new(-1150, 14, -14445),
+            TikiQuest1 = Vector3.new(-16540, 55, 1050),
+            TikiQuest2 = Vector3.new(-16540, 55, 450),
+            SubmergedQuest1 = Vector3.new(11450, -2138, 9700),
+            SubmergedQuest2 = Vector3.new(11700, -2138, 10600)
+        }
+
         local NpcList = {}
-        QuestManager.Quests = {}
+        QuestManager.Quests = BuiltInQuests
 
         task.spawn(function()
             pcall(function()
                 local guideMod = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
                 if guideMod and guideMod:IsA("ModuleScript") then
                     local reqGuide = require(guideMod)
-                    NpcList = (reqGuide and reqGuide.Data and reqGuide.Data.NPCList) or {}
+                    if reqGuide and reqGuide.Data and reqGuide.Data.NPCList then
+                        NpcList = reqGuide.Data.NPCList
+                    end
                 end
             end)
         end)
@@ -2099,7 +2200,12 @@ ScriptStorage = {
             pcall(function()
                 local questsMod = game:GetService("ReplicatedStorage"):FindFirstChild("Quests")
                 if questsMod and questsMod:IsA("ModuleScript") then
-                    QuestManager.Quests = require(questsMod) or {}
+                    local q = require(questsMod)
+                    if q and type(q) == "table" then
+                        for k, v in pairs(q) do
+                            QuestManager.Quests[k] = v
+                        end
+                    end
                 end
             end)
         end)
@@ -2160,35 +2266,33 @@ ScriptStorage = {
                         end
                     end
 
-                    local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
-                    if guideModule then
-                        local guideData = safe_require(guideModule, 1)
-                        if guideData and guideData.Data and guideData.Data.NPCList then
-                            for i, v in pairs(guideData.Data.NPCList) do
-                                if v and v.Levels and CurrentQuestData[#CurrentQuestData] then
-                                    for _, v1 in pairs(v.Levels) do
-                                        if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
-                                            if typeof(i) == "Instance" then
-                                                if i:IsA("BasePart") then
-                                                    Self.CurrentNpc = i.Position
-                                                elseif i:IsA("Model") then
-                                                    Self.CurrentNpc = i:GetPivot().Position
-                                                end
-                                            elseif typeof(i) == "CFrame" then
-                                                Self.CurrentNpc = i.Position
-                                            elseif typeof(i) == "Vector3" then
-                                                Self.CurrentNpc = i
-                                            elseif typeof(i) == "string" then
-                                                local npcObj = (workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild(i)) or (game.ReplicatedStorage:FindFirstChild("NPCs") and game.ReplicatedStorage.NPCs:FindFirstChild(i))
-                                                if npcObj then
-                                                    Self.CurrentNpc = (npcObj:IsA("Model") and npcObj:GetPivot().Position) or (npcObj:IsA("BasePart") and npcObj.Position)
-                                                end
+                    -- 1. Try GuideModule / NpcList
+                    if NpcList and CurrentQuestData[#CurrentQuestData] then
+                        for i, v in pairs(NpcList) do
+                            if v and v.Levels then
+                                for _, v1 in pairs(v.Levels) do
+                                    if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
+                                        if typeof(i) == "Instance" then
+                                            Self.CurrentNpc = (i:IsA("Model") and i:GetPivot().Position) or (i:IsA("BasePart") and i.Position)
+                                        elseif typeof(i) == "CFrame" then
+                                            Self.CurrentNpc = i.Position
+                                        elseif typeof(i) == "Vector3" then
+                                            Self.CurrentNpc = i
+                                        elseif typeof(i) == "string" then
+                                            local npcObj = (workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild(i)) or (game.ReplicatedStorage:FindFirstChild("NPCs") and game.ReplicatedStorage.NPCs:FindFirstChild(i))
+                                            if npcObj then
+                                                Self.CurrentNpc = (npcObj:IsA("Model") and npcObj:GetPivot().Position) or (npcObj:IsA("BasePart") and npcObj.Position)
                                             end
                                         end
                                     end
                                 end
                             end
                         end
+                    end
+
+                    -- 2. Fallback Built-in NPC Coordinates
+                    if not Self.CurrentNpc and Self.CurrentQuestId and BuiltInNpcPositions[Self.CurrentQuestId] then
+                        Self.CurrentNpc = BuiltInNpcPositions[Self.CurrentQuestId]
                     end
                 end
 
@@ -2786,7 +2890,36 @@ ScriptStorage = {
             ["Arctic Warrior"] = Vector3.new(6000, 30, -6200),
             ["Snow Lurker"] = Vector3.new(5500, 30, -6800),
             ["Sea Soldier"] = Vector3.new(-3000, 50, -10000),
-            ["Water Fighter"] = Vector3.new(-3400, 50, -10500)
+            ["Water Fighter"] = Vector3.new(-3400, 50, -10500),
+            -- Sea 1 Mobs
+            ["Bandit"] = Vector3.new(1145, 17, 1634),
+            ["Monkey"] = Vector3.new(-1496, 23, 137),
+            ["Gorilla"] = Vector3.new(-1240, 7, -500),
+            ["Gorilla King"] = Vector3.new(-1130, 15, -490),
+            ["Pirate"] = Vector3.new(-1215, 5, 3915),
+            ["Brute"] = Vector3.new(-1145, 15, 4350),
+            ["Bobby"] = Vector3.new(-1130, 15, 4150),
+            ["Desert Bandit"] = Vector3.new(930, 7, 4480),
+            ["Desert Officer"] = Vector3.new(1570, 4, 4370),
+            ["Snow Bandit"] = Vector3.new(1285, 106, -1440),
+            ["Snowman"] = Vector3.new(1200, 106, -1500),
+            ["Chief Petty Officer"] = Vector3.new(-4870, 21, 4260),
+            ["Sky Bandit"] = Vector3.new(-4980, 278, -2830),
+            ["Dark Master"] = Vector3.new(-5250, 388, -2250),
+            ["Prisoner"] = Vector3.new(5030, 2, 475),
+            ["Dangerous Prisoner"] = Vector3.new(5540, 2, 740),
+            ["Toga Warrior"] = Vector3.new(-1820, 7, -2760),
+            ["Gladiator"] = Vector3.new(-1390, 7, -3150),
+            ["Military Soldier"] = Vector3.new(-5410, 11, 8450),
+            ["Military Spy"] = Vector3.new(-5810, 77, 8820),
+            ["Fishman Warrior"] = Vector3.new(60850, 19, 1500),
+            ["Fishman Commando"] = Vector3.new(61800, 19, 1470),
+            ["Gods Guard"] = Vector3.new(-4725, 845, -1950),
+            ["Shanda"] = Vector3.new(-7685, 5545, -500),
+            ["Royal Squad"] = Vector3.new(-7660, 5607, -1460),
+            ["Royal Soldier"] = Vector3.new(-7800, 5607, -1790),
+            ["Galley Pirate"] = Vector3.new(5590, 40, 3980),
+            ["Galley Captain"] = Vector3.new(5650, 40, 4920)
         }
 
 CombatController = {
@@ -3711,8 +3844,14 @@ FunctionsHandler = {
                     else
                         if not NpcPosition then
                             QuestManager:RefreshQuest()
-                            Report("failed to get npc position quest 528")
-                            return
+                            MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
+                            if not NpcPosition and QuestId and BuiltInNpcPositions[QuestId] then
+                                NpcPosition = BuiltInNpcPositions[QuestId]
+                            end
+                            if not NpcPosition then
+                                Report("failed to get npc position quest 528")
+                                return
+                            end
                         end
                         local targetNpcVec = (typeof(NpcPosition) == "CFrame" and NpcPosition.Position) or (typeof(NpcPosition) == "Vector3" and NpcPosition) or Vector3.new(0, 0, 0)
                         TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
