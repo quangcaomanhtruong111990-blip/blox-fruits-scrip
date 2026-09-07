@@ -46,6 +46,16 @@ pcall(function()
     })
 end)
 
+-- LogService Message Logger for debugging
+pcall(function()
+    local LogService = game:GetService("LogService")
+    LogService.MessageOut:Connect(function(message, messageType)
+        if messageType == Enum.MessageType.MessageWarning or messageType == Enum.MessageType.MessageError then
+            print("[BloxLogger]", messageType.Name, message)
+        end
+    end)
+end)
+
 Config =
         Config or
         {
@@ -54,11 +64,11 @@ Config =
                 HideallPath = false,
                 blackscreen = false,
                 HideGui = false,
-                HopWhenIdle = true,
-                AutoHop = true,
+                HopWhenIdle = false,
+                AutoHop = false,
                 AutoHopDelay = 60 * 60,
                 FpsBoost = true,
-                ["IdleCheck"] = 150, -- every (x) seconds if not moving rejoin
+                ["IdleCheck"] = 0, -- Tắt tự động Hop để tránh out game
             },
             Items = {
                 -- Melees
@@ -76,8 +86,8 @@ Config =
                 Eatlist = {}
             },
             Settings = {
-                StayInSea2UntilHaveDarkFragments = false, -- bat cai nay se hop tim darkbeard / turn this on to force hop for darkbeard ( for sg )
-                ["Fragments"] = 5000 -- Auto farm fragments until you have 5000 fragments to buy the chip
+                StayInSea2UntilHaveDarkFragments = false,
+                ["Fragments"] = 5000
             }
 }
 
@@ -107,31 +117,25 @@ local PerformanceCache = {}
 
 function CheckKick(v)
     if v.Name == 'ErrorPrompt' then
-        task.wait(2)
         pcall(function()
-            print(v.TitleFrame.ErrorTitle.Text)
-            local browser = game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser", 5)
-            if browser then
-                browser:InvokeServer("teleport", game.PlaceId)
-            end
-            v:Destroy()
+            warn("[Kick Detected]", v.TitleFrame.ErrorTitle.Text)
         end)
     end
 end
 
--- Auto Select Team with safe pcall and timeout
-pcall(function()
-    local teamTimeout = tick() + 10
-    while not (game.Players.LocalPlayer and game.Players.LocalPlayer.Character) and tick() < teamTimeout do
-        task.wait(1) 
-        pcall(function()
+-- Auto Select Team safely in background (only once)
+task.spawn(function()
+    task.wait(1.5)
+    pcall(function()
+        local lp = game:GetService("Players").LocalPlayer
+        if lp and not lp.Character then
             local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
             local commF = remotes and remotes:FindFirstChild("CommF_")
             if commF then
                 commF:InvokeServer('SetTeam', (Config and Config.Team) or 'Pirates')
             end
-        end)
-    end
+        end
+    end)
 end)
 pcall(function()
     game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
@@ -296,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.17 (PC & EMULATOR)"
+        NameHub.Text = "sanglove v1.19 (SEA 3 ANTI-KICK & NO-HOP)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -885,16 +889,7 @@ end)
         
         -- Safe Rejoin / Server Hop Helper (replaces raw Kick calls)
         local function SafeRejoinOrHop(reason)
-            print("[Auto Rejoin/Hop] Triggered: " .. tostring(reason or "Stuck/Idle/Desync"))
-            pcall(function()
-                if typeof(Hop) == "function" then
-                    Hop(reason or "SafeRejoin")
-                else
-                    local ts = game:GetService("TeleportService")
-                    local lp = game:GetService("Players").LocalPlayer
-                    ts:Teleport(game.PlaceId, lp)
-                end
-            end)
+            print("[Auto Rejoin/Hop Disabled for Stability] Reason: " .. tostring(reason or "Stuck/Idle/Desync"))
         end
 
 ScriptStorage = {
@@ -916,19 +911,6 @@ ScriptStorage = {
             Interface = Interface,
             NPCs = {}
         }
-        pcall(function()
-            if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" then
-                local reparentModule = game.ReplicatedStorage:FindFirstChild("Reparent")
-                if reparentModule then
-                    local reparent = safe_require(reparentModule, 1)
-                    if reparent and reparent.Unparent then
-                        hookfunction(reparent.Unparent, newcclosure(function()
-                            return function(...) end
-                        end))
-                    end
-                end
-            end
-        end)
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
         Character = LocalPlayer.Character
@@ -2369,12 +2351,10 @@ ScriptStorage = {
         end)
         local function NoclipLoop()
             local char = LocalPlayer.Character
-            if char then
-                for _, name in ipairs({"HumanoidRootPart", "UpperTorso", "LowerTorso", "Torso", "Head"}) do
-                    local part = char:FindFirstChild(name)
-                    if part and part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp and hrp.CanCollide then
+                    hrp.CanCollide = false
                 end
             end
         end
@@ -2571,7 +2551,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 18) and 25 or 75
+            local Speed = (CurrentDist < 30) and 45 or 280
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -4091,29 +4071,7 @@ FunctionsHandler = {
             end
         end)
 
-        -- Auto Melees
-        pcall(function()
-            local MT = getrawmetatable(game)
-            if MT and MT.__namecall and typeof(setreadonly) == "function" and typeof(newcclosure) == "function" then
-                local OldNameCall = MT.__namecall
-                setreadonly(MT, false)
-                MT.__namecall =
-                    newcclosure(
-                    function(self, ...)
-                        local Method = getnamecallmethod()
-                        local Args = {...}
-                        if Method == "FireServer" and self and self.Name == "RemoteEvent" then
-                            if getgenv().LastestLockDate and os.time() - LastestLockDate < 3 then
-                                Args[1] = getgenv().LockPosition
-                            end
-                        end
-
-                        return OldNameCall(self, unpack(Args))
-                    end
-                )
-            end
-        end)
-
+        -- Aim Position Handler (Safe, non-hooking)
         function LockAimPositionTo(LockedPosition)
             getgenv().LastestLockDate = os.time()
             getgenv().LockPosition = LockedPosition
@@ -6538,10 +6496,10 @@ FunctionsHandler = {
             end
         end
 
-        -- Chạy NearbyHopHandler định kỳ để check players gần
+        -- Chạy NearbyHopHandler định kỳ nếu người dùng chủ động bật AutoHop
         task.spawn(function()
             while task.wait(5) do
-                if not _G.Stop then
+                if not _G.Stop and Config and Config.Configuration and Config.Configuration.AutoHop then
                     pcall(NearbyHopHandler)
                 end
             end
