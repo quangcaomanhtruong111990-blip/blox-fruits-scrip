@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.19 (SEA 3 ANTI-KICK & NO-HOP)"
+        NameHub.Text = "sanglove v1.20 (SPEED 170 & MOB FIX)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3060,7 +3060,25 @@ CombatController = {
             end)
             MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
 
-            for _, Child in (MobTable) do
+            -- Ưu tiên quái theo nhiệm vụ hiện tại nếu có
+            pcall(function()
+                local curQuestName = GetCurrentClaimQuest()
+                if curQuestName and type(curQuestName) == "string" and curQuestName ~= "" then
+                    local prioritized = {}
+                    for _, mName in ipairs(MobTable) do
+                        local s1 = string.lower(tostring(curQuestName))
+                        local s2 = string.lower(tostring(mName))
+                        if string.find(s1, s2, 1, true) or string.find(s2, s1, 1, true) then
+                            table.insert(prioritized, 1, mName)
+                        else
+                            table.insert(prioritized, mName)
+                        end
+                    end
+                    MobTable = prioritized
+                end
+            end)
+
+            for _, Child in ipairs(MobTable) do
                 local ChildName = tostring(Child)
                 if
                     ChildName == "Deandre" or ChildName == "Urban" or
@@ -3070,22 +3088,22 @@ CombatController = {
                     Remotes.CommF_:InvokeServer("EliteHunter")
                 end
 
+                local MonResult = nil
                 if NearbyHit then
                     local Mon = GetMonAsSortedRange()[1]
-
                     local MonPosition = Mon and Mon:FindFirstChild("HumanoidRootPart") and Mon.HumanoidRootPart.Position
                     if MonPosition and CaculateDistance(MonPosition) < Range then
                         MonResult = Mon
                     end
                 else
-                    MonResult = CombatController.Search(MobTable)
+                    MonResult = CombatController.Search({ChildName})
                 end
 
                 if MonResult then
                     LastFound = os.time()
                     local Count, Debounce = 0, os.time()
-                    local Count2, Debounce = 0, os.time()
-                    -- Optimize: Add delay to reduce FPS impact
+                    local Count2 = 0
+                    -- Loop đánh quái
                     while task.wait(0.1) do
                         if _G.Stop then
                             return
@@ -3103,7 +3121,6 @@ CombatController = {
                         if not MobHumanoid or MobHumanoid.Health <= 0 then
                             if MonResult.Name == "Don Swan" then
                                 Storage:Set("SwanDefeated", true)
-                                
                             end
                             break
                         end
@@ -3113,7 +3130,7 @@ CombatController = {
                         )
 
                         if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
-                            CombatController.Grab(Child or "")
+                            CombatController.Grab(ChildName or "")
                             if MonResult.Name ~= "Core" then
                                 if
                                     ScriptStorage.PlayerData.Level > 100 and
@@ -3128,10 +3145,8 @@ CombatController = {
                                     alert("Stuck", "Mob health unchanged")
                                     _G.Stop = true
                                     SafeRejoinOrHop("Rejoin")
-
                                 end
 
-                              
                                 if
                                     Count >= CombatController.MAX_ATTACK_DURATION and
                                         MobHumanoid.Health - MobHumanoid.MaxHealth == 0
@@ -3152,7 +3167,7 @@ CombatController = {
                                             "Returning to the old position ( #" ..
                                                 MonResult:GetAttribute("FailureCount") .. " )"
                                         )
-                                       MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
+                                        MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
                                         task.wait()
 
                                         return
@@ -3167,7 +3182,6 @@ CombatController = {
                             AttackController:Attack(MonResult)
                             if os.time() ~= Debounce then
                                 Debounce = os.time()
-
                                 Count = Count + 1
                                 Count2 = Count2 + 1
                             end
@@ -3175,35 +3189,28 @@ CombatController = {
                                 alert("Take more than 30s to attack, cancelling")
                                 break
                             end
-                       
                         end
                     end
+                    return
                 elseif not NearbyHit then
-                    if (os.time() - LastFound) > 600 then
-                        alert("KUN", "Error while farming, rejoin")
-                        SafeRejoinOrHop("Rejoin")
-                        return
-                    end
-
-                    local Region = ScriptStorage.MobRegions[Child]
+                    local Region = ScriptStorage.MobRegions[ChildName]
 
                     if not Region then
                         local Inst =
-                            Services.Workspace.Enemies:FindFirstChild(Child) or
-                            game.ReplicatedStorage:FindFirstChild(Child)
+                            Services.Workspace.Enemies:FindFirstChild(ChildName) or
+                            game.ReplicatedStorage:FindFirstChild(ChildName)
 
                         Region = Inst and {Inst:GetPrimaryPartCFrame().p}
                     end
 
-                    if not Region and MobPositionsFallback and MobPositionsFallback[Child] then
-                        Region = {MobPositionsFallback[Child]}
+                    if not Region and MobPositionsFallback and MobPositionsFallback[ChildName] then
+                        Region = {MobPositionsFallback[ChildName]}
                     end
 
                     if not Region then
-                        -- Thử tìm trong EnemySpawns trong Workspace
                         pcall(function()
                             for _, spawnObj in pairs(workspace:GetDescendants()) do
-                                if spawnObj.Name == Child or (spawnObj:IsA("BasePart") and string.find(spawnObj.Name, Child)) then
+                                if spawnObj.Name == ChildName or (spawnObj:IsA("BasePart") and string.find(spawnObj.Name, ChildName)) then
                                     Region = {spawnObj.Position}
                                     break
                                 end
@@ -3211,25 +3218,20 @@ CombatController = {
                         end)
                     end
 
-                    if not Region then
-                        -- Thay vì report và đứng im, tiếp tục thử quái tiếp theo trong list
+                    if Region then
+                        LastFound = os.time()
+                        if not Region[CombatController.CurrentIndex] then
+                            CombatController.CurrentIndex = 1
+                        end
+
+                        local CurrentPosition = Region[CombatController.CurrentIndex]
+                        TweenController.Create(CurrentPosition + Vector3.new(0, 35, 35))
+                        if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 35)) < 20 then
+                            CombatController.CurrentIndex = CombatController.CurrentIndex + 1
+                        end
+                        -- Quan trọng: return ngay để không bị quái tiếp theo ghi đè hủy Tween bay
                         return
                     end
-
-                    local CurrentPosition
-
-                    if not Region[CombatController.CurrentIndex] then
-                        CombatController.CurrentIndex = 1
-                    end
-
-                    CurrentPosition = Region[CombatController.CurrentIndex]
-
-                    local Count2 = os.time()
-                    TweenController.Create(CurrentPosition + Vector3.new(0, 35, 35))
-                    if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 35)) < 15 then
-                        CombatController.CurrentIndex = CombatController.CurrentIndex + 1
-                    end
-
                 end
             end
         end
@@ -3771,14 +3773,12 @@ FunctionsHandler = {
                     CurrentClaimQuest3 = GetCurrentClaimQuest(true)
 
                     if CurrentClaimQuest3 then
-                        if not string.find(CurrentClaimQuest3, "Demonic") then
+                        if not string.find(tostring(CurrentClaimQuest3), "Demonic") and not string.find(tostring(CurrentClaimQuest3), "Mummy") then
                             QuestManager.AbandonQuest()
                             return
                         else
                             CombatController.Attack(
                                 {
-                                    "Reborn Skeleton",
-                                    "Living Zombie",
                                     "Demonic Soul",
                                     "Posessed Mummy"
                                 }
