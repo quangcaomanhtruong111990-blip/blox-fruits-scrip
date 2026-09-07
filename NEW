@@ -973,51 +973,71 @@ ScriptStorage = {
             Superhuman = "Martial Arts Master"
         }
         local MeleeCanBuy = {}
+        local DummyRemote = {
+            InvokeServer = function(...) return nil end,
+            FireServer = function(...) return nil end,
+            OnClientEvent = {
+                Connect = function(...) return { Disconnect = function() end } end
+            }
+        }
+
         setmetatable(Remotes, {
             __index = function(Self, Key)
-                if Key ~= "CommF_" then
-                    print("captured unregistered signal", key)
-                    return Services.ReplicatedStorage.Remotes[Key]
-                end
-        
-                local tbl = {
-                    InvokeServer = function(Self, ...)
-                        print("remote fired", ...)
-                        local RemoteAction, IsValidate = ...
-                        -- warn(RemoteAction, IsValidate,string.gsub(RemoteAction, "Buy", ''))
-                        -- if string.find(RemoteAction, "Buy") == 1 then 
-                        --     warn(string.gsub(RemoteAction, "Buy", '')) 
-                        -- end
-                        if string.find(RemoteAction, "Buy") == 1 and not IsValidate then
-                            local MeleeName = string.gsub(RemoteAction, "Buy", '')
-                            warn(table.find(MeleeCanBuy, MeleeName), MeleeName, #MeleeCanBuy)
-                            if BindedMeleeNPCNames then
-                                if table.find(MeleeCanBuy, MeleeName) then
-        
-                                    local NPC = ScriptStorage.NPCs[BindedMeleeNPCNames[MeleeName]]
+                if Key == "CommF_" then
+                    local tbl = {
+                        InvokeServer = function(Self, ...)
+                            local RemoteAction, IsValidate = ...
+                            if RemoteAction and type(RemoteAction) == "string" and string.find(RemoteAction, "Buy") == 1 and not IsValidate then
+                                local MeleeName = string.gsub(RemoteAction, "Buy", "")
+                                if BindedMeleeNPCNames and table.find(MeleeCanBuy, MeleeName) then
+                                    local NPC = ScriptStorage.NPCs and ScriptStorage.NPCs[BindedMeleeNPCNames[MeleeName]]
                                     if NPC then
-                                        local NPCPos = NPC.WorldPivot
+                                        local NPCPos = NPC.WorldPivot or (NPC:FindFirstChild("HumanoidRootPart") and NPC.HumanoidRootPart.CFrame)
                                         SetTask("SubTask", "Buying Melee - " .. MeleeName)
                                         getgenv().anchored = true
-                                        if CaculateDistance(NPCPos) > 10 then
+                                        local targetPos = NPCPos and (NPCPos.Position or NPCPos)
+                                        if targetPos and CaculateDistance(targetPos) > 10 then
                                             repeat
-                                                wait()
-                                                TweenController.Create(NPCPos.Position)
-        
-                                            until CaculateDistance(NPCPos) < 10
+                                                task.wait()
+                                                TweenController.Create(targetPos)
+                                            until CaculateDistance(targetPos) < 10
                                             task.wait(3)
-                                            Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
+                                            if Services.ReplicatedStorage and Services.ReplicatedStorage:FindFirstChild("Remotes") and Services.ReplicatedStorage.Remotes:FindFirstChild("CommF_") then
+                                                return Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
+                                            end
                                         end
                                     end
                                 end
                             end
+                            if Services.ReplicatedStorage and Services.ReplicatedStorage:FindFirstChild("Remotes") and Services.ReplicatedStorage.Remotes:FindFirstChild("CommF_") then
+                                return Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
+                            end
+                            return nil
                         end
-                        return Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
-        
+                    }
+                    return tbl
+                end
+
+                if Key == "Redeem" then
+                    return {
+                        InvokeServer = function(Self, code)
+                            pcall(function()
+                                if Services.ReplicatedStorage and Services.ReplicatedStorage:FindFirstChild("Remotes") and Services.ReplicatedStorage.Remotes:FindFirstChild("CommF_") then
+                                    Services.ReplicatedStorage.Remotes.CommF_:InvokeServer("RedeemCustomCode", code)
+                                end
+                            end)
+                            return nil
+                        end
+                    }
+                end
+
+                local targetRemote = nil
+                pcall(function()
+                    if Services.ReplicatedStorage and Services.ReplicatedStorage:FindFirstChild("Remotes") then
+                        targetRemote = Services.ReplicatedStorage.Remotes:FindFirstChild(Key)
                     end
-                }
-        
-                return tbl
+                end)
+                return targetRemote or DummyRemote
             end
         })
         
@@ -1301,13 +1321,16 @@ ScriptStorage = {
                 )
             end
 
-            AwaitUntilPlayerLoaded(LocalPlayer)
-
-            LocalPlayer:SetAttribute("IsAvailable", true)
-
             pcall(function()
-                local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-                local hum = char and (char:FindFirstChild("Humanoid") or char:WaitForChild("Humanoid", 3))
+                local char = LocalPlayer.Character
+                if not char then
+                    local waitChar = tick() + 3
+                    repeat
+                        task.wait(0.1)
+                        char = LocalPlayer.Character
+                    until char or tick() > waitChar
+                end
+                local hum = char and (char:FindFirstChild("Humanoid") or char:FindFirstChildOfClass("Humanoid"))
                 if hum then
                     ScriptStorage.Connections.LocalPlayer["HealthCheck"] =
                         hum:GetPropertyChangedSignal("Health"):Connect(
@@ -2451,10 +2474,19 @@ ScriptStorage = {
             return bladehits
         end
 
-        local Net = (Services.ReplicatedStorage.Modules.Net)
-
-        local RegisterAttack = require(Net):RemoteEvent("RegisterAttack", true)
-        local RegisterHit = require(Net):RemoteEvent("RegisterHit", true)
+        pcall(function()
+            if Net and Net:IsA("ModuleScript") and (not RegisterAttack or not RegisterHit) then
+                local okNet, reqNet = pcall(function() return require(Net) end)
+                if okNet and type(reqNet) == "table" and type(reqNet.RemoteEvent) == "function" then
+                    if not RegisterAttack then
+                        pcall(function() RegisterAttack = reqNet:RemoteEvent("RegisterAttack", true) end)
+                    end
+                    if not RegisterHit then
+                        pcall(function() RegisterHit = reqNet:RemoteEvent("RegisterHit", true) end)
+                    end
+                end
+            end
+        end)
 
         function Funcs:Attack()
             local bladehits = {}
@@ -3738,27 +3770,38 @@ FunctionsHandler = {
             end
         )
 
-        Remotes.RefreshQuestPro.OnClientEvent:Connect(function(...) if FunctionsHandler.Saber.Methods.Refresh then FunctionsHandler.Saber.Methods.Refresh.Callback(...) end end)
+        pcall(function()
+            if Remotes and Remotes.RefreshQuestPro and Remotes.RefreshQuestPro.OnClientEvent then
+                Remotes.RefreshQuestPro.OnClientEvent:Connect(function(...)
+                    if FunctionsHandler and FunctionsHandler.Saber and FunctionsHandler.Saber.Methods and FunctionsHandler.Saber.Methods.Refresh then
+                        pcall(function() FunctionsHandler.Saber.Methods.Refresh.Callback(...) end)
+                    end
+                end)
+            end
+        end)
 
         -- Auto Melees
+        pcall(function()
+            local MT = getrawmetatable(game)
+            if MT and MT.__namecall and typeof(setreadonly) == "function" and typeof(newcclosure) == "function" then
+                local OldNameCall = MT.__namecall
+                setreadonly(MT, false)
+                MT.__namecall =
+                    newcclosure(
+                    function(self, ...)
+                        local Method = getnamecallmethod()
+                        local Args = {...}
+                        if Method == "FireServer" and self and self.Name == "RemoteEvent" then
+                            if getgenv().LastestLockDate and os.time() - LastestLockDate < 3 then
+                                Args[1] = getgenv().LockPosition
+                            end
+                        end
 
-        local MT = getrawmetatable(game)
-        local OldNameCall = MT.__namecall
-        setreadonly(MT, false)
-        MT.__namecall =
-            newcclosure(
-            function(self, ...)
-                local Method = getnamecallmethod()
-                local Args = {...}
-                if Method == "FireServer" and self.Name == "RemoteEvent" then
-                    if getgenv().LastestLockDate and os.time() - LastestLockDate < 3 then
-                        Args[1] = getgenv().LockPosition
+                        return OldNameCall(self, unpack(Args))
                     end
-                end
-
-                return OldNameCall(self, unpack(Args))
+                )
             end
-        )
+        end)
 
         function LockAimPositionTo(LockedPosition)
             getgenv().LastestLockDate = os.time()
@@ -3770,34 +3813,46 @@ FunctionsHandler = {
         CanPurchase = {}
         FruitDataCache = {}
         function GetCurrentFruitMastery()
-            local CurrentPlayer = game.Players.LocalPlayer
-            local CurrentFruit = CurrentPlayer.Data.DevilFruit.Value
-            local DF =
-                CurrentPlayer.Character and
-                (CurrentPlayer.Character:FindFirstChild(CurrentFruit) or
-                    CurrentPlayer.Backpack:FindFirstChild(CurrentFruit))
-            local bfMaxLevel = 0
+            local success, level, maxLvl = pcall(function()
+                local CurrentPlayer = game.Players.LocalPlayer
+                if not CurrentPlayer or not CurrentPlayer:FindFirstChild("Data") or not CurrentPlayer.Data:FindFirstChild("DevilFruit") then
+                    return 0, 0
+                end
+                local CurrentFruit = CurrentPlayer.Data.DevilFruit.Value
+                local DF =
+                    CurrentPlayer.Character and
+                    (CurrentPlayer.Character:FindFirstChild(CurrentFruit) or
+                        (CurrentPlayer:FindFirstChild("Backpack") and CurrentPlayer.Backpack:FindFirstChild(CurrentFruit)))
+                local bfMaxLevel = 0
 
-            if DF then
-                if CurrentFruit ~= "" then
-                    local Data = FruitDataCache[CurrentFruit] or require(DF.Data)
-                    FruitDataCache[CurrentFruit] = Data
-                    for _, v in {"V", "C", "X", "F", "Z"} do
-                        if Data.Lvl[v] then
-                            bfMaxLevel = Data.Lvl[v]
-                            break
+                if DF and CurrentFruit and CurrentFruit ~= "" then
+                    local Data = FruitDataCache[CurrentFruit]
+                    if not Data and DF:FindFirstChild("Data") then
+                        pcall(function() Data = require(DF.Data) end)
+                    end
+                    if Data then
+                        FruitDataCache[CurrentFruit] = Data
+                        for _, v in {"V", "C", "X", "F", "Z"} do
+                            if Data.Lvl and Data.Lvl[v] then
+                                bfMaxLevel = Data.Lvl[v]
+                                break
+                            end
                         end
                     end
-                end
 
-                return DF.Level.Value, bfMaxLevel
+                    return (DF:FindFirstChild("Level") and DF.Level.Value) or 0, bfMaxLevel
+                end
+                return 0, bfMaxLevel
+            end)
+            if success and level then
+                return level, maxLvl or 0
             end
-            return 0, bfMaxLevel
+            return 0, 0
         end
 
-        Remotes.Redeem:InvokeServer("KITT_RESET")
-        Remotes.Redeem:InvokeServer("Sub2UncleKizaru")
-        Remotes.Redeem:InvokeServer("SUB2GAMERROBOT_RESET1")
+        pcall(function() Remotes.Redeem:InvokeServer("KITT_RESET") end)
+        pcall(function() Remotes.Redeem:InvokeServer("Sub2UncleKizaru") end)
+        pcall(function() Remotes.Redeem:InvokeServer("SUB2GAMERROBOT_RESET1") end)
 
         function ResetStat(PrimaryPoint)
             if (LocalPlayer.Data.Stats:FindFirstChild(PrimaryPoint).Level.Value < 2000) then
@@ -3817,7 +3872,7 @@ FunctionsHandler = {
             return true
         end
  
-        print(GetCurrentFruitMastery())
+        pcall(function() print(GetCurrentFruitMastery()) end)
         FunctionsHandler.MeleesController:RegisterMethod(
             "Refresh",
             function()
@@ -4343,12 +4398,20 @@ FunctionsHandler = {
         FunctionsHandler.RaidController:RegisterMethod(
             "RefreshRaidType",
             function()
-                for _, Raid in require(game.ReplicatedStorage.Raids).raids do
-                    if string.find(ScriptStorage.PlayerData.DevilFruit, Raid) then
-                        FunctionsHandler.RaidController:Set("CurrentChip", Raid)
-                        return
+                pcall(function()
+                    local raidsMod = game.ReplicatedStorage:FindFirstChild("Raids")
+                    if raidsMod then
+                        local raidsData = require(raidsMod)
+                        if raidsData and raidsData.raids then
+                            for _, Raid in raidsData.raids do
+                                if ScriptStorage.PlayerData and ScriptStorage.PlayerData.DevilFruit and string.find(tostring(ScriptStorage.PlayerData.DevilFruit), Raid) then
+                                    FunctionsHandler.RaidController:Set("CurrentChip", Raid)
+                                    return
+                                end
+                            end
+                        end
                     end
-                end
+                end)
                 FunctionsHandler.RaidController:Set("CurrentChip", "Flame")
             end
         )
@@ -6003,10 +6066,11 @@ FunctionsHandler = {
                 end)
             end)
         end  
-        if Config.Configuration.FpsBoost then
-            boostfps()
+        if Config and Config.Configuration and Config.Configuration.FpsBoost then
+            pcall(boostfps)
         end
-        repeat wait() until game:IsLoaded() 
+        local loadedTimeout = tick() + 5
+        repeat task.wait(0.2) until game:IsLoaded() or tick() > loadedTimeout 
         spawn(function()
             while wait() do 
                     pcall(function()
@@ -6074,26 +6138,37 @@ FunctionsHandler = {
         pcall(RefreshInventory)
         SetText("MainTextLabel", "Loading Race...")
         pcall(RefreshRace)
-        Remotes.CommE.OnClientEvent:Connect(
-            function(...)
-                local data = {...}
-                -- print(..., "additem")
-                if string.find(data[1], "Item") then
-                    RefreshInventory()
-                end
+        pcall(function()
+            if Remotes and Remotes.CommE and Remotes.CommE.OnClientEvent then
+                Remotes.CommE.OnClientEvent:Connect(
+                    function(...)
+                        local data = {...}
+                        if data and data[1] and string.find(tostring(data[1]), "Item") then
+                            pcall(RefreshInventory)
+                        end
+                    end
+                )
             end
-        )
+        end)
 
-        RefreshRace()
+        pcall(RefreshRace)
 
-        Players.LocalPlayer.Idled:Connect(
-            function()
-                Services.VirtualUser:CaptureController()
-                Services.VirtualUser:ClickButton2(Vector2.new())
+        pcall(function()
+            if Players and Players.LocalPlayer and Players.LocalPlayer.Idled then
+                Players.LocalPlayer.Idled:Connect(
+                    function()
+                        pcall(function()
+                            if Services and Services.VirtualUser then
+                                Services.VirtualUser:CaptureController()
+                                Services.VirtualUser:ClickButton2(Vector2.new())
+                            end
+                        end)
+                    end
+                )
             end
-        )
+        end)
 
-        SetText("MainTextLabel", "Loaded In " .. tick() - StartTick .. "ms!")
+        SetText("MainTextLabel", "Loaded In " .. math.floor(tick() - StartTick) .. "ms!")
         Loaded = 1
         QueueList = {}
 
