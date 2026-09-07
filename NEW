@@ -296,7 +296,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.10 (FIXED)"
+        NameHub.Text = "sanglove v2 (FIXED)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -573,11 +573,12 @@ end)
                     {Rotation = 360}
                 )
                 rotationTween:Play()
-                rotationTween.Completed:Connect(
-                    function()
+                task.spawn(function()
+                    task.wait(0.5)
+                    pcall(function()
                         ToggleIcon.Rotation = 0
-                    end
-                )
+                    end)
+                end)
 
                 -- Animate all elements in
                 for _, label in pairs(contentLabels) do
@@ -624,8 +625,9 @@ end)
                     {Size = UDim2.new(0.3, 0, 0.3, 0)}
                 )
                 shrinkTween:Play()
-                shrinkTween.Completed:Connect(
-                    function()
+                task.spawn(function()
+                    task.wait(0.3)
+                    pcall(function()
                         local growTween =
                             tweenService:Create(
                             ToggleIcon,
@@ -633,8 +635,8 @@ end)
                             {Size = UDim2.new(0.7, 0, 0.7, 0)}
                         )
                         growTween:Play()
-                    end
-                )
+                    end)
+                end)
 
                 -- Animate all elements out
                 for _, label in pairs(contentLabels) do
@@ -772,6 +774,13 @@ end)
         Interface.BlurManager = blurEffect
 
         function alert(t1, t2)
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = tostring(t1 or "Bocchi Hub"),
+                    Text = tostring(t2 or ""),
+                    Duration = 3
+                })
+            end)
             pcall(function() print("[Alert]", tostring(t1 or ""), tostring(t2 or "")) end)
         end
         _G.alert = alert
@@ -779,40 +788,13 @@ end)
             getgenv().alert = alert
         end
 
+        -- Tự động dọn dẹp file Fluent cũ nếu có để không bị Executor load nhầm
         pcall(function()
-            if typeof(isfile) == "function" and typeof(writefile) == "function" and typeof(game.HttpGet) == "function" then
-                if not isfile("fluent.lua") then
-                    pcall(function()
-                        writefile(
-                            "fluent.lua",
-                            game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
-                        )
-                    end)
-                end
-
-                if isfile("fluent.lua") and typeof(readfile) == "function" then
-                    local content = readfile("fluent.lua")
-                    if content and #content > 0 then
-                        local okLoad, fluentLib = pcall(function() return loadstring(content)() end)
-                        if okLoad and fluentLib then
-                            local Fluent = fluentLib
-                            alert = function(t1, t2)
-                                pcall(function()
-                                    Fluent:Notify({
-                                        Title = t1 or "",
-                                        Content = t2 or "",
-                                        Duration = 5
-                                    })
-                                end)
-                            end
-                            _G.alert = alert
-                            if typeof(getgenv) == "function" then getgenv().alert = alert end
-                        end
-                    end
-                end
+            if typeof(isfile) == "function" and typeof(delfile) == "function" and isfile("fluent.lua") then
+                pcall(delfile, "fluent.lua")
             end
         end)
-        alert("Cyndral", "Endpoint reached")
+        alert("Bocchi Hub", "Kaitun Loaded Successfully!")
 
         local CDN_HOST = ""
 
@@ -3928,8 +3910,9 @@ FunctionsHandler = {
         pcall(function()
             if Remotes and Remotes.RefreshQuestPro and Remotes.RefreshQuestPro.OnClientEvent then
                 Remotes.RefreshQuestPro.OnClientEvent:Connect(function(...)
+                    local questArgs = {...}
                     if FunctionsHandler and FunctionsHandler.Saber and FunctionsHandler.Saber.Methods and FunctionsHandler.Saber.Methods.Refresh then
-                        pcall(function() FunctionsHandler.Saber.Methods.Refresh.Callback(...) end)
+                        pcall(function() FunctionsHandler.Saber.Methods.Refresh.Callback(unpack(questArgs)) end)
                     end
                 end)
             end
