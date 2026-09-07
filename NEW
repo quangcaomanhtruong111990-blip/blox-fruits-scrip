@@ -226,7 +226,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.11 (FIXED)"
+        NameHub.Text = "sanglove v1.12 (FIXED)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
