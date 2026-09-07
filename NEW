@@ -36,8 +36,8 @@ repeat
     task.wait(0.5)
 until game:IsLoaded()
 
--- [v1.09] Startup Safety Delay: Chờ game ổn định hoàn toàn
-task.wait(15)
+-- [v1.09] Startup Safety Delay: Giảm xuống 2s để script phản hồi ngay lập tức
+task.wait(2)
 
 -- Volt Performance Optimization Setup
 local Volt = nil
@@ -75,7 +75,9 @@ repeat
     task.wait(1) 
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
 until game.Players.LocalPlayer.Character
-game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
+pcall(function()
+    game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
+end)
     if os.time() >= 1756319996 then
     --  while true do end
     end
@@ -168,7 +170,8 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function Report(Message)
-        -- Webhook Discord disabled: No telemetry or data sent externally
+        warn("[Cyndral Dev Debug]", tostring(Message))
+        print("[Cyndral Dev Debug]", tostring(Message))
     end
 
     function mmb()
@@ -181,9 +184,18 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         local isToggleOpen = false
         local player = game.Players.LocalPlayer
 
-        repeat
-            task.wait()
-        until game.CoreGui
+        local getGuiParent = function()
+            local success, cg = pcall(function() return game:GetService("CoreGui") end)
+            if success and cg then
+                local testSuccess = pcall(function() 
+                    local t = Instance.new("Folder")
+                    t.Parent = cg
+                    t:Destroy()
+                end)
+                if testSuccess then return cg end
+            end
+            return player:WaitForChild("PlayerGui", 10) or player.PlayerGui
+        end
 
         local HopGui = Instance.new("ScreenGui")
         local NameHub = Instance.new("TextLabel")
@@ -199,7 +211,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         local UIReferences = {}
 
         HopGui.Name = "CyndralDev"
-        HopGui.Parent = game:GetService("CoreGui")
+        HopGui.Parent = getGuiParent()
         HopGui.Enabled = not Config.Configuration.HideGui
         HopGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         HopGui.IgnoreGuiInset = true
@@ -214,7 +226,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.09"
+        NameHub.Text = "sanglove v1.10"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -811,15 +823,25 @@ ScriptStorage = {
             Interface = Interface,
             NPCs = {}
         }
-        hookfunction(require(game.ReplicatedStorage.Reparent).Unparent, newcclosure(function()
-            return function(...) end
-        end)) 
+        pcall(function()
+            if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" then
+                local reparentModule = game.ReplicatedStorage:FindFirstChild("Reparent")
+                if reparentModule then
+                    local reparent = require(reparentModule)
+                    if reparent and reparent.Unparent then
+                        hookfunction(reparent.Unparent, newcclosure(function()
+                            return function(...) end
+                        end))
+                    end
+                end
+            end
+        end)
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
-        Character = LocalPlayer.Character
+        Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
-        Humanoid = Character:WaitForChild("Humanoid")
-        HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+        Humanoid = Character and Character:WaitForChild("Humanoid", 10)
+        HumanoidRootPart = Character and Character:WaitForChild("HumanoidRootPart", 10)
 
         PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 10)
         Lighting = game:GetService("Lighting")
@@ -1903,13 +1925,31 @@ ScriptStorage = {
             }
         }
 
-        local NpcList = require(game.ReplicatedStorage.GuideModule).Data.NPCList
+        local okNpcList, NpcListRes = pcall(function()
+            return require(game.ReplicatedStorage.GuideModule).Data.NPCList
+        end)
+        local NpcList = okNpcList and NpcListRes or {}
 
+        -- Đợi dữ liệu nhân vật load hoặc timeout 10s để không kẹt luồng
+        local dataTimeout = tick() + 10
         repeat
-            task.wait()
-        until game.Players.LocalPlayer.DataLoaded and ScriptStorage
+            task.wait(0.2)
+            local lp = game.Players.LocalPlayer
+            local isDataReady = lp and (
+                (lp:FindFirstChild("Data") and lp.Data:FindFirstChild("Level"))
+                or (lp:GetAttribute("DataLoaded") == true)
+                or (rawget(lp, "DataLoaded") == true)
+                or (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level)
+            )
+            if isDataReady and ScriptStorage then
+                break
+            end
+        until tick() > dataTimeout
 
-        QuestManager.Quests = require(game.ReplicatedStorage.Quests)
+        local okQuests, QuestsRes = pcall(function()
+            return require(game.ReplicatedStorage.Quests)
+        end)
+        QuestManager.Quests = okQuests and QuestsRes or {}
 
         function QuestManager.Set(Self, Index, Value)
             Self[Index] = Value
@@ -1975,7 +2015,22 @@ ScriptStorage = {
                                 if v and v.Levels and CurrentQuestData[#CurrentQuestData] then
                                     for _, v1 in pairs(v.Levels) do
                                         if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
-                                            Self.CurrentNpc = i.CFrame
+                                            if typeof(i) == "Instance" then
+                                                if i:IsA("BasePart") then
+                                                    Self.CurrentNpc = i.Position
+                                                elseif i:IsA("Model") then
+                                                    Self.CurrentNpc = i:GetPivot().Position
+                                                end
+                                            elseif typeof(i) == "CFrame" then
+                                                Self.CurrentNpc = i.Position
+                                            elseif typeof(i) == "Vector3" then
+                                                Self.CurrentNpc = i
+                                            elseif typeof(i) == "string" then
+                                                local npcObj = (workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild(i)) or (game.ReplicatedStorage:FindFirstChild("NPCs") and game.ReplicatedStorage.NPCs:FindFirstChild(i))
+                                                if npcObj then
+                                                    Self.CurrentNpc = (npcObj:IsA("Model") and npcObj:GetPivot().Position) or (npcObj:IsA("BasePart") and npcObj.Position)
+                                                end
+                                            end
                                         end
                                     end
                                 end
@@ -1989,17 +2044,21 @@ ScriptStorage = {
         end
 
         function QuestManager.GetCurrentQuest(Self)
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                return nil, nil, nil, 1, nil
+            end
             local QuestIndex =
                 Self.CurrentQuests[Self.CurrentLevel] and
-                Self.CurrentQuests[Self.CurrentLevel].LevelReq <= ScriptStorage.PlayerData.Level and
+                Self.CurrentQuests[Self.CurrentLevel].LevelReq <= (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level or 1) and
                 Self.CurrentLevel or
                 1
 
-            --print(Self.CurrentQuests[QuestIndex], Self.CurrentQuests[QuestIndex].NameMon)
-
-            for Name in Self.CurrentQuests[QuestIndex].Task do
-                return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, Self.CurrentQuests[QuestIndex].Name
+            if Self.CurrentQuests[QuestIndex] and Self.CurrentQuests[QuestIndex].Task then
+                for Name in Self.CurrentQuests[QuestIndex].Task do
+                    return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, Self.CurrentQuests[QuestIndex].Name
+                end
             end
+            return nil, Self.CurrentNpc, Self.CurrentQuestId, 1, nil
         end
 
         function QuestManager.MarkAsCompleted(Self)
@@ -2659,7 +2718,11 @@ CombatController = {
                 return
             end
 
-            sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
+            pcall(function()
+                if typeof(sethiddenproperty) == "function" then
+                    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
+                end
+            end)
             MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
 
             for _, Child in (MobTable) do
@@ -3424,11 +3487,14 @@ FunctionsHandler = {
                         end
                     else
                         if not NpcPosition then
-                            return QuestManager:RefreshQuest() and Report("failed to get npc position quest 528")
+                            QuestManager:RefreshQuest()
+                            Report("failed to get npc position quest 528")
+                            return
                         end
-                        TweenController.Create(NpcPosition + Vector3.new(0, 5, 3))
-                        SetTask("MainTask", "Level Farming | " .. MonName .. " | Claiming Quest")
-                        if CaculateDistance(NpcPosition) > 10 then
+                        local targetNpcVec = (typeof(NpcPosition) == "CFrame" and NpcPosition.Position) or (typeof(NpcPosition) == "Vector3" and NpcPosition) or Vector3.new(0, 0, 0)
+                        TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
+                        SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Claiming Quest")
+                        if CaculateDistance(targetNpcVec) > 10 then
                             return
                         end
 
@@ -5518,22 +5584,26 @@ FunctionsHandler = {
             end
         )
 
-        local old
-
-        old =
-            hookfunction(
-            require(game.ReplicatedStorage.Notification).new,
-           newcclosure(function(a, b)
-                v21 = tostring(tostring(a or "") .. tostring(b or "")) or ""
-
-                getgenv().NotificationCallBack(v21)
-
-                return {
-                    Display = function() end  
-                }
-                --return old(a, b)
+        pcall(function()
+            if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" then
+                local notifModule = game.ReplicatedStorage:FindFirstChild("Notification")
+                if notifModule then
+                    local notif = require(notifModule)
+                    if notif and notif.new then
+                        local old
+                        old = hookfunction(notif.new, newcclosure(function(a, b)
+                            v21 = tostring(tostring(a or "") .. tostring(b or "")) or ""
+                            if typeof(getgenv().NotificationCallBack) == "function" then
+                                getgenv().NotificationCallBack(v21)
+                            end
+                            return {
+                                Display = function() end  
+                            }
+                        end))
+                    end
+                end
             end
-        ))
+        end)
 
      
         if SeaIndex ~= 1 then
@@ -5699,20 +5769,29 @@ FunctionsHandler = {
         end
 
         function Storage.Save(Self)
-            writefile(StoragePath, Encode(Self.Data))
+            pcall(function()
+                if typeof(writefile) == "function" then
+                    writefile(StoragePath, Encode(Self.Data))
+                end
+            end)
         end
 
-        if not isfile(StoragePath) then
-            writefile(StoragePath, "{}")
-            task.wait(1)
-        end
+        pcall(function()
+            if typeof(isfile) == "function" and typeof(writefile) == "function" then
+                if not isfile(StoragePath) then
+                    writefile(StoragePath, "{}")
+                    task.wait(0.5)
+                end
+            end
+        end)
 
         Storage.Data = {}
 
-        --Report(readfile(StoragePath))
         pcall(
             function()
-                Storage.Data = Decode(readfile(StoragePath) or "{}")
+                if typeof(readfile) == "function" and (typeof(isfile) ~= "function" or isfile(StoragePath)) then
+                    Storage.Data = Decode(readfile(StoragePath) or "{}")
+                end
             end
         )
 
@@ -5724,10 +5803,17 @@ FunctionsHandler = {
             end
         )
         CreateTraceback("Initalize", "Initalizing script...")
-        for _, Connection in getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame.FastMode.FirstButton.Activated
-        ) do
-            Connection.Function()
-        end
+        pcall(function()
+            if typeof(getconnections) == "function" then
+                local lp = game:GetService("Players").LocalPlayer
+                local fastModeBtn = lp and lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("Main") and lp.PlayerGui.Main:FindFirstChild("SettingsMenu") and lp.PlayerGui.Main.SettingsMenu:FindFirstChild("Content") and lp.PlayerGui.Main.SettingsMenu.Content:FindFirstChild("ScrollingFrame") and lp.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame:FindFirstChild("FastMode") and lp.PlayerGui.Main.SettingsMenu.Content.ScrollingFrame.FastMode:FindFirstChild("FirstButton")
+                if fastModeBtn and fastModeBtn:FindFirstChild("Activated") then
+                    for _, Connection in getconnections(fastModeBtn.Activated) do
+                        pcall(Connection.Function)
+                    end
+                end
+            end
+        end)
       
         function boostfps()
             local Terrain = workspace:FindFirstChildOfClass('Terrain')
