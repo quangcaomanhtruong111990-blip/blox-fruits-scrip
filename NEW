@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.22 (PERFECT TWEEN & CONTINUOUS AUTO FARM)"
+        NameHub.Text = "sanglove v1.23 (ULTRA SMOOTH NOCLIP & ZERO JITTER FLY)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2405,13 +2405,19 @@ ScriptStorage = {
             end
         end)
         local function NoclipLoop()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if hrp and hrp.CanCollide then
-                    hrp.CanCollide = false
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                    for _, part in pairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") and part.CanCollide then
+                            part.CanCollide = false
+                        end
+                    end
+                    if char.Humanoid.Sit then
+                        char.Humanoid.Sit = false
+                    end
                 end
-            end
+            end)
         end
         Noclipping = game:GetService("RunService").Stepped:Connect(NoclipLoop)
         function GetPortal(Position)
@@ -2567,16 +2573,16 @@ ScriptStorage = {
                 end
             end)
         
-            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG AN TOÀN (BodyVelocity)
+            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG AN TOÀN (BodyVelocity chống rung giật và triệt tiêu trọng lực)
             local bv = RootPart:FindFirstChild("BocchiBV") or RootPart:FindFirstChild("eltrul")
             if not bv then
                 bv = Instance.new("BodyVelocity")
                 bv.Name = "BocchiBV"
-                bv.MaxForce = Vector3.zero
+                bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
                 bv.Velocity = Vector3.zero
                 bv.Parent = RootPart
             else
-                bv.MaxForce = Vector3.zero
+                bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
                 bv.Velocity = Vector3.zero
             end
 
