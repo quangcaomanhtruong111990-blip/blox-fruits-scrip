@@ -296,7 +296,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.14 (UNIVERSAL)"
+        NameHub.Text = "sanglove v1.16 (FIXED ALL)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2082,29 +2082,27 @@ ScriptStorage = {
             }
         }
 
-        local guideMod = game.ReplicatedStorage:FindFirstChild("GuideModule")
-        local reqGuide = safe_require(guideMod, 1.5)
-        local NpcList = (reqGuide and reqGuide.Data and reqGuide.Data.NPCList) or {}
+        local NpcList = {}
+        QuestManager.Quests = {}
 
-        -- Đợi dữ liệu nhân vật load hoặc timeout 5s để không kẹt luồng
-        local dataTimeout = tick() + 5
-        repeat
-            task.wait(0.2)
-            local lp = game.Players.LocalPlayer
-            local isDataReady = lp and (
-                (lp:FindFirstChild("Data") and lp.Data:FindFirstChild("Level"))
-                or (lp:GetAttribute("DataLoaded") == true)
-                or (rawget(lp, "DataLoaded") == true)
-                or (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level)
-            )
-            if isDataReady and ScriptStorage then
-                break
-            end
-        until tick() > dataTimeout
+        task.spawn(function()
+            pcall(function()
+                local guideMod = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
+                if guideMod and guideMod:IsA("ModuleScript") then
+                    local reqGuide = require(guideMod)
+                    NpcList = (reqGuide and reqGuide.Data and reqGuide.Data.NPCList) or {}
+                end
+            end)
+        end)
 
-        local questsMod = game.ReplicatedStorage:FindFirstChild("Quests")
-        local QuestsRes = safe_require(questsMod, 1.5)
-        QuestManager.Quests = QuestsRes or {}
+        task.spawn(function()
+            pcall(function()
+                local questsMod = game:GetService("ReplicatedStorage"):FindFirstChild("Quests")
+                if questsMod and questsMod:IsA("ModuleScript") then
+                    QuestManager.Quests = require(questsMod) or {}
+                end
+            end)
+        end)
 
         function QuestManager.Set(Self, Index, Value)
             Self[Index] = Value
@@ -2266,16 +2264,17 @@ ScriptStorage = {
             end
         end)
         local function NoclipLoop()
-            speaker = LocalPlayer
-            if speaker.Character ~= nil then
-                for _, child in pairs(speaker.Character:GetDescendants()) do
-                    if child:IsA("BasePart") and child.CanCollide == true and child.Name ~= nil then
-                        child.CanCollide = false
+            local char = LocalPlayer.Character
+            if char then
+                for _, name in ipairs({"HumanoidRootPart", "UpperTorso", "LowerTorso", "Torso", "Head"}) do
+                    local part = char:FindFirstChild(name)
+                    if part and part:IsA("BasePart") then
+                        part.CanCollide = false
                     end
                 end
             end
         end
-        Noclipping = Services.RunService.Stepped:Connect(NoclipLoop)
+        Noclipping = game:GetService("RunService").Stepped:Connect(NoclipLoop)
         function GetPortal(Position)
             local Nearest, Current = 9e9, nil
             for _, Portal in Portals do
@@ -2401,47 +2400,48 @@ ScriptStorage = {
         
             -- Chuyển đổi Position sang CFrame nếu cần
             local TargetCFrame = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
-            -- Chỉ giữ lại tọa độ Position, loại bỏ Rotation để tránh xoay người ảo
             TargetCFrame = CFrame.new(TargetCFrame.Position)
         
             local RootPart = Character.HumanoidRootPart
             local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
         
-            -- 2. CHỐNG GIẬT (Smarter Check)
-            -- Nếu đang có Tween chạy và mục tiêu mới quá gần mục tiêu cũ, hoặc nhân vật đã gần đích -> Bỏ qua
+            -- 2. CHỐNG GIẬT
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
-                if CurrentDist < 5 then return end -- Đã đủ gần, không cần tạo thêm
+                if CurrentDist < 5 then return end
             end
         
             TweenController._isCreating = true
         
-            -- 3. XỬ LÝ NOCLIP (An toàn tuyệt đối cho v1.08)
+            -- 3. XỬ LÝ NOCLIP VÀ GIỮ VỮNG NHÂN VẬT
             pcall(function()
-                for _, part in ipairs(Character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+                Character.Humanoid.PlatformStand = true
+                for _, name in ipairs({"HumanoidRootPart", "UpperTorso", "LowerTorso", "Torso", "Head"}) do
+                    local p = Character:FindFirstChild(name)
+                    if p and p:IsA("BasePart") then
+                        p.CanCollide = false
                     end
                 end
             end)
         
-            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG (BodyVelocity)
-            local head = Character:FindFirstChild("Head")
-            if head and not head:FindFirstChild("eltrul") then
-                local bv = Instance.new("BodyVelocity")
-                bv.Name = "eltrul"
-                bv.MaxForce = Vector3.new(0, math.huge, 0)
+            -- 4. GIỮ NHÂN VẬT TRÊN KHÔNG AN TOÀN (BodyVelocity)
+            local bv = RootPart:FindFirstChild("BocchiBV") or RootPart:FindFirstChild("eltrul")
+            if not bv then
+                bv = Instance.new("BodyVelocity")
+                bv.Name = "BocchiBV"
+                bv.MaxForce = Vector3.zero
                 bv.Velocity = Vector3.zero
-                bv.Parent = head
+                bv.Parent = RootPart
+            else
+                bv.MaxForce = Vector3.zero
+                bv.Velocity = Vector3.zero
             end
-        
-            -- 5. LOGIC DI CHUYỂN ĐẶC BIỆT (Sea 3 Submarine / Portals)
-            if CurrentDist > 500 then
-                if SeaIndex ~= 3 then
-                    GetPortal(TargetCFrame)
-                end
-            end
-        
-            -- Kiểm tra di chuyển sang Submerged Island (Sea 3)
+
+            pcall(function()
+                RootPart.AssemblyLinearVelocity = Vector3.zero
+                RootPart.AssemblyAngularVelocity = Vector3.zero
+            end)
+
+            -- 5. LOGIC DI CHUYỂN ĐẶC BIỆT (Sea 3 Submarine)
             if SeaIndex == 3 and TargetCFrame.Position.Y < -1500 then
                 local SubmarinePos = CFrame.new(-16269, 23, 1371)
                 if (RootPart.Position - SubmarinePos.Position).Magnitude > 60 then
@@ -2450,34 +2450,46 @@ ScriptStorage = {
                     return
                 end
                 pcall(function()
-                    local netModule = safe_require(game.ReplicatedStorage.Modules.Net, 1)
-                    if netModule and netModule.RemoteFunction then
-                        netModule:RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
+                    local netModule = game.ReplicatedStorage:FindFirstChild("Modules") and game.ReplicatedStorage.Modules:FindFirstChild("Net")
+                    if netModule and netModule:IsA("ModuleScript") then
+                        local reqNet = require(netModule)
+                        if reqNet and reqNet.RemoteFunction then
+                            reqNet:RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
+                        end
                     end
                 end)
                 TweenController._isCreating = false
                 return
             end
-        
+
             -- 6. THỰC THI TWEEN
-            -- Hủy Tween cũ trước khi tạo mới
             if TweenInstance then
                 TweenInstance:Cancel()
             end
-        
-            -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (75)
+
             local Speed = (CurrentDist < 18) and 25 or 75
             local Time = CurrentDist / Speed
-        
-            TweenInstance = Services.TweenService:Create(
+
+            local tweenService = game:GetService("TweenService")
+            TweenInstance = tweenService:Create(
                 RootPart,
                 TweenInfo.new(Time, Enum.EasingStyle.Linear),
                 {CFrame = TargetCFrame}
             )
             
+            TweenInstance.Completed:Connect(function()
+                if bv and bv.Parent then
+                    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                    bv.Velocity = Vector3.zero
+                end
+                pcall(function()
+                    RootPart.AssemblyLinearVelocity = Vector3.zero
+                    RootPart.AssemblyAngularVelocity = Vector3.zero
+                end)
+            end)
+
             TweenInstance:Play()
         
-            -- Reset flag sau một khoảng thời gian ngắn để tránh spam
             task.delay(0.1, function()
                 TweenController._isCreating = false
             end)
@@ -2650,30 +2662,30 @@ ScriptStorage = {
                 return
             end
 
-            local args = {
-                [1] = nil,
-                [2] = {},
-                [4] = "078da341"
-            }
-            for r, v in pairs(bladehits) do
+            pcall(function()
                 if RegisterAttack then
-                    pcall(function() RegisterAttack:FireServer(0) end)
+                    RegisterAttack:FireServer(0)
                 end
-                if not args[1] then
-                    args[1] = v.Head
+            end)
+
+            local targetHead = nil
+            local targetsTable = {}
+            for r, v in pairs(bladehits) do
+                if not targetHead and v:FindFirstChild("Head") then
+                    targetHead = v.Head
                 end
-                table.insert(
-                    args[2],
-                    {
+                if v:FindFirstChild("HumanoidRootPart") then
+                    table.insert(targetsTable, {
                         [1] = v,
                         [2] = v.HumanoidRootPart
-                    }
-                )
-                table.insert(args[2], v)
+                    })
+                end
             end
 
-            if RegisterHit then
-                pcall(function() RegisterHit:FireServer(unpack(args)) end)
+            if RegisterHit and targetHead and #targetsTable > 0 then
+                pcall(function()
+                    RegisterHit:FireServer(targetHead, targetsTable)
+                end)
             end
         end
 
