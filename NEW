@@ -296,7 +296,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v2 (FIXED)"
+        NameHub.Text = "sanglove v1.14 (UNIVERSAL)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -794,6 +794,26 @@ end)
                 pcall(delfile, "fluent.lua")
             end
         end)
+
+        -- Hàm require an toàn chống treo luồng trên Solara / PC Executor
+        local function safe_require(module, timeout)
+            if not module then return nil end
+            local result = nil
+            local done = false
+            task.spawn(function()
+                pcall(function()
+                    result = require(module)
+                end)
+                done = true
+            end)
+            local maxWait = math.floor((timeout or 1.5) * 10)
+            local waited = 0
+            while not done and waited < maxWait do
+                task.wait(0.1)
+                waited = waited + 1
+            end
+            return result
+        end
         alert("Bocchi Hub", "Kaitun Loaded Successfully!")
 
         local CDN_HOST = ""
@@ -900,7 +920,7 @@ ScriptStorage = {
             if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" then
                 local reparentModule = game.ReplicatedStorage:FindFirstChild("Reparent")
                 if reparentModule then
-                    local reparent = require(reparentModule)
+                    local reparent = safe_require(reparentModule, 1)
                     if reparent and reparent.Unparent then
                         hookfunction(reparent.Unparent, newcclosure(function()
                             return function(...) end
@@ -2062,13 +2082,12 @@ ScriptStorage = {
             }
         }
 
-        local okNpcList, NpcListRes = pcall(function()
-            return require(game.ReplicatedStorage.GuideModule).Data.NPCList
-        end)
-        local NpcList = okNpcList and NpcListRes or {}
+        local guideMod = game.ReplicatedStorage:FindFirstChild("GuideModule")
+        local reqGuide = safe_require(guideMod, 1.5)
+        local NpcList = (reqGuide and reqGuide.Data and reqGuide.Data.NPCList) or {}
 
-        -- Đợi dữ liệu nhân vật load hoặc timeout 10s để không kẹt luồng
-        local dataTimeout = tick() + 10
+        -- Đợi dữ liệu nhân vật load hoặc timeout 5s để không kẹt luồng
+        local dataTimeout = tick() + 5
         repeat
             task.wait(0.2)
             local lp = game.Players.LocalPlayer
@@ -2083,10 +2102,9 @@ ScriptStorage = {
             end
         until tick() > dataTimeout
 
-        local okQuests, QuestsRes = pcall(function()
-            return require(game.ReplicatedStorage.Quests)
-        end)
-        QuestManager.Quests = okQuests and QuestsRes or {}
+        local questsMod = game.ReplicatedStorage:FindFirstChild("Quests")
+        local QuestsRes = safe_require(questsMod, 1.5)
+        QuestManager.Quests = QuestsRes or {}
 
         function QuestManager.Set(Self, Index, Value)
             Self[Index] = Value
@@ -2146,8 +2164,8 @@ ScriptStorage = {
 
                     local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
                     if guideModule then
-                        local okModule, guideData = pcall(function() return require(guideModule) end)
-                        if okModule and guideData and guideData.Data and guideData.Data.NPCList then
+                        local guideData = safe_require(guideModule, 1)
+                        if guideData and guideData.Data and guideData.Data.NPCList then
                             for i, v in pairs(guideData.Data.NPCList) do
                                 if v and v.Levels and CurrentQuestData[#CurrentQuestData] then
                                     for _, v1 in pairs(v.Levels) do
@@ -2432,7 +2450,10 @@ ScriptStorage = {
                     return
                 end
                 pcall(function()
-                    require(game.ReplicatedStorage.Modules.Net):RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
+                    local netModule = safe_require(game.ReplicatedStorage.Modules.Net, 1)
+                    if netModule and netModule.RemoteFunction then
+                        netModule:RemoteFunction("SubmarineWorkerSpeak"):InvokeServer("TravelToSubmergedIsland")
+                    end
                 end)
                 TweenController._isCreating = false
                 return
@@ -2604,8 +2625,8 @@ ScriptStorage = {
 
         pcall(function()
             if Net and Net:IsA("ModuleScript") and (not RegisterAttack or not RegisterHit) then
-                local okNet, reqNet = pcall(function() return require(Net) end)
-                if okNet and type(reqNet) == "table" and type(reqNet.RemoteEvent) == "function" then
+                local reqNet = safe_require(Net, 1)
+                if reqNet and type(reqNet) == "table" and type(reqNet.RemoteEvent) == "function" then
                     if not RegisterAttack then
                         pcall(function() RegisterAttack = reqNet:RemoteEvent("RegisterAttack", true) end)
                     end
@@ -3162,12 +3183,13 @@ FunctionsHandler = {
                                     }
                                 )
 
-                                if Self.Constants[Key] then
-                                    function Result.SaveConstant(Self, Key, Value)
+                                function Result.SaveConstant(Self, Key, Value)
+                                    if Self and Self.Constants and Key and Self.Constants[Key] then
                                         return assert(false, "constant name was used before!")
                                     end
-
-                                    rawset(Self.Constants, Key, Value)
+                                    if Self and Self.Constants and Key then
+                                        rawset(Self.Constants, Key, Value)
+                                    end
                                 end
 
                                 function Result.Set(Self, Key, Value)
@@ -3966,7 +3988,7 @@ FunctionsHandler = {
                 if DF and CurrentFruit and CurrentFruit ~= "" then
                     local Data = FruitDataCache[CurrentFruit]
                     if not Data and DF:FindFirstChild("Data") then
-                        pcall(function() Data = require(DF.Data) end)
+                        Data = safe_require(DF.Data, 1)
                     end
                     if Data then
                         FruitDataCache[CurrentFruit] = Data
@@ -4539,7 +4561,7 @@ FunctionsHandler = {
                 pcall(function()
                     local raidsMod = game.ReplicatedStorage:FindFirstChild("Raids")
                     if raidsMod then
-                        local raidsData = require(raidsMod)
+                        local raidsData = safe_require(raidsMod, 1)
                         if raidsData and raidsData.raids then
                             for _, Raid in raidsData.raids do
                                 if ScriptStorage.PlayerData and ScriptStorage.PlayerData.DevilFruit and string.find(tostring(ScriptStorage.PlayerData.DevilFruit), Raid) then
@@ -5809,7 +5831,7 @@ FunctionsHandler = {
             if typeof(hookfunction) == "function" and typeof(newcclosure) == "function" then
                 local notifModule = game.ReplicatedStorage:FindFirstChild("Notification")
                 if notifModule then
-                    local notif = require(notifModule)
+                    local notif = safe_require(notifModule, 1)
                     if notif and notif.new then
                         local old
                         old = hookfunction(notif.new, newcclosure(function(a, b)
@@ -6499,6 +6521,7 @@ FunctionsHandler = {
     print("[Bocchi Hub] Starting mmb main function...")
     local success2, response2 = xpcall(mmb, debug.traceback)
     if not success2 then
+        pcall(function() print("[Bocchi Hub CRASH]", tostring(response2)) end)
         Report(response2)
         pcall(function()
             game:GetService("StarterGui"):SetCore("SendNotification", {
