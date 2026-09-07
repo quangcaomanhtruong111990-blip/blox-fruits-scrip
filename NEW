@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.20 (SPEED 170 & MOB FIX)"
+        NameHub.Text = "sanglove v1.22 (PERFECT TWEEN & CONTINUOUS AUTO FARM)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1959,27 +1959,50 @@ ScriptStorage = {
         function GetMonAsSortedRange()
             local Result = {}
             pcall(function()
+                local foundMap = {}
+                local function checkAdd(Mon)
+                    if Mon and Mon:IsA("Model") and not foundMap[Mon] then
+                        local hum = Mon:FindFirstChildOfClass("Humanoid")
+                        local hrp = Mon:FindFirstChild("HumanoidRootPart") or Mon.PrimaryPart or Mon:FindFirstChild("Torso") or Mon:FindFirstChild("UpperTorso")
+                        if hum and hum.Health > 0 and hrp then
+                            if not game:GetService("Players"):GetPlayerFromCharacter(Mon) then
+                                foundMap[Mon] = true
+                                table.insert(Result, Mon)
+                            end
+                        end
+                    end
+                end
+
                 local enemies = workspace:FindFirstChild("Enemies")
                 if enemies then
                     for _, Mon in pairs(enemies:GetChildren()) do
-                        if Mon and Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and Mon.Humanoid.Health > 0 then
-                            table.insert(Result, Mon)
-                        end
+                        checkAdd(Mon)
+                    end
+                end
+
+                local characters = workspace:FindFirstChild("Characters")
+                if characters then
+                    for _, Mon in pairs(characters:GetChildren()) do
+                        checkAdd(Mon)
+                    end
+                end
+
+                for _, Mon in pairs(workspace:GetChildren()) do
+                    if Mon:IsA("Model") and Mon.Name ~= "Terrain" and not game:GetService("Players"):GetPlayerFromCharacter(Mon) then
+                        checkAdd(Mon)
                     end
                 end
 
                 local rep = game:GetService("ReplicatedStorage")
                 for _, Mon in pairs(rep:GetChildren()) do
-                    if Mon and Mon:IsA("Model") and Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and Mon.Humanoid.Health > 0 then
-                        table.insert(Result, Mon)
-                    end
+                    checkAdd(Mon)
                 end
 
                 table.sort(
                     Result,
                     function(C1, C2)
-                        local p1 = C1 and C1:FindFirstChild("HumanoidRootPart") and C1.HumanoidRootPart.CFrame
-                        local p2 = C2 and C2:FindFirstChild("HumanoidRootPart") and C2.HumanoidRootPart.CFrame
+                        local p1 = C1 and (C1:FindFirstChild("HumanoidRootPart") or C1.PrimaryPart) and (C1:FindFirstChild("HumanoidRootPart") or C1.PrimaryPart).CFrame
+                        local p2 = C2 and (C2:FindFirstChild("HumanoidRootPart") or C2.PrimaryPart) and (C2:FindFirstChild("HumanoidRootPart") or C2.PrimaryPart).CFrame
                         return CaculateDistance(p1) < CaculateDistance(p2)
                     end
                 )
@@ -2306,17 +2329,34 @@ ScriptStorage = {
 
         function QuestManager.AbandonQuest()
             print("Abandon quest")
-            Remotes.CommF_:InvokeServer("AbandonQuest")
+            pcall(function()
+                Remotes.CommF_:InvokeServer("AbandonQuest")
+            end)
         end
 
         function QuestManager.GetCurrentClaimQuest(RawResponse)
-            local QuestTitle =
-                game.Players.LocalPlayer.PlayerGui.Main.Quest.Visible and
-                game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text:gsub(
-                    "%s*Defeat%s*(%d*)%s*(.-)%s*%b()",
-                    "%2"
-                )
-            return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
+            local isVisible = false
+            local rawText = ""
+            pcall(function()
+                local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                isVisible = questGui and questGui.Visible
+                if isVisible then
+                    rawText = questGui.Container.QuestTitle.Title.Text
+                end
+            end)
+            if not isVisible then
+                return nil, nil
+            end
+            if RawResponse then
+                return isVisible, rawText
+            end
+            local QuestTitle = rawText:gsub("%s*Defeat%s*(%d*)%s*(.-)%s*%b()", "%2")
+            if QuestTitle == rawText then
+                QuestTitle = rawText:gsub("%s*Đánh bại%s*(%d*)%s*(.-)%s*%b()", "%2")
+                QuestTitle = QuestTitle:gsub("%s*Đánh bại%s*(%d*)%s*(.-)$", "%2")
+            end
+            QuestTitle = string.gsub(QuestTitle, "^%s*(.-)%s*$", "%1")
+            return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), rawText
         end
 
         function QuestManager.StartQuest(QuestId, QuestLevel)
@@ -2324,12 +2364,27 @@ ScriptStorage = {
         end
 
         ScriptStorage.MobRegions = {}
+        -- Dynamic Spawn Points Scanner for Sea 1, 2, 3
         pcall(function()
-            local folder = game:GetService("ReplicatedStorage"):FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
-            if folder then
-                for _, Region in pairs(folder:GetChildren()) do
-                    ScriptStorage.MobRegions[tostring(Region)] = ScriptStorage.MobRegions[tostring(Region)] or {}
-                    table.insert(ScriptStorage.MobRegions[tostring(Region)], Region.CFrame)
+            for _, rootObj in pairs({workspace:FindFirstChild("_WorldOrigin"), workspace, game:GetService("ReplicatedStorage")}) do
+                if rootObj then
+                    local spawns = rootObj:FindFirstChild("EnemySpawns") or rootObj:FindFirstChild("Locations")
+                    if spawns then
+                        for _, spawnPart in pairs(spawns:GetChildren()) do
+                            local name = spawnPart.Name
+                            local pos = spawnPart:IsA("BasePart") and spawnPart.Position or (spawnPart:IsA("Model") and (spawnPart.PrimaryPart and spawnPart.PrimaryPart.Position or spawnPart:GetModelCFrame().Position))
+                            if pos then
+                                ScriptStorage.MobRegions[name] = ScriptStorage.MobRegions[name] or {}
+                                table.insert(ScriptStorage.MobRegions[name], pos)
+                                if name == "Posessed Mummy" or name == "Possessed Mummy" then
+                                    ScriptStorage.MobRegions["Posessed Mummy"] = ScriptStorage.MobRegions["Posessed Mummy"] or {}
+                                    table.insert(ScriptStorage.MobRegions["Posessed Mummy"], pos)
+                                    ScriptStorage.MobRegions["Possessed Mummy"] = ScriptStorage.MobRegions["Possessed Mummy"] or {}
+                                    table.insert(ScriptStorage.MobRegions["Possessed Mummy"], pos)
+                                end
+                            end
+                        end
+                    end
                 end
             end
         end)
@@ -2477,7 +2532,7 @@ ScriptStorage = {
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
             if not Character or not Character:FindFirstChild("HumanoidRootPart") or not Character:FindFirstChild("Humanoid") then return end
-            if not Position or TweenDebounce or TweenController._isCreating then return end
+            if not Position or TweenDebounce then return end
             
             -- Chống bay khi đang chết
             if Character.Humanoid.Health <= 0 then return end
@@ -2489,12 +2544,17 @@ ScriptStorage = {
             local RootPart = Character.HumanoidRootPart
             local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
         
-            -- 2. CHỐNG GIẬT
+            -- 2. CHỐNG GIẬT / CHỐNG CANCEL LIÊN TỤC KHI ĐANG BAY TỚI CÙNG ĐÍCH
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
-                if CurrentDist < 5 then return end
+                if TweenController._CurrentTarget and (TweenController._CurrentTarget.Position - TargetCFrame.Position).Magnitude < 15 then
+                    return
+                end
+                if CurrentDist < 5 then
+                    return
+                end
             end
         
-            TweenController._isCreating = true
+            TweenController._CurrentTarget = TargetCFrame
         
             -- 3. XỬ LÝ NOCLIP VÀ GIỮ VỮNG NHÂN VẬT
             pcall(function()
@@ -2529,7 +2589,6 @@ ScriptStorage = {
             if SeaIndex == 3 and TargetCFrame.Position.Y < -1500 then
                 local SubmarinePos = CFrame.new(-16269, 23, 1371)
                 if (RootPart.Position - SubmarinePos.Position).Magnitude > 60 then
-                    TweenController._isCreating = false
                     TweenController.Create(SubmarinePos)
                     return
                 end
@@ -2542,16 +2601,15 @@ ScriptStorage = {
                         end
                     end
                 end)
-                TweenController._isCreating = false
                 return
             end
 
             -- 6. THỰC THI TWEEN
             if TweenInstance then
-                TweenInstance:Cancel()
+                pcall(function() TweenInstance:Cancel() end)
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 170
+            local Speed = (CurrentDist < 30) and 50 or 175
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -2562,6 +2620,7 @@ ScriptStorage = {
             )
             
             TweenInstance.Completed:Connect(function()
+                TweenController._CurrentTarget = nil
                 if bv and bv.Parent then
                     bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
                     bv.Velocity = Vector3.zero
@@ -2573,10 +2632,6 @@ ScriptStorage = {
             end)
 
             TweenInstance:Play()
-        
-            task.delay(0.1, function()
-                TweenController._isCreating = false
-            end)
         end
 
 
@@ -2826,6 +2881,7 @@ ScriptStorage = {
             ["Living Zombie"] = Vector3.new(-10150, 142, 5950),
             ["Demonic Soul"] = Vector3.new(-9500, 172, 6150),
             ["Posessed Mummy"] = Vector3.new(-9570, 6, 6150),
+            ["Possessed Mummy"] = Vector3.new(-9570, 6, 6150),
             ["Peanut Scout"] = Vector3.new(-2050, 38, -10450),
             ["Peanut President"] = Vector3.new(-2150, 38, -10650),
             ["Ice Cream Chef"] = Vector3.new(-650, 66, -11100),
@@ -3218,18 +3274,21 @@ CombatController = {
                         end)
                     end
 
-                    if Region then
+                    if Region and #Region > 0 then
                         LastFound = os.time()
                         if not Region[CombatController.CurrentIndex] then
                             CombatController.CurrentIndex = 1
                         end
 
-                        local CurrentPosition = Region[CombatController.CurrentIndex]
+                        local rawPos = Region[CombatController.CurrentIndex]
+                        local CurrentPosition = (typeof(rawPos) == "CFrame" and rawPos.Position) or (typeof(rawPos) == "Vector3" and rawPos) or Vector3.new()
                         TweenController.Create(CurrentPosition + Vector3.new(0, 35, 35))
-                        if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 35)) < 20 then
+                        if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 35)) < 25 then
                             CombatController.CurrentIndex = CombatController.CurrentIndex + 1
+                            if CombatController.CurrentIndex > #Region then
+                                CombatController.CurrentIndex = 1
+                            end
                         end
-                        -- Quan trọng: return ngay để không bị quái tiếp theo ghi đè hủy Tween bay
                         return
                     end
                 end
@@ -3368,13 +3427,28 @@ FunctionsHandler = {
         end
 
         function GetCurrentClaimQuest(RawResponse)
-            local QuestTitle =
-                game.Players.LocalPlayer.PlayerGui.Main.Quest.Visible and
-                game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text:gsub(
-                    "%s*Defeat%s*(%d*)%s*(.-)%s*%b()",
-                    "%2"
-                )
-            return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
+            local isVisible = false
+            local rawText = ""
+            pcall(function()
+                local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                isVisible = questGui and questGui.Visible
+                if isVisible then
+                    rawText = questGui.Container.QuestTitle.Title.Text
+                end
+            end)
+            if not isVisible then
+                return nil, nil
+            end
+            if RawResponse then
+                return isVisible, rawText
+            end
+            local QuestTitle = rawText:gsub("%s*Defeat%s*(%d*)%s*(.-)%s*%b()", "%2")
+            if QuestTitle == rawText then
+                QuestTitle = rawText:gsub("%s*Đánh bại%s*(%d*)%s*(.-)%s*%b()", "%2")
+                QuestTitle = QuestTitle:gsub("%s*Đánh bại%s*(%d*)%s*(.-)$", "%2")
+            end
+            QuestTitle = string.gsub(QuestTitle, "^%s*(.-)%s*$", "%1")
+            return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), rawText
         end
 
  
@@ -3700,26 +3774,32 @@ FunctionsHandler = {
                     )
 
                     if PlayerLevel >= 2200 then
-                        local IsAvailabe, CurrentClaimQuest2 = GetCurrentClaimQuest()
+                        local hasCakeQuest = false
+                        pcall(function()
+                            local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                            hasCakeQuest = questGui and questGui.Visible
+                        end)
 
-                        if IsAvailabe then
-                            if not string.find(CurrentClaimQuest2, "Cookie") then
-                                QuestManager.AbandonQuest()
-                            else
-                                Remotes.CommF_:InvokeServer("CakePrinceSpawner")
-                                return
-                            end
+                        if hasCakeQuest then
+                            Remotes.CommF_:InvokeServer("CakePrinceSpawner")
+                            CombatController.Attack(
+                                {
+                                    "Head Baker",
+                                    "Baking Staff",
+                                    "Cookie Crafter",
+                                    "Cake Guard"
+                                }
+                            )
+                            return
                         else
-                            print("Start Quest")
-
                             local cakeNpc = ScriptStorage.NPCs["Cake Quest Giver 1"] or workspace.NPCs:FindFirstChild("Cake Quest Giver 1") or game.ReplicatedStorage.NPCs:FindFirstChild("Cake Quest Giver 1")
                             local NpcPosition1 = cakeNpc and cakeNpc:GetModelCFrame() or CFrame.new(-2020, 38, -12025)
 
                             TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
                             if CaculateDistance(NpcPosition1) < 25 then
-                                task.wait(0.5)
+                                task.wait(0.3)
                                 QuestManager.StartQuest("CakeQuest1", 1)
-                                task.wait(0.5)
+                                task.wait(0.3)
                             end
                             return
                         end
@@ -3769,32 +3849,30 @@ FunctionsHandler = {
                 then
                     SetTask("MainTask", "Resource Farming | Bones | For X2 Mastery/Beli")
                     
+                    local hasBoneQuest = false
+                    pcall(function()
+                        local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                        hasBoneQuest = questGui and questGui.Visible
+                    end)
 
-                    CurrentClaimQuest3 = GetCurrentClaimQuest(true)
-
-                    if CurrentClaimQuest3 then
-                        if not string.find(tostring(CurrentClaimQuest3), "Demonic") and not string.find(tostring(CurrentClaimQuest3), "Mummy") then
-                            QuestManager.AbandonQuest()
-                            return
-                        else
-                            CombatController.Attack(
-                                {
-                                    "Demonic Soul",
-                                    "Posessed Mummy"
-                                }
-                            )
-                            return
-                        end
+                    if hasBoneQuest then
+                        CombatController.Attack(
+                            {
+                                "Demonic Soul",
+                                "Posessed Mummy",
+                                "Possessed Mummy"
+                            }
+                        )
+                        return
                     else
-                        print("StartQuest", CurrentClaimQuest3)
                         local npcModel = ScriptStorage.NPCs["Haunted Castle Quest Giver 2"] or workspace.NPCs:FindFirstChild("Haunted Castle Quest Giver 2") or game.ReplicatedStorage.NPCs:FindFirstChild("Haunted Castle Quest Giver 2")
                         local NpcPosition1 = npcModel and npcModel:GetModelCFrame() or CFrame.new(-9515, 142, 5520)
 
                         TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
                         if CaculateDistance(NpcPosition1) < 25 then
-                            task.wait(0.5)
+                            task.wait(0.3)
                             QuestManager.StartQuest("HauntedQuest2", 1)
-                            task.wait(0.5)
+                            task.wait(0.3)
                         end
                         return
                     end
@@ -3811,16 +3889,16 @@ FunctionsHandler = {
                     CombatController.Attack({"Royal Soldier", "Royal Squad"})
                 elseif Level == 4 then
                     local MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
-                    CurrentClaimQuest1 = GetCurrentClaimQuest()
-                    if CurrentClaimQuest1 then
-                        if CurrentClaimQuest1 ~= QuestTitle and CurrentClaimQuest1 ~= (QuestTitle .. "s") then
-                            AbandonedCount = AbandonedCount and AbandonedCount + 1 or 0
-                            if AbandonedCount > 20 then 
-                            SafeRejoinOrHop("Rejoin")
-                            end
-                            alert("Abandon Quest", CurrentClaimQuest1 or '' .. ' / ' .. QuestTitle or '')
-                            return QuestManager.AbandonQuest()
-                        end
+                    local hasActiveQuest = false
+                    pcall(function()
+                        local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                        hasActiveQuest = questGui and questGui.Visible
+                    end)
+                    if hasActiveQuest then
+                        SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Defeating Enemies")
+                        local AttackTime1 = os.time()
+                        CombatController.Attack(MonName)
+                        LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
                     else
                         if not NpcPosition then
                             QuestManager:RefreshQuest()
@@ -3840,18 +3918,10 @@ FunctionsHandler = {
                             return
                         end
 
-                        task.wait(2)
+                        task.wait(1)
                         LevelFarmTTL = 0
                         QuestManager.StartQuest(QuestId, QuestIndex)
-                        task.wait(1)
-                    end
-
-                    SetTask("MainTask", "Level Farming | " .. MonName .. " | Defeating Enemies")
-                    local AttackTime1 = os.time()
-                    CombatController.Attack(MonName)
-                    LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
-                    if LevelFarmTTL > 160 then
-                    -- Hop("Level TTL is bigger than 160, hop")
+                        task.wait(0.5)
                     end
                 end
             end
