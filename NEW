@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "TÔ MÌ BÒ"
+        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3244,11 +3244,11 @@ CombatController = {
                                 end
                             end
                          
-                            if not (FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")) and not CheckSpecialMicrochip() then
+                            pcall(function()
                                 FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
                                     ScriptStorage.ForceToUseSword and "Sword" or "Melee"
                                 )
-                            end
+                            end)
 
                             AttackController:Attack(MonResult)
                             if os.time() ~= Debounce then
@@ -3973,12 +3973,27 @@ FunctionsHandler = {
                 end
 
                 for _, Item in LocalPlayer.Backpack:GetChildren() do
-                    if
-                        Item:IsA("Tool") and Item.Name ~= "Tool" and
-                            (Item.Name == tostring(Tool) or Item.ToolTip == Tool)
-                     then
-                        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                            LocalPlayer.Character.Humanoid:EquipTool(Item)
+                    if Item:IsA("Tool") and Item.Name ~= "Tool" then
+                        local toolName = tostring(Tool)
+                        local match = false
+                        if Item.Name == toolName or Item.ToolTip == toolName then
+                            match = true
+                        elseif toolName == "Melee" then
+                            if Item.ToolTip == "Melee" or Item.Name == "Combat" or 
+                               (ScriptStorage.CurrentMeleeData and ScriptStorage.CurrentMeleeData.Name == Item.Name) then
+                                match = true
+                            else
+                                local meleeList = {"Black Leg", "Electro", "Fishman Karate", "Dragon Claw", "Superhuman", "Death Step", "Electric Claw", "Sharkman Karate", "Dragon Talon", "Godhuman", "SanguineArt", "Combat"}
+                                if table.find(meleeList, Item.Name) then
+                                    match = true
+                                end
+                            end
+                        end
+
+                        if match then
+                            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                                LocalPlayer.Character.Humanoid:EquipTool(Item)
+                            end
                         end
                     end
                 end
@@ -4270,6 +4285,19 @@ FunctionsHandler = {
                         if not Config.Items.AutoFullyMelees then
                             break
                         end
+
+                        local skipThis = false
+                        if SeaIndex == 1 then
+                            if Melee == "Superhuman" or Melee == "Death Step" or Melee == "Sharkman Karate" or Melee == "Dragon Talon" or Melee == "Electric Claw" or Melee == "Godhuman" then
+                                skipThis = true
+                            end
+                        elseif SeaIndex == 2 then
+                            if Melee == "Dragon Talon" or Melee == "Electric Claw" or Melee == "Godhuman" then
+                                skipThis = true
+                            end
+                        end
+
+                        if not skipThis then
                         Data = MeleePrices[Melee]
                         CanPurchaseLastCheck = CanPurchaseLastCheck or {}
                         local lastCheck = CanPurchaseLastCheck[Melee] or 0
@@ -4348,11 +4376,13 @@ FunctionsHandler = {
                                         ValuementPassed = false
 
                                         if not ScriptStorage.Melees[Melee] and not ScriptStorage.Tools[Melee] then
-                                            MSet = true
-                                            SetTask(
-                                                "SubTask",
-                                                "Farming Until Enough " .. Index .. " ( " .. Value .. " ) For " .. Melee
-                                            )
+                                            if SeaIndex > 1 or (Melee == "Black Leg" or Melee == "Electro" or Melee == "Fishman Karate") then
+                                                MSet = true
+                                                SetTask(
+                                                    "SubTask",
+                                                    "Farming Until Enough " .. Index .. " ( " .. Value .. " ) For " .. Melee
+                                                )
+                                            end
                                         end
                                         ScriptStorage.IsGettingMelee = false
                                     end
@@ -4423,6 +4453,7 @@ FunctionsHandler = {
                             end
                         elseif not FirstCall then
                             MeleeLastCursor = Cursor + 1
+                        end
                         end
                     end
                 end
@@ -4905,6 +4936,9 @@ FunctionsHandler = {
         FunctionsHandler.RaidController:RegisterMethod(
             "GetCurrentRaidIsland",
             function()
+                if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    return nil
+                end
                 PlayerPosition = LocalPlayer.Character.HumanoidRootPart.CFrame
                 IslandsList = {{}, {}, {}, {}, {}}
 
@@ -4921,15 +4955,50 @@ FunctionsHandler = {
                     end
                 end
 
-                if true then
-                    for Index = 5, 1, -1 do
+                -- 1. Check active enemies near island
+                local enemies = workspace:FindFirstChild("Enemies")
+                if enemies then
+                    for Index = 1, 5 do
                         for _, Island in IslandsList[Index] do
-                            if CaculateDistance(Island.Position) < 2000 then
-                                return Island
+                            for _, Mon in pairs(enemies:GetChildren()) do
+                                local hrp = Mon:FindFirstChild("HumanoidRootPart") or Mon.PrimaryPart
+                                local hum = Mon:FindFirstChildOfClass("Humanoid")
+                                if hrp and hum and hum.Health > 0 then
+                                    if (hrp.Position - Island.Position).Magnitude < 400 then
+                                        return Island
+                                    end
+                                end
                             end
                         end
                     end
                 end
+
+                -- 2. Fallback: check player proximity (Index 1 to 5)
+                for Index = 1, 5 do
+                    for _, Island in IslandsList[Index] do
+                        if CaculateDistance(Island.Position) < 2500 then
+                            return Island
+                        end
+                    end
+                end
+
+                -- 3. Closest island fallback
+                local closestIsland = nil
+                local minDist = math.huge
+                for Index = 1, 5 do
+                    for _, Island in IslandsList[Index] do
+                        local dist = CaculateDistance(Island.Position)
+                        if dist < minDist then
+                            minDist = dist
+                            closestIsland = Island
+                        end
+                    end
+                end
+                if minDist < 5000 then
+                    return closestIsland
+                end
+
+                return nil
             end
         )
 
