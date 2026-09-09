@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "Thèm Bánh Bao 2 Trứng"
+        NameHub.Text = "THÍCH VÚ BỰ"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
