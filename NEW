@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "THÍCH VÚ BỰ"
+        NameHub.Text = "TÔ MÌ BÒ"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2852,9 +2852,6 @@ ScriptStorage = {
                     pcall(
                         function()
                             Funcs:Attack()
-                            local VirtualUser = game:GetService("VirtualUser")
-                            VirtualUser:CaptureController()
-                            VirtualUser:ClickButton1(Vector2.new(0,0))
                         end
                     )
                 end
@@ -3247,9 +3244,11 @@ CombatController = {
                                 end
                             end
                          
-                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
+                            if not (FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")) and not CheckSpecialMicrochip() then
+                                FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
                                     ScriptStorage.ForceToUseSword and "Sword" or "Melee"
                                 )
+                            end
 
                             AttackController:Attack(MonResult)
                             if os.time() ~= Debounce then
@@ -4324,6 +4323,10 @@ FunctionsHandler = {
                             end
                         end
 
+                        if ScriptStorage.Tools[Melee] and not ScriptStorage.Melees[Melee] then
+                            ScriptStorage.Melees[Melee] = 0
+                        end
+
                         if
                             not ScriptStorage.Melees[Melee] or
                                 (ScriptStorage.Melees[Melee] or 0) < Data.NextLevelRequirement
@@ -4334,16 +4337,17 @@ FunctionsHandler = {
 
                             if not MeleeId then
                                 ScriptStorage.IsGettingMelee = false
-                                return print("[ Debug ] Failed to get melee id of", Melee)
+                                print("[ Debug ] Failed to get melee id of", Melee)
+                                ValuementPassed = false
                             end
 
                             MSet = false
-                            if not CanMeleePurchaseable then
+                            if ValuementPassed and not CanMeleePurchaseable then
                                 for Index, Value in Data.Price do
                                     if PlayerData[Index] < Value and not FirstCall then
                                         ValuementPassed = false
 
-                                        if not ScriptStorage.Melees[Melee] then
+                                        if not ScriptStorage.Melees[Melee] and not ScriptStorage.Tools[Melee] then
                                             MSet = true
                                             SetTask(
                                                 "SubTask",
@@ -4351,68 +4355,69 @@ FunctionsHandler = {
                                             )
                                         end
                                         ScriptStorage.IsGettingMelee = false
-                                        return
                                     end
                                 end
                             end
 
-                            if
-                                not MSet and ScriptStorage.Melees[Melee] and
-                                    ScriptStorage.Melees[Melee] < Data.NextLevelRequirement
-                             then
-                                SetTask(
-                                    "SubTask",
-                                    "Farming Until Enough Mastery For " ..
-                                        Melee ..
-                                            " ( " ..
-                                                ScriptStorage.Melees[Melee] ..
-                                                    " / " .. Data.NextLevelRequirement .. " )."
-                                )
-                                -- Luôn attack ĐỂ TĂNG MASTERY, bất kể đã sở hữu melee chưa
-                                CombatController.Attack(Melee)
-                                -- Chỉ mua nếu chưa có — KHÔNG block raid khi farm mastery
-                                if not ScriptStorage.Tools[Melee] then
-                                    print("no m1 found, buy")
-                                    ScriptStorage.IsGettingMelee = true  -- block raid CHỈ khi đang mua
-                                    Data.Buy()
-                                    ScriptStorage.IsGettingMelee = false  -- clear ngay sau khi mua xong
-                                end
-                                -- KHÔNG set IsGettingMelee khi chỉ farm mastery — raid vẫn chạy bình thường
-                                return
-                            end
-
-                            if not FirstCall then
-                                if ValuementPassed and Data.Requirements() and not ScriptStorage.Tools[Melee] then
-                                    if Melee == "Dragon Talon" and not IsFireEssenceGave then
-                                        alert("IsFireEssenceGave", tostring(IsFireEssenceGave))
-                                        ScriptStorage.IsGettingMelee = false
-                                        return SetTask("SubTask", "Waiting until have fire essence for dragon talon.")
-                                    end
-
-                                    ScriptStorage.IsGettingMelee = true  -- Set flag to block raid
-                                    Data.Buy()
-                                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                            if ValuementPassed then
+                                if
+                                    not MSet and ScriptStorage.Melees[Melee] and
+                                        ScriptStorage.Melees[Melee] < Data.NextLevelRequirement
+                                 then
+                                    SetTask(
+                                        "SubTask",
+                                        "Farming Until Enough Mastery For " ..
+                                            Melee ..
+                                                " ( " ..
+                                                    ScriptStorage.Melees[Melee] ..
+                                                        " / " .. Data.NextLevelRequirement .. " )."
+                                    )
+                                    -- Luôn attack ĐỂ TĂNG MASTERY, bất kể đã sở hữu melee chưa
+                                    CombatController.Attack(Melee)
+                                    -- Chỉ mua nếu chưa có — KHÔNG block raid khi farm mastery
                                     if not ScriptStorage.Tools[Melee] then
-                                        task.wait()
-                                        if not ScriptStorage.Tools[Melee] then
-                                            if ((Melee == "Death Step" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyDeathStep", true) ==  3)  or
-                                            (Melee == "Sharkman Karate" and
-                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "string" or (
-                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
-                                                alert("Go Back To Second Sea", "Water Key / Library Key")
+                                        print("no m1 found, buy")
+                                        ScriptStorage.IsGettingMelee = true  -- block raid CHỈ khi đang mua
+                                        Data.Buy()
+                                        ScriptStorage.IsGettingMelee = false  -- clear ngay sau khi mua xong
+                                    end
+                                    -- KHÔNG set IsGettingMelee khi chỉ farm mastery — raid vẫn chạy bình thường
+                                    return
+                                end
 
-                                                Remotes.CommF_:InvokeServer("TravelDressrosa")
-                                            end
-                                            ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
+                                if not FirstCall then
+                                    if Data.Requirements() and not ScriptStorage.Tools[Melee] then
+                                        if Melee == "Dragon Talon" and not IsFireEssenceGave then
+                                            alert("IsFireEssenceGave", tostring(IsFireEssenceGave))
+                                            ScriptStorage.IsGettingMelee = false
+                                            SetTask("SubTask", "Waiting until have fire essence for dragon talon.")
                                         else
-                                            MeleeLastCursor = Cursor + 1
-                                            ScriptStorage.IsGettingMelee = false  -- Clear flag on success
-                                            return
+                                            ScriptStorage.IsGettingMelee = true  -- Set flag to block raid
+                                            Data.Buy()
+                                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                                            if not ScriptStorage.Tools[Melee] then
+                                                task.wait()
+                                                if not ScriptStorage.Tools[Melee] then
+                                                    if ((Melee == "Death Step" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyDeathStep", true) ==  3)  or
+                                                    (Melee == "Sharkman Karate" and
+                                                    type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "string" or (
+                                                    type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
+                                                        alert("Go Back To Second Sea", "Water Key / Library Key")
+
+                                                        Remotes.CommF_:InvokeServer("TravelDressrosa")
+                                                    end
+                                                    ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
+                                                else
+                                                    MeleeLastCursor = Cursor + 1
+                                                    ScriptStorage.IsGettingMelee = false  -- Clear flag on success
+                                                    return
+                                                end
+                                            else
+                                                MeleeLastCursor = Cursor + 1
+                                                ScriptStorage.IsGettingMelee = false  -- Clear flag on success
+                                                return
+                                            end
                                         end
-                                    else
-                                        MeleeLastCursor = Cursor + 1
-                                        ScriptStorage.IsGettingMelee = false  -- Clear flag on success
-                                        return
                                     end
                                 end
                             end
@@ -5221,11 +5226,9 @@ FunctionsHandler = {
                                     _G.FastAttackTick = os.clock()
                                     pcall(function()
                                         if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
-                                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+       
                                         end
-                                        local VirtualUser = game:GetService("VirtualUser")
-                                        VirtualUser:CaptureController()
-                                        VirtualUser:ClickButton1(Vector2.new(0,0))
+                                        -- Removed VirtualUser click simulation
                                     end)
                                     CombatController.Attack(Mon.Name)
                                     
@@ -5451,7 +5454,6 @@ FunctionsHandler = {
 
                     Data = MeleePrices["Electric Claw"]
                     Data.Buy(1)
-                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                 elseif Type == "Uzoth" then
                     print("Use Fire Essence")
                     Remotes.CommF_:InvokeServer("BuyDragonTalon", true)
