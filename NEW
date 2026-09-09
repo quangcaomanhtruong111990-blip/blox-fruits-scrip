@@ -67,7 +67,7 @@ Config =
                 HopWhenIdle = false,
                 AutoHop = false,
                 AutoHopDelay = 60 * 60,
-                FpsBoost = true,
+                FpsBoost = false,
                 ["IdleCheck"] = 0, -- Tắt tự động Hop để tránh out game
             },
             Items = {
@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1378,6 +1378,34 @@ ScriptStorage = {
                                     LocalPlayer.Character:FindFirstChild(Child.Name).EatRemote:InvokeServer()
                                 end
                             end
+
+                            -- Kiểm tra nếu nhặt được trái rác thì đổi chip raid đánh luôn thay vì cất rương
+                            local HighFruits = {
+                                "Kitsune", "Dragon", "Leopard", "Spirit", "Control", "Venom", "Shadow", "Dough", 
+                                "T-Rex", "Mammoth", "Gravity", "Blizzard", "Pain", "Rumble", "Portal", "Phoenix", 
+                                "Sound", "Spider", "Love", "Buddha"
+                            }
+                            local isHighTier = false
+                            local checkName = origName or toolName
+                            for _, hName in ipairs(HighFruits) do
+                                if string.find(checkName, hName) then
+                                    isHighTier = true
+                                    break
+                                end
+                            end
+
+                            if not isHighTier then
+                                ThongBao("⚔️ NHẶT ĐƯỢC TRÁI RÁC", "Tiến hành đổi raid chip và đánh luôn!")
+                                pcall(function()
+                                    if FunctionsHandler.RaidController and FunctionsHandler.RaidController.Methods and FunctionsHandler.RaidController.Methods.Start then
+                                        task.spawn(function()
+                                            FunctionsHandler.RaidController.Methods.Start:Call()
+                                        end)
+                                    end
+                                end)
+                                return
+                            end
+
                             if origName or toolName then
                                 Remotes.CommF_:InvokeServer("StoreFruit", origName or toolName, Child)
                             end
@@ -5943,7 +5971,7 @@ FunctionsHandler = {
                     return
                 end
 
-                if ScriptStorage.Backpack.Yama then
+                if ScriptStorage.Backpack.Yama or (LocalPlayer.Backpack and LocalPlayer.Backpack:FindFirstChild("Yama")) or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Yama")) then
                     return
                 end
 
@@ -7039,8 +7067,10 @@ FunctionsHandler = {
         local function CatTraiVaoRuong()
             local daCat = false
             pcall(function()
-                -- Bỏ qua nếu đang load trái cho Trevor làm quest Don Swan hoặc đang mua Raid Chip
-                if (FunctionsHandler and FunctionsHandler.Trevor and FunctionsHandler.Trevor:Get("IsLoadingFruit")) or (ScriptStorage and ScriptStorage.IsBuyingRaidChip) then
+                -- Bỏ qua nếu đang load trái cho Trevor làm quest Don Swan hoặc đang mua Raid Chip / trong tiến trình Raid
+                if (FunctionsHandler and FunctionsHandler.Trevor and FunctionsHandler.Trevor:Get("IsLoadingFruit")) 
+                    or (ScriptStorage and ScriptStorage.IsBuyingRaidChip)
+                    or (FunctionsHandler and FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")) then
                     return
                 end
 
@@ -7086,6 +7116,12 @@ FunctionsHandler = {
 
         -- Hàm thực hiện Random Trái Ác Quỷ TỪ XA
         local function RandomTraiTuXa()
+            -- Khóa random hoặc cất trái nếu đang mua Raid Chip hoặc trong tiến trình Raid
+            if (ScriptStorage and ScriptStorage.IsBuyingRaidChip) 
+                or (FunctionsHandler and FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")) then
+                return
+            end
+
             -- Tự động cộng điểm stats nếu có
             if type(AddPoint) == "function" then
                 pcall(AddPoint)
@@ -7093,8 +7129,10 @@ FunctionsHandler = {
 
             ThongBao("🎲 RANDOM TRÁI", "Đang gửi lệnh quay ZiolesGacha từ xa...")
 
-            -- 1. Ưu tiên cất các trái đang có trong balo trước
-            CatTraiVaoRuong()
+            -- 1. Ưu tiên cất các trái đang có trong balo trước (trừ khi có trái rác cần đổi raid chip)
+            if not (FunctionsHandler.RaidController and FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()) then
+                CatTraiVaoRuong()
+            end
 
             -- 2. Thử quay qua CommF_ (Chuẩn truyền thống Blox Fruits)
             local CommF = (Remotes and Remotes.CommF_) or (game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_"))
@@ -7122,7 +7160,20 @@ FunctionsHandler = {
             if res then
                 ThongBao("🎉 PHẢN HỒI GACHA", tostring(res))
                 task.wait(1.5)
-                CatTraiVaoRuong()
+                -- Kiểm tra nếu có trái rác sau khi gacha, tiến hành đổi chip raid luôn thay vì cất rương
+                local raidableFruit = FunctionsHandler.RaidController and FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()
+                if raidableFruit then
+                    ThongBao("⚔️ ĐỔI RAID CHIP", "Random ra trái rác, tiến hành đổi chip raid và đánh luôn!")
+                    pcall(function()
+                        if FunctionsHandler.RaidController and FunctionsHandler.RaidController.Methods and FunctionsHandler.RaidController.Methods.Start then
+                            task.spawn(function()
+                                FunctionsHandler.RaidController.Methods.Start:Call()
+                            end)
+                        end
+                    end)
+                else
+                    CatTraiVaoRuong()
+                end
             else
                 ThongBao("⏳ THÔNG BÁO", "Không thể gacha (Có thể chưa đủ Beli hoặc đang trong 2h hồi chiêu)!")
             end
