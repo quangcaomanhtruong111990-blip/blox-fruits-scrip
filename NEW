@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
+        NameHub.Text = "đụ má mày"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -883,7 +883,10 @@ ScriptStorage = {
             TaskController = {},
             TracebackUpdater = {},
             Interface = Interface,
-            NPCs = {}
+            NPCs = {},
+            CurrentTaskLock = nil,
+            IsGettingMelee = false,
+            MeleeActionInProgress = false
         }
         Players = game.Players
         LocalPlayer = Players.LocalPlayer
@@ -1021,6 +1024,59 @@ ScriptStorage = {
             end
             ScriptStorage.Task[Index] = Value
             ScriptStorage.Task[Index .. "-d"] = os.time()
+        end
+
+        -- ========================================================
+        -- [GLOBAL TASK LOCK / MUTEX CONTROLLER]
+        -- Đảm bảo khi một nhiệm vụ đang thực hiện (kiểm tra võ, mua võ, cày võ,
+        -- hoặc đi raid...), toàn bộ các tác vụ khác sẽ bị KHÓA NGƯNG LẠI,
+        -- tuyệt đối không bị xen ngang hoặc chuyển nhầm mục tiêu.
+        -- ========================================================
+        function LockTask(owner, reason)
+            ScriptStorage.CurrentTaskLock = {
+                Owner = owner,
+                Reason = reason or owner,
+                StartTime = os.time(),
+                LastUpdate = os.time()
+            }
+            getgenv().CurrentTaskLock = owner
+            if owner == "Melee" or owner == "MeleesController" then
+                getgenv().IsCheckingMelees = true
+                ScriptStorage.IsGettingMelee = true
+            end
+        end
+
+        function UnlockTask(owner)
+            if ScriptStorage.CurrentTaskLock and (not owner or ScriptStorage.CurrentTaskLock.Owner == owner) then
+                local prevOwner = ScriptStorage.CurrentTaskLock.Owner
+                ScriptStorage.CurrentTaskLock = nil
+                getgenv().CurrentTaskLock = nil
+                if prevOwner == "Melee" or prevOwner == "MeleesController" then
+                    getgenv().IsCheckingMelees = false
+                    ScriptStorage.IsGettingMelee = false
+                end
+            end
+        end
+
+        function IsTaskLocked(excludeOwner)
+            if not ScriptStorage.CurrentTaskLock then
+                return false
+            end
+            -- Cơ chế bảo vệ timeout 180s tránh tình trạng kẹt lock vĩnh viễn nếu task bị lỗi
+            if os.time() - (ScriptStorage.CurrentTaskLock.LastUpdate or os.time()) > 180 then
+                UnlockTask()
+                return false
+            end
+            if excludeOwner and ScriptStorage.CurrentTaskLock.Owner == excludeOwner then
+                return false
+            end
+            return true
+        end
+
+        function TouchTaskLock(owner)
+            if ScriptStorage.CurrentTaskLock and (not owner or ScriptStorage.CurrentTaskLock.Owner == owner) then
+                ScriptStorage.CurrentTaskLock.LastUpdate = os.time()
+            end
         end
 
         Remotes = {}
@@ -1232,15 +1288,19 @@ ScriptStorage = {
 
         function RefreshInventory()
             pcall(function()
-                ScriptStorage.Backpack2 = {}
+                if not ScriptStorage.Backpack then
+                    ScriptStorage.Backpack = {}
+                end
                 if not Remotes or not Remotes.CommF_ then return end
                 
                 -- 1. Quét các vật phẩm & nguyên liệu thông thường
                 local inv = nil
                 pcall(function() inv = Remotes.CommF_:InvokeServer("getInventory") end)
-                if type(inv) == "table" then
+                if type(inv) == "table" and #inv > 0 then
+                    local newItems = {}
                     for _, Value in pairs(inv) do
                         if type(Value) == "table" and Value.Name then
+                            Value.Count = tonumber(Value.Count) or tonumber(Value.Amount) or tonumber(Value.Value) or 1
                             if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer:FindFirstChild("Data") and game:GetService("Players").LocalPlayer.Data:FindFirstChild("DevilFruit") and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and table.find(Config.Items.Eatlist, Value.Name) then
                                 warn("Load fruit", Value.Name)
                                 Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
@@ -1249,25 +1309,120 @@ ScriptStorage = {
                                     pcall(function() FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name)) end)
                                 end
                             end
-                            ScriptStorage.Backpack2[Value.Name] = Value
+                            newItems[Value.Name] = Value
+                            -- Lưu thêm khóa chuẩn hóa (chữ thường, bỏ dấu cách và ký tự đặc biệt) để tra cứu không trượt
+                            local cleanKey = string.lower(string.gsub(tostring(Value.Name), "[%s_%-]", ""))
+                            newItems[cleanKey] = Value
                         end
+                    end
+                    -- Hợp nhất vào ScriptStorage.Backpack thay vì xóa sạch (tránh mất dữ liệu khi mạng lag)
+                    for k, v in pairs(newItems) do
+                        ScriptStorage.Backpack[k] = v
                     end
                 end
 
                 -- 2. Quét toàn bộ Trái Ác Quỷ lưu trữ trong Treasure Inventory (getInventoryFruits)
                 local fruits = nil
                 pcall(function() fruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
-                if type(fruits) == "table" then
+                if type(fruits) == "table" and #fruits > 0 then
                     for _, Value in pairs(fruits) do
                         if type(Value) == "table" and Value.Name then
                             Value.Type = "Blox Fruit"
-                            ScriptStorage.Backpack2[Value.Name] = Value
+                            Value.Count = tonumber(Value.Count) or 1
+                            ScriptStorage.Backpack[Value.Name] = Value
                         end
                     end
                 end
-
-                ScriptStorage.Backpack = ScriptStorage.Backpack2
             end)
+        end
+
+        function GetMaterialCount(matName)
+            local clean = string.lower(string.gsub(tostring(matName), "[%s_%-]", ""))
+            
+            -- 1. Tra cứu trực tiếp trong ScriptStorage.Backpack
+            if ScriptStorage.Backpack then
+                if ScriptStorage.Backpack[matName] and ScriptStorage.Backpack[matName].Count then
+                    return tonumber(ScriptStorage.Backpack[matName].Count) or 0
+                end
+                if ScriptStorage.Backpack[clean] and ScriptStorage.Backpack[clean].Count then
+                    return tonumber(ScriptStorage.Backpack[clean].Count) or 0
+                end
+                for k, v in pairs(ScriptStorage.Backpack) do
+                    if type(v) == "table" and v.Name then
+                        local cName = string.lower(string.gsub(tostring(v.Name), "[%s_%-]", ""))
+                        if cName == clean then
+                            return tonumber(v.Count) or tonumber(v.Amount) or tonumber(v.Value) or 0
+                        end
+                    end
+                end
+            end
+
+            -- 2. Gọi trực tiếp remote getInventory nếu chưa tìm thấy
+            pcall(function()
+                if Remotes and Remotes.CommF_ then
+                    local inv = Remotes.CommF_:InvokeServer("getInventory")
+                    if type(inv) == "table" then
+                        if not ScriptStorage.Backpack then ScriptStorage.Backpack = {} end
+                        for _, v in pairs(inv) do
+                            if type(v) == "table" and v.Name then
+                                local cnt = tonumber(v.Count) or tonumber(v.Amount) or tonumber(v.Value) or 1
+                                v.Count = cnt
+                                ScriptStorage.Backpack[v.Name] = v
+                                local cKey = string.lower(string.gsub(tostring(v.Name), "[%s_%-]", ""))
+                                ScriptStorage.Backpack[cKey] = v
+                            end
+                        end
+                    end
+                end
+            end)
+
+            if ScriptStorage.Backpack then
+                if ScriptStorage.Backpack[matName] and ScriptStorage.Backpack[matName].Count then
+                    return tonumber(ScriptStorage.Backpack[matName].Count) or 0
+                end
+                if ScriptStorage.Backpack[clean] and ScriptStorage.Backpack[clean].Count then
+                    return tonumber(ScriptStorage.Backpack[clean].Count) or 0
+                end
+            end
+
+            -- 3. Tra cứu từ giao diện Stash / Items trong PlayerGui (như trên màn hình người chơi)
+            local guiCount = 0
+            pcall(function()
+                local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, desc in pairs(pg:GetDescendants()) do
+                        if desc:IsA("TextLabel") or desc:IsA("Frame") or desc:IsA("ImageLabel") then
+                            local dName = string.lower(string.gsub(tostring(desc.Name), "[%s_%-]", ""))
+                            local match = (dName == clean)
+                            if not match and desc:IsA("TextLabel") then
+                                local tText = string.lower(string.gsub(tostring(desc.Text), "[%s_%-]", ""))
+                                match = (tText == clean)
+                            end
+                            if match then
+                                local parent = desc.Parent
+                                if parent then
+                                    for _, sibling in pairs(parent:GetChildren()) do
+                                        if sibling:IsA("TextLabel") and sibling ~= desc then
+                                            local n = tonumber(string.match(sibling.Text, "%d+"))
+                                            if n and n > guiCount then
+                                                guiCount = n
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            if guiCount > 0 then
+                if not ScriptStorage.Backpack then ScriptStorage.Backpack = {} end
+                ScriptStorage.Backpack[matName] = { Name = matName, Count = guiCount }
+                ScriptStorage.Backpack[clean] = ScriptStorage.Backpack[matName]
+                return guiCount
+            end
+
+            return 0
         end
 
         function ResearchMoves(Child)
@@ -1779,23 +1934,22 @@ ScriptStorage = {
         SeaIndexes = {"Main", "Dressrosa", "Zou"}
 
         TasksOrder = {
-            "ExpRedeem",
-            "SoulGuitar",
-            "Tushita",
-            "SpecialBossesTask",
-            "RaidController",
-            "Trevor",
-            "UtillyItemsActivitation",
-            "ColosseumPuzzle",
-            "ThirdSeaPuzzle",
-            "Yama",
-            "Saber",
-            "PirateRaid",
-            "SecondSeaPuzzle",
-            "ThirdSeaPuzzle",
-            "CollectDrops",
-            "BossesTask",
-            "LevelFarm"
+            "ExpRedeem",               -- 1. Nhập mã x2 Exp nếu có
+            "LevelFarm",               -- 2. ƯU TIÊN 1: Farm Cấp (Level Farm) lên Max trước
+            "BossesTask",              -- 3. ƯU TIÊN 2: Farm Boss khi có mặt
+            "SpecialBossesTask",       -- 4. Farm Boss đặc biệt
+            "Saber",                   -- 5. Lấy kiếm Saber (yêu cầu để qua Sea 2)
+            "SecondSeaPuzzle",         -- 6. Làm nhiệm vụ mở cổng Sea 2
+            "ColosseumPuzzle",         -- 7. Làm nhiệm vụ Bartilo (mở Race V2/V3)
+            "ThirdSeaPuzzle",          -- 8. Làm nhiệm vụ mở cổng Sea 3
+            "Trevor",                  -- 9. Nhiệm vụ Trevor / Don Swan
+            "UtillyItemsActivitation", -- 10. Kích hoạt vật phẩm (Water Key, Hallow Essence...)
+            "SoulGuitar",              -- 11. Chuỗi nhiệm vụ Soul Guitar
+            "Tushita",                 -- 12. Chuỗi nhiệm vụ Tushita
+            "Yama",                    -- 13. Chuỗi nhiệm vụ Yama
+            "PirateRaid",              -- 14. Pirate Raid Sea 3
+            "CollectDrops",            -- 15. Nhặt trái / vật phẩm rớt
+            "RaidController"           -- 16. Đi Raid tích Fragment (chỉ khi rảnh hoặc cần F)
         }
 
         MaxLevel = 2800
@@ -3972,45 +4126,82 @@ FunctionsHandler = {
 
                 local PlayerLevel = ScriptStorage.PlayerData.Level
                 if GodHumanFlag then
-                    local Material, MaterialData = (function()
-                        getgenv()["     mphm >< <3"] = {}
-                        for Material, MaterialData in GodhumanMaterials do
-                            if (ScriptStorage.Backpack[Material] or {Count = 0}).Count < MaterialData[1] then
-                                getgenv()["     mphm >< <3"] = {Material, MaterialData}
+                    -- Luôn làm mới dữ liệu hành trang trước khi kiểm tra nguyên liệu Godhuman
+                    pcall(RefreshInventory)
+
+                    local missingMaterials = {}
+                    local currentSeaMissing = nil
+                    local otherSeaMissing = nil
+
+                    for matName, matData in pairs(GodhumanMaterials) do
+                        local reqCount = matData[1]
+                        local targetSea = matData[2]
+                        local currentCount = GetMaterialCount(matName)
+                        
+                        -- In log chi tiết để người dùng và console theo dõi chính xác số lượng
+                        print(string.format("[Godhuman Material] %s: Có %d / Cần %d (Sea %d)", matName, currentCount, reqCount, targetSea))
+
+                        if currentCount < reqCount then
+                            local itemEntry = {
+                                Name = matName,
+                                Data = matData,
+                                Have = currentCount,
+                                Need = reqCount
+                            }
+                            table.insert(missingMaterials, itemEntry)
+                            -- Ưu tiên làm nguyên liệu ở Sea hiện tại trước (tránh tele qua lại vô ích)
+                            if targetSea == SeaIndex and not currentSeaMissing then
+                                currentSeaMissing = itemEntry
+                            elseif not otherSeaMissing then
+                                otherSeaMissing = itemEntry
                             end
                         end
+                    end
 
-                        return unpack(getgenv()["     mphm >< <3"])
-                    end)()
+                    -- Chọn nguyên liệu: ưu tiên ở Sea hiện tại, nếu không có mới qua Sea khác
+                    local selected = currentSeaMissing or otherSeaMissing
 
-                    if Material then
+                    if selected then
+                        local Material = selected.Name
+                        local MaterialData = selected.Data
+
                         if SeaIndex ~= MaterialData[2] then
                             alert("Material - " .. Material, "Travelling sea " .. MaterialData[2])
                             SetTask(
                                 "MainTask",
-                                "Sea Travel | Godhuman Materials | Travelling to Sea " .. MaterialData[2]
+                                string.format("Sea Travel | Godhuman | Need %s (%d/%d) -> Travelling to Sea %d", Material, selected.Have, selected.Need, MaterialData[2])
                             )
 
                             Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
                             return
                         end
 
-                        SetTask("MainTask", "Material Farming | Godhuman | " .. Material .. " | In Progress" )
+                        SetTask("MainTask", string.format("Material Farming | Godhuman | %s (%d/%d) | In Progress", Material, selected.Have, selected.Need))
 
                         -- Kiểm tra nếu đang dính quest boss: có boss thì đánh, không có thì hủy để farm nguyên liệu
                         QuestManager.HandleBossQuestValidation()
 
                         if PlayerLevel >= MaterialData[4][3] then
                             CombatController.Attack(MaterialData[3])
+                        else
+                            CombatController.Attack(MaterialData[3])
+                        end
+                        return
+                    else
+                        -- ĐÃ ĐỦ TẤT CẢ 4 LOẠI NGUYÊN LIỆU GODHUMAN!
+                        -- (Fish Tail: 20, Magma Ore: 20, Mystic Droplet: 10, Dragon Scale: 10)
+                        SetTask("MainTask", "Godhuman | All Materials Collected! Ready to Craft!")
+                        if SeaIndex ~= 3 then
+                            SetTask("MainTask", "Sea Travel | Godhuman | Travelling to Third Sea for Ancient Monk")
+                            Remotes.CommF_:InvokeServer("TravelZou")
+                            return
                         end
 
-                        CombatController.Attack(MaterialData[3])
+                        SetTask("MainTask", "Godhuman | Talking to Ancient Monk to Craft Godhuman...")
+                        BuyMelee("Godhuman", false, "Ancient Monk")
+                        GodHumanFlag = false
+                        return true
                     end
-
-                    BuyMelee("Godhuman", true,"Ancient Monk")
-
-                    GodHumanFlag = false
-                    return true
                 end
 
                     LastTravel = os.time()
@@ -4571,13 +4762,38 @@ FunctionsHandler = {
         FunctionsHandler.MeleesController:RegisterMethod(
             "Start",
             function()
-                ScriptStorage.IsGettingMelee = false  -- luôn reset flag trước khi bắt đầu
+                -- Không xen ngang nếu tác vụ khác đang giữ khóa hoặc đang trong Raid
+                if IsTaskLocked("Melee") then
+                    return
+                end
+                local isRaidActive = (FunctionsHandler.RaidController and (FunctionsHandler.RaidController:Get("IsInRaidProcess") or FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()))
+                    or getgenv().InRaidSafe
+                    or getgenv().IsRaidStarting
+                    or CheckSpecialMicrochip()
+                if isRaidActive then
+                    return
+                end
+
+                if not Config.Items.AutoFullyMelees then
+                    return
+                end
+
+                -- Khoảng cách kiểm tra: nếu không có hành động mua/farm võ đang diễn ra, kiểm tra lại sau mỗi 8 giây
+                MeleeLastFullCheck = MeleeLastFullCheck or 0
+                if not ScriptStorage.MeleeActionInProgress and (os.time() - MeleeLastFullCheck < 8) then
+                    return
+                end
+
+                -- KHÓA NGƯNG TẤT CẢ CÁC NHIỆM VỤ KHÁC KHI BẮT ĐẦU KIỂM TRA/NÂNG CẤP VÕ
+                LockTask("Melee", "Kiểm tra võ")
+                getgenv().IsCheckingMelees = true
+                ScriptStorage.IsGettingMelee = true
+
+                local anyMeleeActive = false
 
                 for Cursor, Melee in MeleesTable do
                     if Melee ~= "SanguineArt" then
-                        if not Config.Items.AutoFullyMelees then
-                            break
-                        end
+                        TouchTaskLock("Melee")
                         Data = MeleePrices[Melee]
                         CanPurchaseLastCheck = CanPurchaseLastCheck or {}
                         local lastCheck = CanPurchaseLastCheck[Melee] or 0
@@ -4610,7 +4826,6 @@ FunctionsHandler = {
 
                             if not IsFireEssenceGave then
                                 print("no fire essence provided")
-                                ScriptStorage.IsGettingMelee = false
                                 break
                             end
                         end
@@ -4624,8 +4839,7 @@ FunctionsHandler = {
 
                                     if not ScriptStorage.Melees.Godhuman and type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyGodhuman", true)) == "string" then
                                         GodHumanFlag = true
-                                        ScriptStorage.IsGettingMelee = false
-                                        return
+                                        break
                                     end
                                 end
                             end
@@ -4640,8 +4854,8 @@ FunctionsHandler = {
                             local ValuementPassed = true
 
                             if not MeleeId then
-                                ScriptStorage.IsGettingMelee = false
-                                return print("[ Debug ] Failed to get melee id of", Melee)
+                                print("[ Debug ] Failed to get melee id of", Melee)
+                                break
                             end
 
                             MSet = false
@@ -4657,8 +4871,7 @@ FunctionsHandler = {
                                                 "Farming Until Enough " .. Index .. " ( " .. Value .. " ) For " .. Melee
                                             )
                                         end
-                                        ScriptStorage.IsGettingMelee = false
-                                        return
+                                        break
                                     end
                                 end
                             end
@@ -4667,12 +4880,15 @@ FunctionsHandler = {
                                 not MSet and ScriptStorage.Melees[Melee] and
                                     ScriptStorage.Melees[Melee] < Data.NextLevelRequirement
                              then
+                                anyMeleeActive = true
+                                ScriptStorage.MeleeActionInProgress = true
+                                LockTask("Melee", "Cày Thông Thạo - " .. Melee)
                                 SetTask(
                                     "SubTask",
                                     "Farming Until Enough Mastery For " ..
                                         Melee ..
                                             " ( " ..
-                                                ScriptStorage.Melees[Melee] ..
+                                                (ScriptStorage.Melees[Melee] or 0) ..
                                                     " / " .. Data.NextLevelRequirement .. " )."
                                 )
                                 -- Luôn trang bị vũ khí Melee để farm Mastery
@@ -4700,14 +4916,11 @@ FunctionsHandler = {
                                 end
                                 CombatController.Attack(farmMob)
 
-                                -- Chỉ mua nếu chưa có — KHÔNG block raid khi farm mastery
                                 if not ScriptStorage.Tools[Melee] then
                                     print("no m1 found, buy")
-                                    ScriptStorage.IsGettingMelee = true  -- block raid CHỈ khi đang mua
                                     Data.Buy()
-                                    ScriptStorage.IsGettingMelee = false  -- clear ngay sau khi mua xong
                                 end
-                                -- KHÔNG set IsGettingMelee khi chỉ farm mastery — raid vẫn chạy bình thường
+                                -- Đang farm mastery cho võ: GIỮ KHÓA MELEE để tuyệt đối không cho nhiệm vụ khác (như Raid) xen vào!
                                 return
                             end
 
@@ -4715,11 +4928,14 @@ FunctionsHandler = {
                                 if ValuementPassed and Data.Requirements() and not ScriptStorage.Tools[Melee] then
                                     if Melee == "Dragon Talon" and not IsFireEssenceGave then
                                         alert("IsFireEssenceGave", tostring(IsFireEssenceGave))
-                                        ScriptStorage.IsGettingMelee = false
-                                        return SetTask("SubTask", "Waiting until have fire essence for dragon talon.")
+                                        SetTask("SubTask", "Waiting until have fire essence for dragon talon.")
+                                        break
                                     end
 
-                                    ScriptStorage.IsGettingMelee = true  -- Set flag to block raid
+                                    anyMeleeActive = true
+                                    ScriptStorage.MeleeActionInProgress = true
+                                    LockTask("Melee", "Mua Võ - " .. Melee)
+                                    SetTask("SubTask", "Buying Melee - " .. Melee)
                                     Data.Buy()
                                     FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                     if not ScriptStorage.Tools[Melee] then
@@ -4733,15 +4949,12 @@ FunctionsHandler = {
 
                                                 Remotes.CommF_:InvokeServer("TravelDressrosa")
                                             end
-                                            ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
                                         else
                                             MeleeLastCursor = Cursor + 1
-                                            ScriptStorage.IsGettingMelee = false  -- Clear flag on success
                                             return
                                         end
                                     else
                                         MeleeLastCursor = Cursor + 1
-                                        ScriptStorage.IsGettingMelee = false  -- Clear flag on success
                                         return
                                     end
                                 end
@@ -4753,11 +4966,21 @@ FunctionsHandler = {
                 end
                 if FirstCall then
                     FirstCall = false
+                    UnlockTask("Melee")
                     return
                 end
 
                 checkdone = true
-                ScriptStorage.IsGettingMelee = false  -- reset khi loop xong
+                -- Nếu kiểm tra toàn bộ danh sách võ xong và không có võ nào cần mua hay farm mastery:
+                -- Mở khóa để các nhiệm vụ khác trong TasksOrder có thể chạy bình thường!
+                if not anyMeleeActive then
+                    ScriptStorage.MeleeActionInProgress = false
+                    MeleeLastFullCheck = os.time()
+                    UnlockTask("Melee")
+                    getgenv().IsCheckingMelees = false
+                    ScriptStorage.IsGettingMelee = false
+                    SetTask("SubTask", "n/a")
+                end
 
             end
         )
@@ -5303,8 +5526,11 @@ FunctionsHandler = {
      
     
         FunctionsHandler.RaidController:RegisterMethod("Refresh", function()
-            if getgenv().IsCheckingMelees then return end
-        
+            -- TUYỆT ĐỐI KHÔNG CHẠY RAID nếu đang có tác vụ khác giữ khóa, hoặc đang kiểm tra / mua / cày võ
+            if IsTaskLocked("Raid") or getgenv().IsCheckingMelees or ScriptStorage.IsGettingMelee or ScriptStorage.MeleeActionInProgress then
+                return false
+            end
+
             local Level = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 0
             local Fragments = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Fragments) or 0
             local Beli = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Beli) or 0
@@ -5411,6 +5637,9 @@ FunctionsHandler = {
         FunctionsHandler.RaidController:RegisterMethod(
             "Start",
             function()
+                if IsTaskLocked("Raid") or getgenv().IsCheckingMelees or ScriptStorage.IsGettingMelee or ScriptStorage.MeleeActionInProgress then
+                    return
+                end
                 if getgenv().IsRaidStarting then
                     return
                 end
@@ -5420,6 +5649,8 @@ FunctionsHandler = {
                     return
                 end
 
+                -- KHÓA TOÀN BỘ CÁC NHIỆM VỤ KHÁC ĐỂ TIẾN HÀNH RAID
+                LockTask("Raid", "Auto Raid")
                 getgenv().IsRaidStarting = true
 
                 -- Wrap toàn bộ logic trong pcall để đảm bảo các khóa (lock) luôn được xử lý kể cả khi lỗi
@@ -5574,10 +5805,12 @@ FunctionsHandler = {
                         
                         while true do
                             task.wait(0.5)
+                            TouchTaskLock("Raid")
                             CurrentIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
                             
                             if not CurrentIsland then
                                 SetTask("MainTask", "Auto Raid - Completed")
+                                UnlockTask("Raid")
                                 return
                             end
                             
@@ -5589,6 +5822,7 @@ FunctionsHandler = {
                                     CaculateDistance(Mon.HumanoidRootPart.Position) < 1000 and
                                     os.time() - StartTick1 < 60 and
                                     task.wait(.05) do
+                                    TouchTaskLock("Raid")
                                     Found = true
                                     _G.FastAttack = true
                                     _G.FastAttackTick = os.clock()
@@ -5602,6 +5836,7 @@ FunctionsHandler = {
                                     local CheckIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
                                     if not CheckIsland then
                                         SetTask("MainTask", "Auto Raid - Completed")
+                                        UnlockTask("Raid")
                                         return
                                     end
                                 end
@@ -5619,12 +5854,14 @@ FunctionsHandler = {
 
                 if not ok then
                     warn("[RaidController Start Error]", err)
+                    UnlockTask("Raid")
                 end
 
                 -- Chỉ reset InRaidSafe/IsInRaidProcess khi raid đã thực sự kết thúc (không còn ở đảo raid)
                 if not FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call() and not CheckSpecialMicrochip() then
                     getgenv().InRaidSafe = false
                     FunctionsHandler.RaidController:Set("IsInRaidProcess", false)
+                    UnlockTask("Raid")
                 end
             end
         )
@@ -6855,6 +7092,10 @@ FunctionsHandler = {
             if _G.Stop then
                 return
             end
+            -- KHÓA NGƯNG LẠI TẤT CẢ NHIỆM VỤ NẾU ĐANG CÓ NHIỆM VỤ ĐƯỢC KHÓA (như kiểm tra võ, mua võ, cày thông thạo...)
+            if IsTaskLocked() then
+                return
+            end
             for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
                 if Task then
@@ -7116,8 +7357,9 @@ FunctionsHandler = {
 
         -- Hàm thực hiện Random Trái Ác Quỷ TỪ XA
         local function RandomTraiTuXa()
-            -- Khóa random hoặc cất trái nếu đang mua Raid Chip hoặc trong tiến trình Raid
-            if (ScriptStorage and ScriptStorage.IsBuyingRaidChip) 
+            -- Khóa random hoặc cất trái nếu đang có task bị khóa (như kiểm tra võ), đang mua Raid Chip hoặc trong tiến trình Raid
+            if IsTaskLocked()
+                or (ScriptStorage and (ScriptStorage.IsBuyingRaidChip or ScriptStorage.IsGettingMelee or ScriptStorage.MeleeActionInProgress))
                 or (FunctionsHandler and FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")) then
                 return
             end
@@ -7201,9 +7443,13 @@ FunctionsHandler = {
                 pcall(SendData)
             end ]]
             local success, response = pcall(RefreshTasksData)
-            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
-            local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            if not IsInRaid then
+            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid và KHÔNG có task khác đang giữ khóa
+            local isRaidBusy = (FunctionsHandler.RaidController and (FunctionsHandler.RaidController:Get("IsInRaidProcess") or FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()))
+                or getgenv().InRaidSafe
+                or getgenv().IsRaidStarting
+                or CheckSpecialMicrochip()
+
+            if not isRaidBusy and not IsTaskLocked("Melee") then
                 pcall(function()
                     if FunctionsHandler.MeleesController and FunctionsHandler.MeleesController.Methods and FunctionsHandler.MeleesController.Methods.Start then
                         FunctionsHandler.MeleesController.Methods.Start:Call()
