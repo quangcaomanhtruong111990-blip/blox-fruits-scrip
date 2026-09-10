@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "v1"
+        NameHub.Text = "sangblox"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1115,13 +1115,12 @@ ScriptStorage = {
                                         local NPCPos = NPC.WorldPivot or (NPC:FindFirstChild("HumanoidRootPart") and NPC.HumanoidRootPart.CFrame)
                                         SetTask("SubTask", "Buying Melee - " .. MeleeName)
                                         local targetPos = NPCPos and (NPCPos.Position or NPCPos)
-                                        if targetPos and CaculateDistance(targetPos) > 15 then
-                                            local waitStart = tick()
-                                            while CaculateDistance(targetPos) > 15 and (tick() - waitStart < 15) do
+                                        if targetPos and CaculateDistance(targetPos) > 10 then
+                                            repeat
                                                 task.wait()
                                                 TweenController.Create(targetPos)
-                                            end
-                                            task.wait(1.5)
+                                            until CaculateDistance(targetPos) < 10
+                                            task.wait(3)
                                             if Services.ReplicatedStorage and Services.ReplicatedStorage:FindFirstChild("Remotes") and Services.ReplicatedStorage.Remotes:FindFirstChild("CommF_") then
                                                 return Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
                                             end
@@ -1288,92 +1287,49 @@ ScriptStorage = {
         end
 
         function RefreshInventory()
-            local _LastInvFetch = 0
-            local _InvCache = {}
-
-            local function FetchRealInventory()
-                local now = tick()
-                if now - _LastInvFetch < 2 and next(_InvCache) then
-                    return _InvCache
-                end
-
-                local inv = nil
-                pcall(function()
-                    local comm = nil
-                    if game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") then
-                        comm = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
-                    end
-                    if not comm and Remotes and Remotes.CommF_ then
-                        comm = Remotes.CommF_
-                    end
-                    if comm then
-                        inv = comm:InvokeServer("getInventory")
-                    end
-                end)
-
-                if type(inv) == "table" then
-                    _LastInvFetch = now
-                    if not ScriptStorage.Backpack then ScriptStorage.Backpack = {} end
-                    for key, val in pairs(inv) do
-                        local itemName = nil
-                        local itemCount = 0
-
-                        if type(val) == "table" then
-                            itemName = val.Name or val.name or val.ItemName or val.Item or val.Title or (type(key) == "string" and key)
-                            itemCount = tonumber(val.Count) or tonumber(val.count) or tonumber(val.Amount) or tonumber(val.Value) or tonumber(val.Quantity) or 1
-                            val.Name = itemName
-                            val.Count = itemCount
-                        elseif type(val) == "number" and type(key) == "string" then
-                            itemName = key
-                            itemCount = val
-                        elseif type(val) == "string" and type(key) == "string" then
-                            itemName = key
-                            itemCount = tonumber(val) or 1
-                        end
-
-                        if itemName then
-                            local entry = { Name = tostring(itemName), Count = itemCount }
-                            ScriptStorage.Backpack[tostring(itemName)] = entry
-                            local cleanK = string.lower(string.gsub(tostring(itemName), "[%s_%-]", ""))
-                            ScriptStorage.Backpack[cleanK] = entry
-                            _InvCache[tostring(itemName)] = itemCount
-                            _InvCache[cleanK] = itemCount
-                        end
-                    end
-                end
-                return _InvCache
-            end
-
             pcall(function()
                 if not ScriptStorage.Backpack then
                     ScriptStorage.Backpack = {}
                 end
+                if not Remotes or not Remotes.CommF_ then return end
                 
-                -- 1. Quét an toàn các vật phẩm & nguyên liệu thông thường (có cache chống spam server)
-                FetchRealInventory()
+                -- 1. Quét các vật phẩm & nguyên liệu thông thường
+                local inv = nil
+                pcall(function() inv = Remotes.CommF_:InvokeServer("getInventory") end)
+                if type(inv) == "table" and #inv > 0 then
+                    local newItems = {}
+                    for _, Value in pairs(inv) do
+                        if type(Value) == "table" and Value.Name then
+                            Value.Count = tonumber(Value.Count) or tonumber(Value.Amount) or tonumber(Value.Value) or 1
+                            if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer:FindFirstChild("Data") and game:GetService("Players").LocalPlayer.Data:FindFirstChild("DevilFruit") and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and table.find(Config.Items.Eatlist, Value.Name) then
+                                warn("Load fruit", Value.Name)
+                                Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
+                                task.wait(1)
+                                if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                    pcall(function() FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name)) end)
+                                end
+                            end
+                            newItems[Value.Name] = Value
+                            -- Lưu thêm khóa chuẩn hóa (chữ thường, bỏ dấu cách và ký tự đặc biệt) để tra cứu không trượt
+                            local cleanKey = string.lower(string.gsub(tostring(Value.Name), "[%s_%-]", ""))
+                            newItems[cleanKey] = Value
+                        end
+                    end
+                    -- Hợp nhất vào ScriptStorage.Backpack thay vì xóa sạch (tránh mất dữ liệu khi mạng lag)
+                    for k, v in pairs(newItems) do
+                        ScriptStorage.Backpack[k] = v
+                    end
+                end
 
                 -- 2. Quét toàn bộ Trái Ác Quỷ lưu trữ trong Treasure Inventory (getInventoryFruits)
                 local fruits = nil
-                pcall(function()
-                    local comm = nil
-                    if game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") then
-                        comm = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
-                    end
-                    if not comm and Remotes and Remotes.CommF_ then
-                        comm = Remotes.CommF_
-                    end
-                    if comm then
-                        fruits = comm:InvokeServer("getInventoryFruits")
-                    end
-                end)
-                if type(fruits) == "table" then
+                pcall(function() fruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
+                if type(fruits) == "table" and #fruits > 0 then
                     for _, Value in pairs(fruits) do
                         if type(Value) == "table" and Value.Name then
                             Value.Type = "Blox Fruit"
                             Value.Count = tonumber(Value.Count) or 1
                             ScriptStorage.Backpack[Value.Name] = Value
-                            local cleanK = string.lower(string.gsub(tostring(Value.Name), "[%s_%-]", ""))
-                            ScriptStorage.Backpack[cleanK] = Value
                         end
                     end
                 end
@@ -1383,57 +1339,37 @@ ScriptStorage = {
         function GetMaterialCount(matName)
             local clean = string.lower(string.gsub(tostring(matName), "[%s_%-]", ""))
             
-            -- 1. Tra cứu trực tiếp trong ScriptStorage.Backpack trước
+            -- 1. Tra cứu trực tiếp trong ScriptStorage.Backpack
             if ScriptStorage.Backpack then
                 if ScriptStorage.Backpack[matName] and ScriptStorage.Backpack[matName].Count then
-                    local c = tonumber(ScriptStorage.Backpack[matName].Count)
-                    if c and c > 0 then return c end
+                    return tonumber(ScriptStorage.Backpack[matName].Count) or 0
                 end
                 if ScriptStorage.Backpack[clean] and ScriptStorage.Backpack[clean].Count then
-                    local c = tonumber(ScriptStorage.Backpack[clean].Count)
-                    if c and c > 0 then return c end
+                    return tonumber(ScriptStorage.Backpack[clean].Count) or 0
                 end
                 for k, v in pairs(ScriptStorage.Backpack) do
                     if type(v) == "table" and v.Name then
                         local cName = string.lower(string.gsub(tostring(v.Name), "[%s_%-]", ""))
-                        if cName == clean or string.find(cName, clean) or string.find(clean, cName) then
-                            local c = tonumber(v.Count) or tonumber(v.Amount) or tonumber(v.Value)
-                            if c and c > 0 then return c end
+                        if cName == clean then
+                            return tonumber(v.Count) or tonumber(v.Amount) or tonumber(v.Value) or 0
                         end
                     end
                 end
             end
 
-            -- 2. Tự động đồng bộ inventory qua Remote (có cache an toàn)
+            -- 2. Gọi trực tiếp remote getInventory nếu chưa tìm thấy
             pcall(function()
-                local comm = nil
-                if game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") then
-                    comm = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
-                end
-                if not comm and Remotes and Remotes.CommF_ then
-                    comm = Remotes.CommF_
-                end
-                if comm then
-                    local inv = comm:InvokeServer("getInventory")
+                if Remotes and Remotes.CommF_ then
+                    local inv = Remotes.CommF_:InvokeServer("getInventory")
                     if type(inv) == "table" then
                         if not ScriptStorage.Backpack then ScriptStorage.Backpack = {} end
-                        for key, v in pairs(inv) do
-                            local iName = nil
-                            local iCnt = 0
-                            if type(v) == "table" then
-                                iName = v.Name or v.name or v.ItemName or (type(key) == "string" and key)
-                                iCnt = tonumber(v.Count) or tonumber(v.count) or tonumber(v.Amount) or tonumber(v.Value) or 1
-                                v.Name = iName
-                                v.Count = iCnt
-                            elseif type(v) == "number" and type(key) == "string" then
-                                iName = key
-                                iCnt = v
-                            end
-                            if iName then
-                                local entry = { Name = tostring(iName), Count = iCnt }
-                                ScriptStorage.Backpack[tostring(iName)] = entry
-                                local cKey = string.lower(string.gsub(tostring(iName), "[%s_%-]", ""))
-                                ScriptStorage.Backpack[cKey] = entry
+                        for _, v in pairs(inv) do
+                            if type(v) == "table" and v.Name then
+                                local cnt = tonumber(v.Count) or tonumber(v.Amount) or tonumber(v.Value) or 1
+                                v.Count = cnt
+                                ScriptStorage.Backpack[v.Name] = v
+                                local cKey = string.lower(string.gsub(tostring(v.Name), "[%s_%-]", ""))
+                                ScriptStorage.Backpack[cKey] = v
                             end
                         end
                     end
@@ -1442,55 +1378,35 @@ ScriptStorage = {
 
             if ScriptStorage.Backpack then
                 if ScriptStorage.Backpack[matName] and ScriptStorage.Backpack[matName].Count then
-                    local c = tonumber(ScriptStorage.Backpack[matName].Count)
-                    if c and c > 0 then return c end
+                    return tonumber(ScriptStorage.Backpack[matName].Count) or 0
                 end
                 if ScriptStorage.Backpack[clean] and ScriptStorage.Backpack[clean].Count then
-                    local c = tonumber(ScriptStorage.Backpack[clean].Count)
-                    if c and c > 0 then return c end
-                end
-                for k, v in pairs(ScriptStorage.Backpack) do
-                    if type(v) == "table" and v.Name then
-                        local cName = string.lower(string.gsub(tostring(v.Name), "[%s_%-]", ""))
-                        if cName == clean or string.find(cName, clean) or string.find(clean, cName) then
-                            local c = tonumber(v.Count) or tonumber(v.Amount) or tonumber(v.Value)
-                            if c and c > 0 then return c end
-                        end
-                    end
+                    return tonumber(ScriptStorage.Backpack[clean].Count) or 0
                 end
             end
 
-            -- 3. Quét thông minh từ giao diện Stash / Items trong PlayerGui (như trên màn hình người chơi)
+            -- 3. Tra cứu từ giao diện Stash / Items trong PlayerGui (như trên màn hình người chơi)
             local guiCount = 0
             pcall(function()
                 local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
                 if pg then
                     for _, desc in pairs(pg:GetDescendants()) do
-                        local match = false
-                        local attrName = desc:GetAttribute("ItemName") or desc:GetAttribute("Name") or desc:GetAttribute("Item")
-                        if attrName and string.lower(string.gsub(tostring(attrName), "[%s_%-]", "")) == clean then
-                            match = true
-                        end
-                        if not match then
+                        if desc:IsA("TextLabel") or desc:IsA("Frame") or desc:IsA("ImageLabel") then
                             local dName = string.lower(string.gsub(tostring(desc.Name), "[%s_%-]", ""))
-                            if dName == clean or string.find(dName, clean) then
-                                match = true
+                            local match = (dName == clean)
+                            if not match and desc:IsA("TextLabel") then
+                                local tText = string.lower(string.gsub(tostring(desc.Text), "[%s_%-]", ""))
+                                match = (tText == clean)
                             end
-                        end
-                        if not match and desc:IsA("TextLabel") then
-                            local tText = string.lower(string.gsub(tostring(desc.Text), "[%s_%-]", ""))
-                            if tText == clean or string.find(tText, clean) then
-                                match = true
-                            end
-                        end
-                        if match then
-                            local parent = desc.Parent
-                            if parent then
-                                for _, sibling in pairs(parent:GetChildren()) do
-                                    if sibling:IsA("TextLabel") and sibling ~= desc then
-                                        local n = tonumber(string.match(sibling.Text, "%d+"))
-                                        if n and n > guiCount then
-                                            guiCount = n
+                            if match then
+                                local parent = desc.Parent
+                                if parent then
+                                    for _, sibling in pairs(parent:GetChildren()) do
+                                        if sibling:IsA("TextLabel") and sibling ~= desc then
+                                            local n = tonumber(string.match(sibling.Text, "%d+"))
+                                            if n and n > guiCount then
+                                                guiCount = n
+                                            end
                                         end
                                     end
                                 end
@@ -1980,10 +1896,10 @@ ScriptStorage = {
                     "Dragon Crew Archer"
                 },
                 {
-                    "AmazonQuest",
+                    "DragonCrewQuest",
                     1,
                     1575,
-                    "Amazon Quest Giver"
+                    "Dragon Crew Quest Giver"
                 }
             },
             ["Magma Ore"] = {
@@ -2844,12 +2760,9 @@ ScriptStorage = {
                 if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
                     local hrp = char:FindFirstChild("HumanoidRootPart")
                     for _, part in pairs(char:GetDescendants()) do
-                        if part:IsA("BasePart") and part.CanCollide then
+                        if part:IsA("BasePart") and part ~= hrp and part.CanCollide then
                             part.CanCollide = false
                         end
-                    end
-                    if hrp and hrp.CanCollide then
-                        hrp.CanCollide = false
                     end
                     if char.Humanoid.Sit then
                         char.Humanoid.Sit = false
@@ -2883,9 +2796,6 @@ ScriptStorage = {
             end)
         end
         Noclipping = game:GetService("RunService").Stepped:Connect(NoclipLoop)
-        pcall(function()
-            game:GetService("RunService").Heartbeat:Connect(NoclipLoop)
-        end)
         function GetPortal(Position)
             local Nearest, Current = 9e9, nil
             for _, Portal in Portals do
@@ -2999,10 +2909,6 @@ ScriptStorage = {
         end
         
         -- TweenController
-        local LastStuckCheckTick = tick()
-        local LastStuckCheckPos = nil
-        local StuckTime = 0
-
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
@@ -3018,39 +2924,6 @@ ScriptStorage = {
         
             local RootPart = Character.HumanoidRootPart
             local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
-
-            -- ANTI-STUCK WATCHDOG: Phát hiện kẹt vách đá / địa hình nếu không di chuyển được trong 2.2s
-            local nowTick = tick()
-            local timeDelta = nowTick - LastStuckCheckTick
-            LastStuckCheckTick = nowTick
-
-            if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing and CurrentDist > 15 then
-                if LastStuckCheckPos and (RootPart.Position - LastStuckCheckPos).Magnitude < 3 then
-                    StuckTime = StuckTime + timeDelta
-                    if StuckTime > 2.2 then
-                        -- Kẹt vách đá! Lập tức nhấc nhân vật lên cao 70 studs và noclip triệt để để vượt qua vật cản
-                        pcall(function()
-                            RootPart.CFrame = RootPart.CFrame + Vector3.new(0, 70, 0)
-                            RootPart.AssemblyLinearVelocity = Vector3.zero
-                            RootPart.AssemblyAngularVelocity = Vector3.zero
-                            for _, p in pairs(Character:GetDescendants()) do
-                                if p:IsA("BasePart") then p.CanCollide = false end
-                            end
-                        end)
-                        if TweenInstance then pcall(function() TweenInstance:Cancel() end) end
-                        TweenController._CurrentTarget = nil
-                        StuckTime = 0
-                        LastStuckCheckPos = RootPart.Position
-                        return
-                    end
-                else
-                    LastStuckCheckPos = RootPart.Position
-                    StuckTime = 0
-                end
-            else
-                LastStuckCheckPos = RootPart.Position
-                StuckTime = 0
-            end
         
             -- 2. CHỐNG GIẬT / CHỐNG CANCEL LIÊN TỤC KHI ĐANG BAY TỚI CÙNG ĐÍCH
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
@@ -3061,25 +2934,15 @@ ScriptStorage = {
                     return
                 end
             end
-
-            -- NÂNG ĐỘ CAO KHI BAY XA (> 120 studs) ĐỂ TRÁNH LAO VÀO CHÂN NÚI / VÁCH ĐÁ
-            local WaypointCFrame = TargetCFrame
-            if CurrentDist > 120 then
-                local safeY = math.max(RootPart.Position.Y, TargetCFrame.Position.Y)
-                if safeY < 120 then safeY = 120 end
-                local horizontalDist = (Vector3.new(RootPart.Position.X, 0, RootPart.Position.Z) - Vector3.new(TargetCFrame.Position.X, 0, TargetCFrame.Position.Z)).Magnitude
-                if horizontalDist > 80 and RootPart.Position.Y < safeY + 25 then
-                    WaypointCFrame = CFrame.new(TargetCFrame.Position.X, safeY + 30, TargetCFrame.Position.Z)
-                end
-            end
             
             TweenController._CurrentTarget = TargetCFrame
         
             -- 3. XỬ LÝ NOCLIP VÀ GIỮ VỮNG NHÂN VẬT (BodyVelocity chống rung giật)
             pcall(function()
                 Character.Humanoid.PlatformStand = true
-                for _, p in pairs(Character:GetDescendants()) do
-                    if p:IsA("BasePart") then
+                for _, name in ipairs({"HumanoidRootPart", "UpperTorso", "LowerTorso", "Torso", "Head"}) do
+                    local p = Character:FindFirstChild(name)
+                    if p and p:IsA("BasePart") then
                         p.CanCollide = false
                     end
                 end
@@ -3108,7 +2971,7 @@ ScriptStorage = {
             TweenInstance = tweenService:Create(
                 RootPart,
                 TweenInfo.new(Time, Enum.EasingStyle.Linear),
-                {CFrame = WaypointCFrame}
+                {CFrame = TargetCFrame}
             )
             
             TweenInstance.Completed:Connect(function()
@@ -3150,13 +3013,12 @@ ScriptStorage = {
                 if SeaIndex == 3 then
                     local SabiPos = CFrame.new(-4979.9091796875, 371.34295654296875, -3205.458251953125)
                     SetTask("SubTask", "Buying Melee - Dragon Claw (Sea 3)")
-                    if CaculateDistance(SabiPos) > 15 then
-                        local sabiStart = tick()
-                        while CaculateDistance(SabiPos) > 15 and (tick() - sabiStart < 15) do
+                    if CaculateDistance(SabiPos) > 10 then
+                        repeat
                             task.wait()
                             TweenController.Create(SabiPos)
-                        end
-                        task.wait(1.5)
+                        until CaculateDistance(SabiPos) < 10
+                        task.wait(3)
                     end
                     return Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "2")
                 end
@@ -3175,13 +3037,12 @@ ScriptStorage = {
                         if NPCPos then
                             SetTask("SubTask", "Buying Melee - Dragon Claw (Sea 2)")
                             local NPCPosition = NPCPos.Position or (NPCPos and NPCPos.Position)
-                            if NPCPosition and CaculateDistance(NPCPosition) > 15 then
-                                local npcStart = tick()
-                                while CaculateDistance(NPCPosition) > 15 and (tick() - npcStart < 15) do
+                            if NPCPosition and CaculateDistance(NPCPosition) > 10 then
+                                repeat
                                     task.wait()
                                     TweenController.Create(NPCPosition)
-                                end
-                                task.wait(1.5)
+                                until CaculateDistance(NPCPosition) < 10
+                                task.wait(3)
                             end
                         end
                     end
@@ -3724,22 +3585,10 @@ CombatController = {
                     LastFound = os.time()
                     local Count, Debounce = 0, os.time()
                     local Count2 = 0
-                    local attackLoopStart = tick()
                     -- Loop đánh quái
                     while task.wait(0.1) do
                         if _G.Stop then
                             return
-                        end
-
-                        -- Timeout bảo vệ chống kẹt vách đá: nếu không thể tiếp cận quái trong 15s, thoát kẹt và thử lại
-                        if (tick() - attackLoopStart > 15) and (CaculateDistance(MobHumanoidRootPart.Position) > 150) then
-                            pcall(function()
-                                local char = LocalPlayer.Character
-                                if char and char:FindFirstChild("HumanoidRootPart") then
-                                    char.HumanoidRootPart.CFrame = char.HumanoidRootPart.CFrame + Vector3.new(0, 80, 0)
-                                end
-                            end)
-                            break
                         end
 
                         -- Cache lại InCombat mỗi lần loop để kiểm tra trạng thái combat
