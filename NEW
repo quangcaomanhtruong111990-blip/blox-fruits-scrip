@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v2"
+        NameHub.Text = "sanglove v1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2499,9 +2499,91 @@ ScriptStorage = {
             return false, targetName, false, nil
         end
 
+        function QuestManager.IsUnderPlayerAttack()
+            local lp = game.Players.LocalPlayer
+            if not lp or not lp.Character then
+                return false
+            end
+            local hum = lp.Character:FindFirstChildOfClass("Humanoid") or lp.Character:FindFirstChild("Humanoid")
+            if not hum or hum.Health <= 0 then
+                return false
+            end
+
+            -- 1. Kiểm tra cờ/thẻ InCombat hoặc PVP từ Blox Fruits
+            local isCombatTagged = false
+            pcall(function()
+                if lp.Character:FindFirstChild("InCombat") or lp.Character:FindFirstChild("Combat") or lp:FindFirstChild("InCombat") then
+                    isCombatTagged = true
+                end
+            end)
+            if isCombatTagged then return true end
+
+            pcall(function()
+                local pGui = lp:FindFirstChild("PlayerGui")
+                if pGui then
+                    local main = pGui:FindFirstChild("Main")
+                    if main then
+                        local combatGui = main:FindFirstChild("Combat") or main:FindFirstChild("PVP") or main:FindFirstChild("InCombat")
+                        if combatGui and combatGui.Visible then
+                            isCombatTagged = true
+                        end
+                    end
+                end
+            end)
+            if isCombatTagged then return true end
+
+            pcall(function()
+                if GuideEnv and GuideEnv["_G"] and GuideEnv["_G"]["InCombat"] then
+                    isCombatTagged = true
+                end
+            end)
+            if isCombatTagged then return true end
+
+            -- 2. Tracking máu giảm + có người chơi khác ở gần (< 120 studs)
+            local currentHealth = hum.Health
+            ScriptStorage.LastPlayerHealth = ScriptStorage.LastPlayerHealth or currentHealth
+            ScriptStorage.LastDamageTime = ScriptStorage.LastDamageTime or 0
+
+            if currentHealth < ScriptStorage.LastPlayerHealth - 10 then
+                ScriptStorage.LastDamageTime = os.time()
+            end
+            ScriptStorage.LastPlayerHealth = currentHealth
+
+            if os.time() - (ScriptStorage.LastDamageTime or 0) < 5 then
+                local myHrp = lp.Character:FindFirstChild("HumanoidRootPart")
+                if myHrp then
+                    for _, otherPlayer in ipairs(game.Players:GetPlayers()) do
+                        if otherPlayer ~= lp and otherPlayer.Character then
+                            local otherHrp = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+                            local otherHum = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+                            if otherHrp and otherHum and otherHum.Health > 0 then
+                                local dist = (otherHrp.Position - myHrp.Position).Magnitude
+                                if dist < 120 then
+                                    print("[ PvP Detection ] Player is being attacked by " .. tostring(otherPlayer.Name) .. "! Distance: " .. math.floor(dist))
+                                    return true
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            return false
+        end
+
         function QuestManager.HandleBossQuestValidation()
             local isBossQuest, bossName, isAlive, bossInst = QuestManager.CheckActiveBossQuest()
             if isBossQuest then
+                -- Nếu đang bị người chơi khác tấn công -> Ngưng đánh boss, hủy quest và quay về farm level/nguyên liệu
+                if QuestManager.IsUnderPlayerAttack() then
+                    print("[ Boss Checker ] Player is UNDER ATTACK by another player! Abandoning Boss Quest " .. tostring(bossName) .. " to return to farming...")
+                    SetTask("MainTask", "Under Attack! Abandoning Boss Quest (" .. tostring(bossName) .. ") - Returning to Farm...")
+                    pcall(function() QuestManager.AbandonQuest() end)
+                    task.wait(0.3)
+                    pcall(function() QuestManager:RefreshQuest() end)
+                    return false
+                end
+
                 if isAlive and bossInst then
                     print("[ Boss Checker ] Boss " .. tostring(bossName) .. " is SPAWNED & ALIVE. Proceeding to fight.")
                     SetTask("MainTask", "Auto Farm Boss - Defeating " .. tostring(bossName))
@@ -2509,7 +2591,6 @@ ScriptStorage = {
                     return true
                 else
                     -- For Elite Hunter bosses (Deandre, Urban, Diablo):
-                    -- If the boss is not spawned in the server/workspace, do NOT wander across distant ocean locations!
                     if bossName == "Deandre" or bossName == "Urban" or bossName == "Diablo" then
                         local eliteInst = QuestManager.FindBossInstance(bossName)
                         if eliteInst and eliteInst:FindFirstChild("Humanoid") and eliteInst.Humanoid.Health > 0 then
@@ -2517,9 +2598,9 @@ ScriptStorage = {
                             CombatController.Attack(tostring(bossName))
                             return true
                         else
-                            -- Boss is not spawned in this server -> Abandon or return false immediately to farm Melee!
-                            print("[ Boss Checker ] Elite Boss " .. tostring(bossName) .. " is NOT spawned. Returning to Farm Melee...")
-                            SetTask("MainTask", "Elite Boss Not Found (" .. tostring(bossName) .. ") - Farming Melee / Level")
+                            -- Boss is not spawned in this server -> Abandon or return false immediately to farm Level/Material!
+                            print("[ Boss Checker ] Elite Boss " .. tostring(bossName) .. " is NOT spawned. Returning to Farm Level/Material...")
+                            SetTask("MainTask", "Elite Boss Not Found (" .. tostring(bossName) .. ") - Farming Level / Material")
                             pcall(function() QuestManager.AbandonQuest() end)
                             return false
                         end
@@ -2544,7 +2625,7 @@ ScriptStorage = {
                     else
                         -- Truly not spawned after reaching spawn location -> Abandon quest immediately!
                         print("[ Boss Checker ] Boss " .. tostring(bossName) .. " is NOT SPAWNED. Abandoning quest...")
-                        SetTask("MainTask", "Boss Not Found (" .. tostring(bossName) .. ") - Abandoning Quest, Farming Melee...")
+                        SetTask("MainTask", "Boss Not Found (" .. tostring(bossName) .. ") - Abandoning Quest, Farming Level / Material...")
                         QuestManager.AbandonQuest()
                         task.wait(0.3)
                         pcall(function() QuestManager:RefreshQuest() end)
@@ -3995,7 +4076,10 @@ FunctionsHandler = {
                         SetTask("MainTask", "Material Farming | Godhuman | " .. Material .. " | In Progress" )
 
                         -- Kiểm tra nếu đang dính quest boss: có boss thì đánh, không có thì hủy để farm nguyên liệu
-                        QuestManager.HandleBossQuestValidation()
+                        local isBossHandled = QuestManager.HandleBossQuestValidation()
+                        if isBossHandled then
+                            return
+                        end
 
                         if PlayerLevel >= MaterialData[4][3] then
                             CombatController.Attack(MaterialData[3])
@@ -4575,6 +4659,12 @@ FunctionsHandler = {
                 return true
             end
 
+            -- Nếu đã sở hữu Godhuman trong Tools/Backpack/Character hoặc có đủ mastery -> Godhuman đã hoàn thành
+            if Melee == "Godhuman" and (ScriptStorage.Tools["Godhuman"] or (ScriptStorage.Melees["Godhuman"] or 0) >= 350) then
+                ScriptStorage.CompletedMelees["Godhuman"] = true
+                return true
+            end
+
             local Data = MeleePrices[Melee]
             if not Data then return false end
 
@@ -4634,6 +4724,12 @@ FunctionsHandler = {
                         FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Godhuman")
                     else
                         FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                    end
+
+                    -- Xóa SubTask nếu đang hiển thị mua/cày võ để không bị kẹt UI
+                    local curSub = tostring(ScriptStorage.Tasks and ScriptStorage.Tasks.SubTask or "")
+                    if string.find(curSub, "Buying Melee") or string.find(curSub, "Farming Until Enough") then
+                        SetTask("SubTask", "n/a")
                     end
                     return
                 end
@@ -5085,6 +5181,13 @@ FunctionsHandler = {
             "Start",
             function(Boss)
                 if Boss and Boss.Parent and Boss:FindFirstChild("Humanoid") and Boss.Humanoid.Health > 0 then
+                    if QuestManager.IsUnderPlayerAttack() then
+                        print("[ BossesTask ] Player is under attack! Skipping Boss Task to resume level/material farm...")
+                        CachedBoss = nil
+                        pcall(function() QuestManager.AbandonQuest() end)
+                        return
+                    end
+
                     SetTask("MainTask", "Auto Farm Boss - Defeating " .. Boss.Name)
 
                     CombatController.Attack(
@@ -5144,6 +5247,13 @@ FunctionsHandler = {
                 end
 
                 if Boss and Boss.Parent and Boss:FindFirstChild("Humanoid") and Boss.Humanoid.Health > 0 then
+                    if QuestManager.IsUnderPlayerAttack() then
+                        print("[ SpecialBossesTask ] Player is under attack! Skipping Special Boss Task...")
+                        CachedSpecialBoss = nil
+                        pcall(function() QuestManager.AbandonQuest() end)
+                        return
+                    end
+
                     SetTask("MainTask", "Auto Farm Boss - Defeating " .. Boss.Name)
                     CombatController.Attack(tostring(Boss.Name))
                 else
@@ -5378,6 +5488,24 @@ FunctionsHandler = {
             
             if hasMeleeNeedingMastery and Fragments >= 5000 then
                 return false
+            end
+
+            -- Check xem đã hoàn thành tất cả các võ chưa
+            local allMeleesCompleted = true
+            if Config.Items.AutoFullyMelees then
+                for _, mName in ipairs(MeleesTable) do
+                    if mName ~= "SanguineArt" and not IsMeleeComplete(mName) then
+                        allMeleesCompleted = false
+                        break
+                    end
+                end
+            end
+
+            -- Nếu đã đủ tất cả võ và Level chưa Max -> Nhường ưu tiên hoàn toàn cho LevelFarm! (chỉ raid nếu fragments < 5000)
+            if allMeleesCompleted and Level < MaxLevel then
+                if Fragments >= 5000 then
+                    return false
+                end
             end
 
             -- Nếu Level chưa Max: farm tích luỹ đến 10k Fragments
