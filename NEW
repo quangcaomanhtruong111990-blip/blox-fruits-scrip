@@ -67,7 +67,7 @@ Config =
                 HopWhenIdle = false,
                 AutoHop = false,
                 AutoHopDelay = 60 * 60,
-                FpsBoost = true,
+                FpsBoost = false,
                 ["IdleCheck"] = 0, -- Tắt tự động Hop để tránh out game
             },
             Items = {
@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove đt"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1985,6 +1985,10 @@ ScriptStorage = {
                 local foundMap = {}
                 local function checkAdd(Mon)
                     if Mon and Mon:IsA("Model") and not foundMap[Mon] then
+                        local mName = Mon.Name
+                        if string.find(mName, "_Stored") or string.find(mName, "Cutscene") or string.find(mName, "Dummy") or string.find(mName, "Camera") then
+                            return
+                        end
                         local hum = Mon:FindFirstChildOfClass("Humanoid")
                         local hrp = Mon:FindFirstChild("HumanoidRootPart") or Mon.PrimaryPart or Mon:FindFirstChild("Torso") or Mon:FindFirstChild("UpperTorso")
                         if hum and hum.Health > 0 and hrp then
@@ -2571,6 +2575,55 @@ ScriptStorage = {
             return false
         end
 
+        function QuestManager.GetTargetBossPosition(bossName)
+            if not bossName or type(bossName) ~= "string" then return nil end
+
+            -- Xử lý riêng cho Elite Hunter Bosses (Deandre, Urban, Diablo)
+            if bossName == "Deandre" or bossName == "Urban" or bossName == "Diablo" then
+                -- 1. Nếu Boss đã render/spawn trong Workspace, trả về vị trí thực của Boss
+                local aliveInst = QuestManager.FindBossInstance(bossName)
+                if aliveInst and aliveInst:FindFirstChild("HumanoidRootPart") then
+                    return aliveInst.HumanoidRootPart.Position
+                end
+
+                -- 2. Đọc text từ Quest UI / Remote để tìm tên đảo
+                local rawText = ""
+                pcall(function()
+                    local _, txt = IsAnyQuestActive()
+                    if txt then rawText = rawText .. " " .. tostring(txt) end
+                end)
+                pcall(function()
+                    if Remotes and Remotes.CommF_ then
+                        local res = Remotes.CommF_:InvokeServer("EliteHunter")
+                        if typeof(res) == "string" then rawText = rawText .. " " .. res end
+                    end
+                end)
+
+                local lowerText = string.lower(rawText)
+                if string.find(lowerText, "port town") or string.find(lowerText, "port") then
+                    return Vector3.new(-290, 75, 5550)
+                elseif string.find(lowerText, "hydra") then
+                    return Vector3.new(5756, 610, -253)
+                elseif string.find(lowerText, "turtle") or string.find(lowerText, "floating") or string.find(lowerText, "mansion") then
+                    return Vector3.new(-12463, 375, -7523)
+                elseif string.find(lowerText, "great tree") or string.find(lowerText, "tree") then
+                    return Vector3.new(2450, 73, -6800)
+                elseif string.find(lowerText, "haunted") or string.find(lowerText, "castle") then
+                    return Vector3.new(-9500, 172, 6150)
+                end
+                -- Tọa độ mặc định đảo Floating Turtle nếu chưa parse được tên đảo
+                return Vector3.new(-12463, 375, -7523)
+            end
+
+            local bossPos = MobPositionsFallback and MobPositionsFallback[bossName]
+            if bossPos then
+                local checkPos = (typeof(bossPos) == "table" and bossPos[1]) or bossPos
+                return (typeof(checkPos) == "CFrame" and checkPos.Position) or (typeof(checkPos) == "Vector3" and checkPos) or nil
+            end
+
+            return nil
+        end
+
         function QuestManager.HandleBossQuestValidation()
             local isBossQuest, bossName, isAlive, bossInst = QuestManager.CheckActiveBossQuest()
             if isBossQuest then
@@ -2590,40 +2643,47 @@ ScriptStorage = {
                     CombatController.Attack(tostring(bossName))
                     return true
                 else
-                    -- For Elite Hunter bosses (Deandre, Urban, Diablo):
-                    if bossName == "Deandre" or bossName == "Urban" or bossName == "Diablo" then
-                        local eliteInst = QuestManager.FindBossInstance(bossName)
-                        if eliteInst and eliteInst:FindFirstChild("Humanoid") and eliteInst.Humanoid.Health > 0 then
-                            SetTask("MainTask", "Hunting Elite Boss - Defeating " .. tostring(bossName))
-                            CombatController.Attack(tostring(bossName))
-                            return true
-                        else
-                            -- Boss is not spawned in this server -> Abandon or return false immediately to farm Level/Material!
-                            print("[ Boss Checker ] Elite Boss " .. tostring(bossName) .. " is NOT spawned. Returning to Farm Level/Material...")
-                            SetTask("MainTask", "Elite Boss Not Found (" .. tostring(bossName) .. ") - Farming Level / Material")
-                            pcall(function() QuestManager.AbandonQuest() end)
-                            return false
-                        end
-                    end
-
-                    -- For normal bosses: Check if character is near boss spawn location before abandoning
-                    local bossPos = MobPositionsFallback and MobPositionsFallback[bossName]
+                    local targetPos = QuestManager.GetTargetBossPosition(bossName)
                     local isNearSpawn = false
-                    if bossPos then
-                        local checkPos = (typeof(bossPos) == "table" and bossPos[1]) or bossPos
-                        local posVec = (typeof(checkPos) == "CFrame" and checkPos.Position) or checkPos
-                        if posVec and CaculateDistance(posVec) < 150 then
-                            isNearSpawn = true
-                        end
+                    if targetPos and CaculateDistance(targetPos) < 200 then
+                        isNearSpawn = true
                     end
 
-                    if not isNearSpawn and bossPos then
-                        -- Still traveling to the boss location, let CombatController fly to it
-                        SetTask("MainTask", "Flying to Boss - " .. tostring(bossName))
+                    if not isNearSpawn and targetPos then
+                        -- Bay thẳng tới vị trí spawn của Boss
+                        SetTask("MainTask", "Flying Directly to Boss - " .. tostring(bossName))
                         CombatController.Attack(tostring(bossName))
                         return true
                     else
-                        -- Truly not spawned after reaching spawn location -> Abandon quest immediately!
+                        -- Đã tới vị trí spawn: Đợi 0.5s cho mob render
+                        task.wait(0.5)
+                        local recheckInst = QuestManager.FindBossInstance(bossName)
+                        if recheckInst and recheckInst:FindFirstChild("Humanoid") and recheckInst.Humanoid.Health > 0 then
+                            SetTask("MainTask", "Auto Farm Boss - Defeating " .. tostring(bossName))
+                            CombatController.Attack(tostring(bossName))
+                            return true
+                        end
+
+                        -- Nếu là Elite Hunter Boss (Deandre, Urban, Diablo) mà không thấy ở spawn này, kiểm tra các vị trí khác
+                        if bossName == "Deandre" or bossName == "Urban" or bossName == "Diablo" then
+                            local eliteSpawns = {
+                                Vector3.new(-12463, 375, -7523), -- Floating Turtle
+                                Vector3.new(-290, 75, 5550),     -- Port Town
+                                Vector3.new(5756, 610, -253),    -- Hydra Island
+                                Vector3.new(2450, 73, -6800),    -- Great Tree
+                                Vector3.new(-9500, 172, 6150)    -- Haunted Castle
+                            }
+                            
+                            for _, spawnPos in ipairs(eliteSpawns) do
+                                if CaculateDistance(spawnPos) > 300 then
+                                    SetTask("MainTask", "Searching Elite Boss (" .. tostring(bossName) .. ") at next island...")
+                                    TweenController.Create(spawnPos)
+                                    return true
+                                end
+                            end
+                        end
+
+                        -- Thực sự không spawn tại vị trí nào -> Hủy quest để quay lại farm Level/Material
                         print("[ Boss Checker ] Boss " .. tostring(bossName) .. " is NOT SPAWNED. Abandoning quest...")
                         SetTask("MainTask", "Boss Not Found (" .. tostring(bossName) .. ") - Abandoning Quest, Farming Level / Material...")
                         QuestManager.AbandonQuest()
@@ -2848,6 +2908,21 @@ ScriptStorage = {
         
             local RootPart = Character.HumanoidRootPart
             local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
+
+            -- Fast Portal Teleport bypass cho khoảng cách xa giữa các đảo (> 1500 studs)
+            if CurrentDist > 1500 and CheckNearestTeleporter then
+                pcall(function()
+                    local tpPos = CheckNearestTeleporter(TargetCFrame)
+                    if tpPos and typeof(tpPos) == "Vector3" then
+                        if (RootPart.Position - tpPos).Magnitude > 300 then
+                            requestEntrance(tpPos)
+                            task.wait(0.2)
+                            RootPart = Character:FindFirstChild("HumanoidRootPart") or RootPart
+                            CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
+                        end
+                    end
+                end)
+            end
         
             -- 2. CHỐNG GIẬT / CHỐNG CANCEL LIÊN TỤC KHI ĐANG BAY TỚI CÙNG ĐÍCH
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
@@ -3139,6 +3214,17 @@ ScriptStorage = {
         
         -- Comprehensive Mob Spawn Coordinates Fallback (Chống kẹt/đứng im khi mob chưa render)
         local MobPositionsFallback = {
+            -- Bosses & Elites Fallback
+            ["Deandre"] = Vector3.new(-12463, 375, -7523),
+            ["Urban"] = Vector3.new(-12463, 375, -7523),
+            ["Diablo"] = Vector3.new(-12463, 375, -7523),
+            ["Cake Prince"] = Vector3.new(-2100, 70, -12200),
+            ["Dough King"] = Vector3.new(-2100, 70, -12200),
+            ["Soul Reaper"] = Vector3.new(-9500, 172, 6150),
+            ["rip_indra True Form"] = Vector3.new(-5400, 310, -2800),
+            ["Awakened Ice Admiral"] = Vector3.new(6000, 30, -6200),
+            ["Tide Keeper"] = Vector3.new(-3400, 50, -10500),
+            ["Don Swan"] = Vector3.new(2280, 15, 900),
             -- Sea 3 Mobs
             ["Pirate Millionaire"] = Vector3.new(-373, 75, 5550),
             ["Pistol Billionaire"] = Vector3.new(-470, 75, 5950),
@@ -3486,10 +3572,7 @@ CombatController = {
 
             for _, Child in ipairs(MobTable) do
                 local ChildName = tostring(Child)
-                if
-                    ChildName == "Deandre" or ChildName == "Urban" or
-                        ChildName == "Diablo" and (os.time() - (LastFire12 or 0)) > 180
-                 then
+                if (ChildName == "Deandre" or ChildName == "Urban" or ChildName == "Diablo") and (os.time() - (LastFire12 or 0)) > 180 then
                     LastFire12 = os.time()
                     Remotes.CommF_:InvokeServer("EliteHunter")
                 end
@@ -3600,8 +3683,11 @@ CombatController = {
                     return
                 elseif not NearbyHit then
                     local Region = nil
-                    -- Uu tien 1: Toa do spawn chuan tu MobPositionsFallback (chong ket tai RS hoac cho mob chua spawn)
-                    if MobPositionsFallback and MobPositionsFallback[ChildName] then
+                    -- Ưu tiên 1: Tọa độ target từ QuestManager.GetTargetBossPosition (cho Bosses & Quái)
+                    local targetPos = QuestManager.GetTargetBossPosition and QuestManager.GetTargetBossPosition(ChildName)
+                    if targetPos then
+                        Region = {targetPos}
+                    elseif MobPositionsFallback and MobPositionsFallback[ChildName] then
                         local fb = MobPositionsFallback[ChildName]
                         if typeof(fb) == "table" and #fb > 0 then
                             Region = fb
@@ -5723,7 +5809,8 @@ FunctionsHandler = {
                             local Found = false
                             for _, Mon in GetMonAsSortedRange() do
                                 local StartTick1 = os.time()
-                                while Mon and Mon:FindFirstChild("HumanoidRootPart") and Mon.Humanoid.Health > 0 and
+                                while Mon and Mon.Parent and Mon:FindFirstChild("HumanoidRootPart") and
+                                    Mon:FindFirstChildOfClass("Humanoid") and Mon:FindFirstChildOfClass("Humanoid").Health > 0 and
                                     CaculateDistance(Mon.HumanoidRootPart.Position) < 1000 and
                                     os.time() - StartTick1 < 60 and
                                     task.wait(.05) do
