@@ -302,7 +302,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1854,6 +1854,7 @@ ScriptStorage = {
             "ThirdSeaPuzzle",
             "CollectDrops",
             "BossesTask",
+            "MeleesController",
             "LevelFarm"
         }
 
@@ -4384,7 +4385,10 @@ FunctionsHandler = {
         FunctionsHandler.MeleesController:RegisterMethod(
             "Refresh",
             function()
-                return Config.Items.AutoFullyMelees
+                if not Config.Items.AutoFullyMelees or _G.MeleeProgressionFinished then
+                    return false
+                end
+                return true
             end
         )
 
@@ -4398,6 +4402,16 @@ FunctionsHandler = {
             ["Fishman Karate"] = "Water Kung-fu",
             ["Water Kung-fu"] = "Fishman Karate"
         }
+
+        local function CheckStyleOwned(buyRemoteName)
+            local ok, res = pcall(function()
+                return Remotes.CommF_:InvokeServer(buyRemoteName, true)
+            end)
+            if ok and (res == 1 or res == 2 or res == "You already own this style" or res == true) then
+                return true
+            end
+            return false
+        end
 
         local function CheckMeleeToolLevel(mName)
             local char = LocalPlayer.Character
@@ -4481,16 +4495,8 @@ FunctionsHandler = {
                     return
                 end
 
-                -- 1. SUY LUẬN THÔNG MINH TỪ CÁC VÕ ĐÃ SỞ HỮU TRÊN TAY HOẶC TRONG BALO:
-                local hasGodhuman = CheckMeleeToolLevel("Godhuman") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Godhuman"])
-                if not hasGodhuman then
-                    local ok, res = pcall(function()
-                        return Remotes.CommF_:InvokeServer("BuyGodhuman", true)
-                    end)
-                    if ok and (res == 1 or res == 2 or res == "You already own this style") then
-                        hasGodhuman = true
-                    end
-                end
+                -- 1. SUY LUẬN THÔNG MINH TỪ CÁC VÕ ĐÃ SỞ HỮU TRÊN TAY HOẶC TRONG BALO HOẶC TRUY VẤN SERVER:
+                local hasGodhuman = CheckMeleeToolLevel("Godhuman") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Godhuman"]) or CheckStyleOwned("BuyGodhuman")
 
                 if hasGodhuman then
                     -- Nếu người chơi đã có Godhuman -> Tất cả võ trước đều đã đạt 400!
@@ -4512,18 +4518,27 @@ FunctionsHandler = {
                     end
                 end
 
-                -- Kế thừa các võ cấp 2:
-                if CheckMeleeToolLevel("Death Step") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Death Step"]) then
+                -- Kế thừa các võ cấp 2 (Nếu đã sở hữu hoặc học được võ cấp 2 -> Võ cấp 1 chắc chắn đã đạt 400):
+                if CheckMeleeToolLevel("Death Step") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Death Step"]) or CheckStyleOwned("BuyDeathStep") then
                     _G.MeleesMasteryCompleted["Black Leg"] = true
+                    _G.MeleesMasteryCompleted["Dark Step"] = true
                 end
-                if CheckMeleeToolLevel("Sharkman Karate") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Sharkman Karate"]) then
+                if CheckMeleeToolLevel("Sharkman Karate") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Sharkman Karate"]) or CheckStyleOwned("BuySharkmanKarate") then
                     _G.MeleesMasteryCompleted["Fishman Karate"] = true
+                    _G.MeleesMasteryCompleted["Water Kung-fu"] = true
                 end
-                if CheckMeleeToolLevel("Electric Claw") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Electric Claw"]) then
+                if CheckMeleeToolLevel("Electric Claw") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Electric Claw"]) or CheckStyleOwned("BuyElectricClaw") then
                     _G.MeleesMasteryCompleted["Electro"] = true
                 end
-                if CheckMeleeToolLevel("Dragon Talon") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Dragon Talon"]) then
+                if CheckMeleeToolLevel("Dragon Talon") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Dragon Talon"]) or CheckStyleOwned("BuyDragonTalon") then
                     _G.MeleesMasteryCompleted["Dragon Claw"] = true
+                end
+                if CheckMeleeToolLevel("Superhuman") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Superhuman"]) or CheckStyleOwned("BuySuperhuman") then
+                    -- Superhuman yêu cầu 300+ ở cả 4 võ cơ bản
+                    if not _G.MeleesMasteryCompleted["Black Leg"] and CheckMeleeToolLevel("Black Leg") < 300 then ScriptStorage.Melees["Black Leg"] = 300 end
+                    if not _G.MeleesMasteryCompleted["Electro"] and CheckMeleeToolLevel("Electro") < 300 then ScriptStorage.Melees["Electro"] = 300 end
+                    if not _G.MeleesMasteryCompleted["Fishman Karate"] and CheckMeleeToolLevel("Fishman Karate") < 300 then ScriptStorage.Melees["Fishman Karate"] = 300 end
+                    if not _G.MeleesMasteryCompleted["Dragon Claw"] and CheckMeleeToolLevel("Dragon Claw") < 300 then ScriptStorage.Melees["Dragon Claw"] = 300 end
                 end
 
                 _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex or 1
@@ -5596,28 +5611,52 @@ FunctionsHandler = {
         
 
         -- CollectDrops
+        _G.FruitAttempts = _G.FruitAttempts or {}
+        _G.FruitBlacklist = _G.FruitBlacklist or {}
 
         FunctionsHandler.CollectDrops:RegisterMethod(
             "Refresh",
             function()
-                local FruitNames = {}
-
-                for i in ScriptStorage.Backpack do
-                    FruitNames[FruitIdToName(i)] = i
-                end
-
-                for _, Fruit in workspace:GetChildren() do
-                    if
-                        string.find(Fruit.Name, "Fruit") and not Players:FindFirstChild(Fruit.Name) and
-                            Fruit:FindFirstChild("Handle") and
-                            not FruitNames[tostring(Fruit)] and
-                            not ScriptStorage.Backpack[FruitNameToId(tostring(Fruit))]
-                     then
-                        FunctionsHandler.CollectDrops:Set("CurrentProgressLevel", Fruit)
-                        getgenv().anchored = true  
-                        return Fruit
+                local now = tick()
+                -- 1. Kiểm tra trái ác quỷ rơi trong workspace
+                for _, Fruit in pairs(workspace:GetChildren()) do
+                    if Fruit:IsA("Model") or Fruit:IsA("Tool") then
+                        if string.find(Fruit.Name, "Fruit") and not Players:FindFirstChild(Fruit.Name) and Fruit:FindFirstChild("Handle") then
+                            if not _G.FruitBlacklist[Fruit] or now > _G.FruitBlacklist[Fruit] then
+                                FunctionsHandler.CollectDrops:Set("CurrentProgressLevel", Fruit)
+                                return Fruit
+                            end
+                        end
                     end
                 end
+
+                -- 2. Kiểm tra nếu người chơi đang cầm hoặc có Trái Ác Quỷ chưa cất trong balo/người
+                local bp = LocalPlayer:FindFirstChild("Backpack")
+                local char = LocalPlayer.Character
+                local heldFruit = nil
+                if char then
+                    for _, item in pairs(char:GetChildren()) do
+                        if item:IsA("Tool") and string.find(item.Name, "Fruit") and not table.find(ScriptStorage.IgnoreStoreFruits or {}, item:GetAttribute("OriginalName") or item.Name) then
+                            heldFruit = item
+                            break
+                        end
+                    end
+                end
+                if not heldFruit and bp then
+                    for _, item in pairs(bp:GetChildren()) do
+                        if item:IsA("Tool") and string.find(item.Name, "Fruit") and not table.find(ScriptStorage.IgnoreStoreFruits or {}, item:GetAttribute("OriginalName") or item.Name) then
+                            heldFruit = item
+                            break
+                        end
+                    end
+                end
+
+                if heldFruit then
+                    FunctionsHandler.CollectDrops:Set("HeldFruit", heldFruit)
+                    return heldFruit
+                end
+
+                return nil
             end
         )
 
@@ -5625,16 +5664,71 @@ FunctionsHandler = {
             "Start",
             function()
                 local Fruit = FunctionsHandler.CollectDrops:Get("CurrentProgressLevel")
+                local heldFruit = FunctionsHandler.CollectDrops:Get("HeldFruit")
                 FunctionsHandler.CollectDrops:Set("CurrentProgressLevel", nil)
-                if Fruit then
-                    SetTask("MainTask", "Nhặt Trái Ác Quỷ rơi - " .. tostring(Fruit))
-                    getgenv().anchored = true  
-                    TweenController.Create(Fruit:GetModelCFrame())
-                else
-                    if not FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call() and 
-                       not FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call() then
+                FunctionsHandler.CollectDrops:Set("HeldFruit", nil)
+
+                -- A. Xử lý Trái Ác Quỷ đang ở trên người / trong balo -> Cất ngay
+                if heldFruit and heldFruit.Parent then
+                    SetTask("MainTask", "Cất Trái Ác Quỷ - " .. tostring(heldFruit.Name))
+                    SetTask("SubTask", "Đang lưu trữ " .. tostring(heldFruit.Name) .. " vào Treasure Inventory...")
+                    local origName = heldFruit:GetAttribute("OriginalName") or heldFruit.Name
+                    pcall(function()
+                        Remotes.CommF_:InvokeServer("StoreFruit", origName, heldFruit)
+                    end)
+                    task.wait(0.5)
+                    getgenv().anchored = false
+                    return
+                end
+
+                -- B. Xử lý Trái Ác Quỷ rơi ở Workspace
+                if Fruit and Fruit.Parent and Fruit:FindFirstChild("Handle") then
+                    _G.FruitAttempts[Fruit] = (_G.FruitAttempts[Fruit] or 0) + 1
+                    local fruitPos = (Fruit:FindFirstChild("Handle") and Fruit.Handle.Position) or (Fruit:IsA("Model") and Fruit:GetPivot().Position) or Fruit.Position
+
+                    SetTask("MainTask", "Nhặt Trái Ác Quỷ rơi - " .. tostring(Fruit.Name))
+                    SetTask("SubTask", "Đang bay tới nhặt trái: " .. tostring(Fruit.Name))
+
+                    local dist = CaculateDistance(fruitPos)
+                    if dist > 15 then
+                        getgenv().anchored = false
+                        TweenController.Create(fruitPos + Vector3.new(0, 3, 0))
+                    else
+                        getgenv().anchored = true
+                        pcall(function()
+                            Fruit.Handle.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
+                        end)
+                        task.wait(0.3)
+                        -- Cất toàn bộ trái trong balo/người sau khi nhặt
+                        if LocalPlayer:FindFirstChild("Backpack") then
+                            for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                                if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then
+                                    pcall(function()
+                                        Remotes.CommF_:InvokeServer("StoreFruit", tool:GetAttribute("OriginalName") or tool.Name, tool)
+                                    end)
+                                end
+                            end
+                        end
+                        if LocalPlayer.Character then
+                            for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
+                                if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then
+                                    pcall(function()
+                                        Remotes.CommF_:InvokeServer("StoreFruit", tool:GetAttribute("OriginalName") or tool.Name, tool)
+                                    end)
+                                end
+                            end
+                        end
+                        task.wait(0.3)
                         getgenv().anchored = false
                     end
+
+                    -- Nếu thử nhặt quá 12 lần (hoặc trái bị kẹt/kho đầy), tạm blacklist 60s để không làm kẹt script
+                    if _G.FruitAttempts[Fruit] > 12 then
+                        _G.FruitBlacklist[Fruit] = tick() + 60
+                        getgenv().anchored = false
+                    end
+                else
+                    getgenv().anchored = false
                 end
             end
         )
@@ -6843,6 +6937,7 @@ FunctionsHandler = {
                                     SecondSeaPuzzle = "Nhiệm Vụ Mở Cổng Sea 2",
                                     CollectDrops = "Nhặt Trái Ác Quỷ Rơi",
                                     BossesTask = "Săn Boss Thế Giới",
+                                    MeleesController = "Cày Võ & Thông Thạo Godhuman",
                                     LevelFarm = "Cày Cấp & Farm Võ Godhuman"
                                 }
                                 if ScriptStorage.Interface and type(ScriptStorage.Interface.SetText) == "function" then
@@ -7064,15 +7159,6 @@ FunctionsHandler = {
                 pcall(SendData)
             end ]]
             local success, response = pcall(RefreshTasksData)
-            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
-            local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            if not IsInRaid then
-                pcall(function()
-                    if FunctionsHandler.MeleesController and FunctionsHandler.MeleesController.Methods and FunctionsHandler.MeleesController.Methods.Start then
-                        FunctionsHandler.MeleesController.Methods.Start:Call()
-                    end
-                end)
-            end
             if not success and response then
                 pcall(function() Report(response) end)
             end
