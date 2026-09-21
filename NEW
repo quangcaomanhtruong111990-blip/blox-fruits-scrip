@@ -302,7 +302,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "hang "
+        NameHub.Text = "sanglove v1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1848,7 +1848,6 @@ ScriptStorage = {
             "UtillyItemsActivitation",
             "ColosseumPuzzle",
             "ThirdSeaPuzzle",
-            "Yama",
             "Saber",
             "PirateRaid",
             "SecondSeaPuzzle",
@@ -5947,49 +5946,14 @@ FunctionsHandler = {
         FunctionsHandler.Yama:RegisterMethod(
             "Refresh",
             function()
-                -- Chỉ làm Yama khi người dùng chủ động bật trong Config.Items
-                if not (Config and Config.Items and (Config.Items.Yama or Config.Items.CursedDualKatana)) then
-                    return
-                end
-
-                if SeaIndex ~= 3 then
-                    return
-                end
-
-                if ScriptStorage.Backpack.Yama then
-                    return
-                end
-
-                if not FunctionsHandler.Yama:Get("EliteCount") then
-                    FunctionsHandler.Yama:Set("EliteCount", Remotes.CommF_:InvokeServer("EliteHunter", "Progress"))
-                end
-
-                if FunctionsHandler.Yama:Get("EliteCount") >= 30 then
-                    return true
-                end
+                return false
             end
         )
 
         FunctionsHandler.Yama:RegisterMethod(
             "Start",
             function()
-                if SeaIndex == 3 then
-                    SetTask("MainTask", "Lấy Kiếm Yama | Đang rút Kiếm Katana Niêm Phong")
-                    local waterfall = (workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Waterfall")) or workspace:FindFirstChild("Waterfall", true)
-                    local sealedKatana = (waterfall and waterfall:FindFirstChild("SealedKatana")) or workspace:FindFirstChild("SealedKatana", true)
-                    
-                    if sealedKatana and sealedKatana:FindFirstChild("Hitbox") and sealedKatana.Hitbox:FindFirstChild("ClickDetector") then
-                        TweenController.Create(sealedKatana.Hitbox.CFrame * CFrame.new(0, 2, 0))
-                        if CaculateDistance(sealedKatana.Hitbox.CFrame) < 20 then
-                            for i = 1, 4 do
-                                fireclickdetector(sealedKatana.Hitbox.ClickDetector)
-                                task.wait(0.25)
-                            end
-                        end
-                    else
-                        TweenController.Create(CFrame.new(5251.89990234375, 37.18115234375, 453.6022644042969))
-                    end
-                end
+                return
             end
         )
 
