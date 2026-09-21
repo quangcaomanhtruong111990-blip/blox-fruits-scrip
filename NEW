@@ -74,8 +74,10 @@ Config =
                 -- Melees
                 AutoFullyMelees = true,
                 -- Swords
-                Saber = true,
+                Saber = false,
                 CursedDualKatana = false,
+                Yama = false,
+                Tushita = false,
                 -- Guns
                 SoulGuitar = false,
                 -- Upgrades
@@ -300,7 +302,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
+        NameHub.Text = "hang "
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -361,7 +363,9 @@ end)
             Bounty.Parent = HopGui
             Bounty.AnchorPoint = Vector2.new(0.5, 0.5)
             Bounty.Position = position
-            Bounty.Size = UDim2.new(0, 200, 0, 30)
+            Bounty.Size = UDim2.new(0, 900, 0, 28)
+            Bounty.ClipsDescendants = false
+            Bounty.TextWrapped = false
             Bounty.BackgroundTransparency = 0.999
             Bounty.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             Bounty.BorderColor3 = Color3.fromRGB(0, 0, 0)
@@ -880,7 +884,7 @@ end)
         alert("load 2")
         print("[Bocchi Hub] GUI Created! Initializing Script...")
         if SetText then
-            SetText("MainTextLabel", "Initalizing Script...")
+            SetText("MainTextLabel", "Đang khởi tạo Script...")
         end
         
 
@@ -1030,8 +1034,89 @@ ScriptStorage = {
             )
         end
 
+        local TaskPrefixVN = {
+            MainTask = "Nhiệm Vụ",
+            SubTask = "Trạng Thái"
+        }
+
+        local TaskDictionaryVN = {
+            ["n/a"] = "Sẵn sàng hoạt động",
+            ["Initalizing Script..."] = "Đang khởi tạo Script...",
+            ["Loading Game Modules..."] = "Đang tải Game Modules...",
+            ["Refreshing Player Items..."] = "Đang làm mới vật phẩm...",
+            ["Loading Inventory..."] = "Đang tải kho đồ...",
+            ["Loading Race..."] = "Đang tải thông tin Tộc...",
+            ["Auto Raid - Completed"] = "Đi Raid - Đã hoàn thành Raid!",
+            ["Auto Raid - Raid Is Not Started?"] = "Đi Raid - Hết thời gian chờ phòng Raid",
+            ["Auto Raid - Waiting Until Raid Is Started"] = "Đi Raid - Đang chờ phòng Raid bắt đầu",
+            ["Auto Race V2 - Idling"] = "Nâng Tộc V2 - Chờ đợi / An toàn",
+            ["Auto Bartilo Quest - Doing Puzzle"] = "Nhiệm vụ Bartilo - Giải mã đấu trường (Colosseum)",
+            ["Auto Second Sea - Talk To Detective"] = "Lên Sea 2 - Gặp Thám tử (Military Detective)",
+            ["Auto Second Sea - Defeating Ice Admiral"] = "Lên Sea 2 - Tiêu diệt Đô Đốc Băng (Ice Admiral)",
+            ["Sword Quest | Yama | Pulling Katana"] = "Lấy Kiếm Yama | Đang rút Kiếm Katana Niêm Phong",
+            ["Hopping for full moon ( soul guitar )"] = "Tìm Server Trăng Tròn (Lấy Soul Guitar)",
+            ["Teleport to second sea to farm ectoplasm"] = "Sang Sea 2 farm Ectoplasm (Lấy Soul Guitar)",
+            ["Farming ectoplasms for soul guitar"] = "Đang farm Ectoplasm trên Tàu Ma (Lấy Soul Guitar)",
+            ["Soul Guitar task 1 / 5: Attack"] = "Nhiệm vụ Soul Guitar (1/5) - Tiêu diệt cùng lúc 6 quái Zombie",
+            ["Soul Guitar task 2 / 5: completing placards"] = "Nhiệm vụ Soul Guitar (2/5) - Đang gạt biển báo nghĩa địa"
+        }
+
+        function TranslateTaskToVN(str)
+            if not str or type(str) ~= "string" then return tostring(str or "") end
+            if TaskDictionaryVN[str] then return TaskDictionaryVN[str] end
+            local s = str
+            s = s:gsub("^Buying Melee %- ", "Đang mua võ - ")
+            s = s:gsub("^Code Redemption %| ", "Nhập Code | ")
+            s = s:gsub(" %| Redeeming%.%.%.", " | Đang nhập...")
+            s = s:gsub(" %| X2 Exp Boost Activated%!", " | Đã kích hoạt X2 EXP!")
+            s = s:gsub("^Sea Travel %| Godhuman Materials %| Travelling to Sea ", "Chuyển Sea | Nguyên liệu Godhuman | Đang sang Sea ")
+            s = s:gsub("^Sea Travel %| Teleporting to Third Sea", "Chuyển Sea | Đang dịch chuyển sang Sea 3")
+            s = s:gsub("^Sea Travel %| Teleporting to Second Sea", "Chuyển Sea | Đang dịch chuyển sang Sea 2")
+            s = s:gsub("^Material Farming %| Godhuman %| (.-) %| In Progress", "Farm Nguyên Liệu | Godhuman | %1 | Đang thực hiện")
+            s = s:gsub("^Material Farming %| Conjured Cocoa %| Need 10x %| Farming%.%.%.", "Farm Nguyên Liệu | Conjured Cocoa | Cần 10x | Đang cày...")
+            s = s:gsub("^Fragments Farming %| Cake Prince %| Dough King", "Cày Fragments | Cake Prince / Dough King")
+            s = s:gsub("^Resource Farming %| Bones %| For X2 Mastery/Beli", "Farm Xương (Bones) | Đổi X2 Thông Thạo / Beli")
+            s = s:gsub("^Level Farming %| Skip Mode %| Floor ", "Cày Cấp | Bỏ qua nhiệm vụ | Tầng ")
+            s = s:gsub("^Level Farming %| (.-) %| Defeating Enemies", "Cày Cấp | %1 | Đang đánh quái")
+            s = s:gsub("^Level Farming %| (.-) %| Claiming Quest", "Cày Cấp | %1 | Đang nhận nhiệm vụ")
+            s = s:gsub("^Saber Quest %| Quest Plates %| Touching ", "Nhiệm vụ Saber | Nút bí mật | Đang ấn nút ")
+            s = s:gsub("^Saber Quest %| Torch Puzzle %| Using Torch", "Nhiệm vụ Saber | Đuốc giải đố | Đang dùng Đuốc")
+            s = s:gsub("^Saber Quest %| Sick Man %| Helping with Cup", "Nhiệm vụ Saber | Người ốm | Trao Cốc Nước")
+            s = s:gsub("^Saber Quest %| Rich Son %| Getting Information", "Nhiệm vụ Saber | Con nhà giàu | Nhận thông tin")
+            s = s:gsub("^Saber Quest %| Mob Leader %| Defeating Boss", "Nhiệm vụ Saber | Trùm cướp | Tiêu diệt Boss")
+            s = s:gsub("^Saber Quest %| Relic %| Placing at Location", "Nhiệm vụ Saber | Cổ vật | Đặt vào bệ cửa")
+            s = s:gsub("^Saber Quest %| Saber Expert %| Final Battle", "Nhiệm vụ Saber | Saber Expert (Shanks) | Chiến đấu")
+            s = s:gsub("^Farming Mastery %| (.-) %| Defeating (.-)$", "Cày Thông Thạo | %1 | Đang tiêu diệt %2")
+            s = s:gsub("^Farming Mastery %| (.-) %| Claiming Quest", "Cày Thông Thạo | %1 | Đang nhận nhiệm vụ")
+            s = s:gsub("^Farming Mastery %| (.-) %| Farming Mobs", "Cày Thông Thạo | %1 | Đang gom quái đánh")
+            s = s:gsub("^Auto Second Sea %- Talk To Detective", "Lên Sea 2 - Gặp Thám tử (Military Detective)")
+            s = s:gsub("^Auto Second Sea %- Defeating Ice Admiral", "Lên Sea 2 - Tiêu diệt Đô Đốc Băng (Ice Admiral)")
+            s = s:gsub("^Auto Bartilo Quest %- Defeating 50x Swan Pirate", "Nhiệm vụ Bartilo - Tiêu diệt 50x Swan Pirate")
+            s = s:gsub("^Auto Bartilo Quest %- Defeating Jeremy", "Nhiệm vụ Bartilo - Tiêu diệt Jeremy")
+            s = s:gsub("^Auto Bartilo Quest %- Doing Puzzle", "Nhiệm vụ Bartilo - Giải mã đấu trường (Colosseum)")
+            s = s:gsub("^Auto Race V2 %- Collecting Flower ", "Nâng Tộc V2 - Đang nhặt hoa số ")
+            s = s:gsub("^Auto Race V2 %- Idling", "Nâng Tộc V2 - Chờ đợi / An toàn")
+            s = s:gsub("^Auto Farm Boss %- Defeating ", "Săn Boss - Đang tiêu diệt ")
+            s = s:gsub("^Auto Raid %- Buying Chip %- ", "Đi Raid - Đang mua Chip ")
+            s = s:gsub("^Auto Raid %- Waiting Until Raid Is Started", "Đi Raid - Đang chờ phòng Raid bắt đầu")
+            s = s:gsub("^Auto Raid %- Raid Is Not Started%?", "Đi Raid - Hết thời gian chờ phòng Raid")
+            s = s:gsub("^Auto Raid %- Completed", "Đi Raid - Đã hoàn thành Raid!")
+            s = s:gsub("^Auto Raid %- (.-) %/ 5", "Đi Raid - Đang dọn Đảo %1 / 5")
+            s = s:gsub("^Auto Collect Drop Items %- ", "Nhặt Trái Ác Quỷ rơi - ")
+            s = s:gsub("^Sword Quest %| Yama %| Pulling Katana", "Lấy Kiếm Yama | Đang rút Kiếm Katana Niêm Phong")
+            s = s:gsub("^Hopping for full moon %( soul guitar %)", "Tìm Server Trăng Tròn (Lấy Soul Guitar)")
+            s = s:gsub("^Teleport to second sea to farm ectoplasm", "Sang Sea 2 farm Ectoplasm (Lấy Soul Guitar)")
+            s = s:gsub("^Farming ectoplasms for soul guitar", "Đang farm Ectoplasm trên Tàu Ma (Lấy Soul Guitar)")
+            s = s:gsub("^Soul Guitar task 1 %/ 5%: waiting until entity spawn", "Nhiệm vụ Soul Guitar (1/5) - Đang chờ quái Zombie xuất hiện")
+            s = s:gsub("^Soul Guitar task 1 %/ 5%: Hit mob (.-) %/ 6", "Nhiệm vụ Soul Guitar (1/5) - Gom và đánh quái Zombie %1/6")
+            s = s:gsub("^Soul Guitar task 1 %/ 5%: Attack", "Nhiệm vụ Soul Guitar (1/5) - Tiêu diệt cùng lúc 6 quái Zombie")
+            s = s:gsub("^Soul Guitar task 2 %/ 5%: completing placards", "Nhiệm vụ Soul Guitar (2/5) - Đang gạt biển báo nghĩa địa")
+            return s
+        end
+
         function SetTask(Index, Value)
-            if ScriptStorage.Task[Index] == Value then
+            local vnValue = TranslateTaskToVN(Value)
+            if ScriptStorage.Task[Index] == vnValue then
                 return
             end
             local Parser = {
@@ -1040,10 +1125,11 @@ ScriptStorage = {
             }
             if Parser[Index] then
                 if SetText then
-                    SetText(Parser[Index], Index .. " : " .. Value)
+                    local prefix = TaskPrefixVN[Index] or Index
+                    SetText(Parser[Index], prefix .. " : " .. tostring(vnValue))
                 end
             end
-            ScriptStorage.Task[Index] = Value
+            ScriptStorage.Task[Index] = vnValue
             ScriptStorage.Task[Index .. "-d"] = os.time()
         end
 
@@ -1081,7 +1167,7 @@ ScriptStorage = {
                                     local NPC = ScriptStorage.NPCs and ScriptStorage.NPCs[BindedMeleeNPCNames[MeleeName]]
                                     if NPC then
                                         local NPCPos = NPC.WorldPivot or (NPC:FindFirstChild("HumanoidRootPart") and NPC.HumanoidRootPart.CFrame)
-                                        SetTask("SubTask", "Buying Melee - " .. MeleeName)
+                                        SetTask("SubTask", "Đang mua võ - " .. MeleeName)
                                         getgenv().anchored = true
                                         local targetPos = NPCPos and (NPCPos.Position or NPCPos)
                                         if targetPos and CaculateDistance(targetPos) > 10 then
@@ -1397,7 +1483,7 @@ ScriptStorage = {
             end
         end
         print(0)
-        SetText("MainTextLabel", "Loading Game Modules...")
+        SetText("MainTextLabel", "Đang tải Game Modules...")
         print(-1)
         MeleeCheck(LocalPlayer.Character:FindFirstChildOfClass("Tool"))
         print(-2)
@@ -1975,6 +2061,7 @@ ScriptStorage = {
                 local foundMap = {}
                 local function checkAdd(Mon)
                     if Mon and Mon:IsA("Model") and not foundMap[Mon] then
+                        if not Mon:IsDescendantOf(workspace) then return end
                         local hum = Mon:FindFirstChildOfClass("Humanoid")
                         local hrp = Mon:FindFirstChild("HumanoidRootPart") or Mon.PrimaryPart or Mon:FindFirstChild("Torso") or Mon:FindFirstChild("UpperTorso")
                         if hum and hum.Health > 0 and hrp then
@@ -2004,11 +2091,6 @@ ScriptStorage = {
                     if Mon:IsA("Model") and Mon.Name ~= "Terrain" and not game:GetService("Players"):GetPlayerFromCharacter(Mon) then
                         checkAdd(Mon)
                     end
-                end
-
-                local rep = game:GetService("ReplicatedStorage")
-                for _, Mon in pairs(rep:GetChildren()) do
-                    checkAdd(Mon)
                 end
 
                 table.sort(
@@ -2365,6 +2447,56 @@ ScriptStorage = {
             end)
         end
 
+        local VietnameseToEnglishMob = {
+            ["Quỷ Linh"] = "Demonic Soul",
+            ["Xác Ướp Bị Chiếm Đoạt"] = "Posessed Mummy",
+            ["Bộ Xương Tái Sinh"] = "Reborn Skeleton",
+            ["Xác Sống"] = "Living Zombie",
+            ["Chiến Binh Đậu Phộng"] = "Peanut Scout",
+            ["Chủ Tịch Đậu Phộng"] = "Peanut President",
+            ["Đầu Bếp Kem"] = "Ice Cream Chef",
+            ["Chỉ Huy Kem"] = "Ice Cream Commander",
+            ["Thợ Làm Bánh Quy"] = "Cookie Crafter",
+            ["Lính Bánh Ngọt"] = "Cake Guard",
+            ["Nhân Viên Làm Bánh"] = "Baking Staff",
+            ["Bếp Trưởng"] = "Head Baker",
+            ["Chiến Binh Ca Cao"] = "Cocoa Warrior",
+            ["Võ Sĩ Thanh Sô-cô-la"] = "Chocolate Bar Battler",
+            ["Kẻ Trộm Ngọt Ngào"] = "Sweet Thief",
+            ["Kẻ Nổi Loạn Kẹo"] = "Candy Rebel",
+            ["Hải Tặc Kẹo"] = "Candy Pirate",
+            ["Ác Quỷ Tuyết"] = "Snow Demon",
+            ["Hải Tặc Triệu Phú"] = "Pirate Millionaire",
+            ["Tỷ Phú Súng Ngắn"] = "Pistol Billionaire",
+            ["Chiến Binh Thủy Thủ Đoàn Rồng"] = "Dragon Crew Warrior",
+            ["Cung Thủ Thủy Thủ Đoàn Rồng"] = "Dragon Crew Archer",
+            ["Nữ Đảo Dân"] = "Female Islander",
+            ["Đảo Dân Khổng Lồ"] = "Giant Islander",
+            ["Chuẩn Đô Đốc"] = "Rear Admiral",
+            ["Hải Quân Thiếu Tướng"] = "Marine Commodore",
+            ["Hải Tặc Người Cá"] = "Fishman Raider",
+            ["Thuyền Trưởng Người Cá"] = "Fishman Captain",
+            ["Hải Tặc Rừng Rậm"] = "Forest Pirate",
+            ["Hải Tặc Thần Thoại"] = "Mythological Pirate",
+            ["Hải Tặc Rừng Sâu"] = "Jungle Pirate",
+            ["Hải Tặc Xạ Thủ"] = "Musketeer Pirate",
+            ["Chiến Binh Hôn Mặt Trời"] = "Sun-kissed Warrior",
+            ["Kẻ Ngoài Vòng Pháp Luật"] = "Isle Outlaw",
+            ["Cậu Bé Trên Đảo"] = "Island Boy",
+            ["Nhà Vô Địch Hôn Mặt Trời"] = "Sun-kissed Champion",
+            ["Kẻ Cướp Biển Sâu"] = "Deepsea Raider",
+            ["Nhà Tiên Tri Đại Dương"] = "Ocean Prophet",
+            ["Lính Canh Vực Thẳm"] = "Abyssal Sentinel",
+            ["Tín Đồ Vĩ Đại"] = "Grand Devotee",
+            ["Chiến Binh Nước"] = "Water Fighter",
+            ["Lính Biển"] = "Sea Soldier",
+            ["Ninja Dung Nham"] = "Magma Ninja",
+            ["Hải Tặc Dung Nham"] = "Lava Pirate",
+            ["Ma Cà Rồng"] = "Vampire",
+            ["Chiến Binh Mùa Đông"] = "Winter Warrior",
+            ["Lính Tuyết"] = "Snow Trooper"
+        }
+
         function QuestManager.GetCurrentClaimQuest(RawResponse)
             local isVisible = false
             local rawText = ""
@@ -2387,6 +2519,9 @@ ScriptStorage = {
                 QuestTitle = QuestTitle:gsub("%s*Đánh bại%s*(%d*)%s*(.-)$", "%2")
             end
             QuestTitle = string.gsub(QuestTitle, "^%s*(.-)%s*$", "%1")
+            if VietnameseToEnglishMob[QuestTitle] then
+                QuestTitle = VietnameseToEnglishMob[QuestTitle]
+            end
             return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), rawText
         end
 
@@ -2694,7 +2829,7 @@ ScriptStorage = {
                 -- Sea 3: dùng tọa độ cố định cho Sabi
                 if SeaIndex == 3 then
                     local SabiPos = CFrame.new(-4979.9091796875, 371.34295654296875, -3205.458251953125)
-                    SetTask("SubTask", "Buying Melee - Dragon Claw (Sea 3)")
+                    SetTask("SubTask", "Đang mua võ - Dragon Claw (Sea 3)")
                     getgenv().anchored = true
                     if CaculateDistance(SabiPos) > 10 then
                         repeat
@@ -2718,7 +2853,7 @@ ScriptStorage = {
                         end
 
                         if NPCPos then
-                            SetTask("SubTask", "Buying Melee - Dragon Claw (Sea 2)")
+                            SetTask("SubTask", "Đang mua võ - Dragon Claw (Sea 2)")
                             getgenv().anchored = true
                             local NPCPosition = NPCPos.Position or (NPCPos and NPCPos.Position)
                             if NPCPosition and CaculateDistance(NPCPosition) > 10 then
@@ -3012,91 +3147,90 @@ CombatController = {
         LastFound = os.time()
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
-        function CombatController.Grab(MobName)
-            -- [v1.09] Disabled SimulationRadius to prevent crashes in Sea 3
-            -- pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
-            if not CombatController.GRAB or GrabDebounce == os.time() then
-            end
-            GrabDebounce = os.time()
+        function CombatController.Grab(MobName, TargetCFrame)
+            if not CombatController.GRAB then return end
+            pcall(function()
+                if typeof(sethiddenproperty) == "function" then
+                    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
+                end
+            end)
 
-            local MidPoint, Count = Vector3.zero, 0
-            ForcePosition = nil
+            local lp = game:GetService("Players").LocalPlayer
+            local myChar = lp and lp.Character
+            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if not myHrp then return end
+
+            local CenterPoint = (TargetCFrame and (typeof(TargetCFrame) == "CFrame" and TargetCFrame.Position or TargetCFrame)) or (myHrp.Position - Vector3.new(0, 15, 0))
             local MobsTable = {}
-
             local enemies = workspace:FindFirstChild("Enemies")
-            if enemies then
-                for _, Mon in pairs(enemies:GetChildren()) do
-                    if Mon.Name == MobName then
-                        if --not Mon:GetAttribute("IsGrabbedreci") and
-                            Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
-                                Mon.Humanoid.Health > 0 then
-                            local MonPosition = Mon.HumanoidRootPart.Position
-                            local isOwner = true
-                            if typeof(isnetworkowner) == "function" and (Mon.PrimaryPart or Mon:FindFirstChild("HumanoidRootPart")) then
-                                local okOwner, resOwner = pcall(isnetworkowner, Mon.PrimaryPart or Mon.HumanoidRootPart)
-                                if okOwner and resOwner ~= nil then
-                                    isOwner = resOwner
-                                end
-                            end
-                            if MonPosition and isOwner then
-                                if
-                                    not ForcePosition or
-                                        CaculateDistance(MonPosition, ForcePosition) < CombatController.GRAB_DISTANCE
-                                 then
-                                    Count = Count + 1
-                                    Mon:SetAttribute("OldPosition", Mon:GetAttribute("OldPosition") or MonPosition)
-                                    MidPoint = MidPoint + MonPosition
-                                    ForcePosition = ForcePosition or MonPosition
+            if not enemies then return end
 
-                                    table.insert(MobsTable, Mon)
-                                end
-                            end
+            local function isMatchingMob(name)
+                if not MobName or MobName == "" then return true end
+                if type(MobName) == "table" then
+                    for _, targetName in ipairs(MobName) do
+                        if name == targetName or string.find(name, tostring(targetName), 1, true) then
+                            return true
+                        end
+                    end
+                    return false
+                elseif type(MobName) == "string" then
+                    return (name == MobName) or string.find(name, MobName, 1, true)
+                end
+                return false
+            end
+
+            for _, Mon in ipairs(enemies:GetChildren()) do
+                if Mon:IsA("Model") and isMatchingMob(Mon.Name) then
+                    local hum = Mon:FindFirstChildOfClass("Humanoid")
+                    local hrp = Mon:FindFirstChild("HumanoidRootPart") or Mon.PrimaryPart
+                    if hum and hum.Health > 0 and hrp then
+                        local dist = (hrp.Position - myHrp.Position).Magnitude
+                        if dist <= (CombatController.GRAB_DISTANCE or 450) then
+                            table.insert(MobsTable, Mon)
                         end
                     end
                 end
             end
-            MidPoint = CFrame.new(MidPoint / Count)
 
-            table.foreach(
-                MobsTable,
-                function(_, ChildInstance)
-                    (function()
-                        if ChildInstance:GetAttribute("IgnoreGrab") then
-                            return
-                        end
-                        if (ChildInstance:GetAttribute("FailureCount") or 0) > 7 then
-                            return
-                        end
-                        --[[ChildInstance.Humanoid.PlatformStand = true
-                ChildInstance.Humanoid.Sit = true
-                ChildInstance.HumanoidRootPart.CanCollide = false ]]
-                        local RootPart = ChildInstance:FindFirstChild("HumanoidRootPart")
-                        local BodyVelocity = RootPart:FindFirstChild("FarmingVelocity")
-                        if not BodyVelocity then
-                            BodyVelocity = Instance.new("BodyVelocity")
-                            BodyVelocity.Name = "FarmingVelocity"
-                            BodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-                            BodyVelocity.Parent = RootPart
+            if #MobsTable == 0 then return end
+
+            -- Gom toàn bộ quái diện rộng về một điểm ngay dưới chân người chơi để FastAttack đánh lan toàn bộ:
+            for _, Mon in ipairs(MobsTable) do
+                pcall(function()
+                    local hrp = Mon:FindFirstChild("HumanoidRootPart") or Mon.PrimaryPart
+                    local hum = Mon:FindFirstChildOfClass("Humanoid")
+                    if hrp and hum and hum.Health > 0 then
+                        hrp.CanCollide = false
+                        for _, p in ipairs(Mon:GetDescendants()) do
+                            if p:IsA("BasePart") then
+                                p.CanCollide = false
+                            end
                         end
 
-                        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
-
-                        local BodyPosition = RootPart:FindFirstChild("FarmingPosition")
-                        if not BodyPosition then
-                            BodyPosition = Instance.new("BodyPosition")
-                            BodyPosition.Name = "FarmingPosition"
-                            BodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-                            BodyPosition.P = 4.12
-                            BodyPosition.D = 1000
-                            BodyPosition.Parent = RootPart
+                        local bv = hrp:FindFirstChild("FarmingVelocity")
+                        if not bv then
+                            bv = Instance.new("BodyVelocity")
+                            bv.Name = "FarmingVelocity"
+                            bv.MaxForce = Vector3.new(100000, 100000, 100000)
+                            bv.Parent = hrp
                         end
-                        ChildInstance:SetAttribute("IsGrabbed", true)
-                        ChildInstance.HumanoidRootPart.CFrame = MidPoint
+                        bv.Velocity = Vector3.zero
 
-                        ChildInstance:SetAttribute("MidPoint", MidPoint)
-                    end)()
-                end
-            )
+                        local bp = hrp:FindFirstChild("FarmingPosition")
+                        if not bp then
+                            bp = Instance.new("BodyPosition")
+                            bp.Name = "FarmingPosition"
+                            bp.MaxForce = Vector3.new(100000, 100000, 100000)
+                            bp.P = 10000
+                            bp.D = 100
+                            bp.Parent = hrp
+                        end
+                        bp.Position = CenterPoint
+                        hrp.CFrame = CFrame.new(CenterPoint)
+                    end
+                end)
+            end
         end
 
 
@@ -3132,12 +3266,7 @@ CombatController = {
                 return Mon1
             end
 
-            for _, ChildName in MobTable do
-                local MonResult2 = game.ReplicatedStorage:FindFirstChild(ChildName)
-                if MonResult2 then
-                    return MonResult2
-                end
-            end
+            return nil
         end
 
         function CombatController.Attack(MobTable, NearbyHit, Range, Callback)
@@ -3237,7 +3366,7 @@ CombatController = {
                                  then
                                     SetTask(
                                         "SubTask",
-                                        "Hop Server - Mob Health Unchanged ( " ..
+                                        "Đổi Server - Quái không mất máu (" ..
                                             MobHumanoid.Health .. " / " .. MobHumanoid.MaxHealth .. ")"
                                     )
                                     alert("Stuck", "Mob health unchanged")
@@ -3294,10 +3423,7 @@ CombatController = {
                     local Region = ScriptStorage.MobRegions[ChildName]
 
                     if not Region then
-                        local Inst =
-                            Services.Workspace.Enemies:FindFirstChild(ChildName) or
-                            game.ReplicatedStorage:FindFirstChild(ChildName)
-
+                        local Inst = Services.Workspace.Enemies:FindFirstChild(ChildName)
                         Region = Inst and {Inst:GetPrimaryPartCFrame().p}
                     end
 
@@ -3636,13 +3762,13 @@ FunctionsHandler = {
                 })
 
                 for Index, Promo in Code do
-                    SetTask("MainTask", "Code Redemption | " .. Promo .. " | Redeeming...")
+                    SetTask("MainTask", "Nhập Code | " .. Promo .. " | Đang nhập...")
                     local Response = (Remotes.Redeem:InvokeServer(Promo))
                     task.wait()
-                    SetTask("MainTask", "Code Redemption | " .. Promo .. " | " .. (Response or "Failed"))
+                    SetTask("MainTask", "Nhập Code | " .. Promo .. " | " .. (Response == "Success" and "Thành công" or (Response or "Thất bại")))
                     if GetExpBoost() == 0 then
                         if Response and string.find(Response, "SUCC") then
-                            return SetTask("MainTask", "Code Redemption | X2 Exp Boost Activated!") and task.wait(1)
+                            return SetTask("MainTask", "Nhập Code | Đã kích hoạt X2 EXP!") and task.wait(1)
                         end
                     else
                         return
@@ -3740,14 +3866,14 @@ FunctionsHandler = {
                             alert("Material - " .. Material, "Travelling sea " .. MaterialData[2])
                             SetTask(
                                 "MainTask",
-                                "Sea Travel | Godhuman Materials | Travelling to Sea " .. MaterialData[2]
+                                "Chuyển Sea | Nguyên liệu Godhuman | Đang sang Sea " .. MaterialData[2]
                             )
 
                             Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
                             return
                         end
 
-                        SetTask("MainTask", "Material Farming | Godhuman | " .. Material .. " | In Progress" )
+                        SetTask("MainTask", "Farm Nguyên Liệu | Godhuman | " .. Material .. " | Đang thực hiện")
 
                         if PlayerLevel >= MaterialData[4][3] then
                             CombatController.Attack(MaterialData[3])
@@ -3770,18 +3896,18 @@ FunctionsHandler = {
 
                             Remotes.CommF_:InvokeServer("TravelZou")
 
-                            SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
+                            SetTask("MainTask", "Chuyển Sea | Đang dịch chuyển sang Sea 3")
                              
                         end
                     elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
-                        SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
+                        SetTask("MainTask", "Chuyển Sea | Đang dịch chuyển sang Sea 2")
                         Remotes.CommF_:InvokeServer("TravelDressrosa")
                     end
                 
 
                 if ScriptStorage.Tools["God's Chalice"] and not ScriptStorage.Tools["Mirror Fractal"] then
                     if (ScriptStorage.Backpack["Conjured Cocoa"] or {Count = 0}).Count < 10 then
-                        SetTask("MainTask", "Material Farming | Conjured Cocoa | Need 10x | Farming...")
+                        SetTask("MainTask", "Farm Nguyên Liệu | Conjured Cocoa | Cần 10x | Đang cày...")
                         CombatController.Attack({"Cocoa Warrior", "Chocolate Bar Battler"})
                         return
                     end
@@ -3792,7 +3918,7 @@ FunctionsHandler = {
                     ScriptStorage.Tools["Sweet Chalice"] or
                         (PlayerLevel == MaxLevel and (ScriptStorage.Backpack.Bones or {Count = 0}).Count >= 500)
                  then
-                    SetTask("MainTask", "Fragments Farming | Cake Prince | Dough King")
+                    SetTask("MainTask", "Cày Fragments | Cake Prince / Dough King")
 
                     if (ScriptStorage.Tools["Sweet Chalice"]) and (not SpawnReflect or os.time() - SpawnReflect > 10) then
                         task.spawn(
@@ -3855,7 +3981,7 @@ FunctionsHandler = {
                     
                         (PlayerLevel == MaxLevel and (ScriptStorage.Backpack.Bones or {Count = 0}).Count >= 500)
                  then
-                    SetTask("MainTask", "Fragments Farming | Cake Prince | Dough King")
+                    SetTask("MainTask", "Cày Fragments | Cake Prince / Dough King")
 
                     if (not SpawnReflect or os.time() - SpawnReflect > 10) then
                         task.spawn(
@@ -3889,7 +4015,7 @@ FunctionsHandler = {
                             PlayerLevel == MaxLevel) and
                         (ScriptStorage.Backpack.Bones or {Count = 0}).Count < 500 and SeaIndex == 3
                 then
-                    SetTask("MainTask", "Resource Farming | Bones | For X2 Mastery/Beli")
+                    SetTask("MainTask", "Farm Xương (Bones) | Đổi X2 Thông Thạo / Beli")
                     
                     local hasBoneQuest = false
                     pcall(function()
@@ -3921,13 +4047,13 @@ FunctionsHandler = {
                 end
 
                 if Level == 1 then
-                    SetTask("MainTask", "Level Farming | Skip Mode | Floor " .. Level)
+                    SetTask("MainTask", "Cày Cấp | Bỏ qua nhiệm vụ | Tầng " .. Level)
                     CombatController.Attack("Sky Bandit")
                 elseif Level == 2 then
-                    SetTask("MainTask", "Level Farming | Skip Mode | Floor " .. Level)
+                    SetTask("MainTask", "Cày Cấp | Bỏ qua nhiệm vụ | Tầng " .. Level)
                      CombatController.Attack({"Royal Soldier", "Royal Squad"})
                 elseif Level == 3 then
-                    SetTask("MainTask", "Level Farming | Skip Mode | Floor " .. Level)
+                    SetTask("MainTask", "Cày Cấp | Bỏ qua nhiệm vụ | Tầng " .. Level)
                     CombatController.Attack({"Royal Soldier", "Royal Squad"})
                 elseif Level == 4 then
                     local MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
@@ -3937,7 +4063,8 @@ FunctionsHandler = {
                         hasActiveQuest = questGui and questGui.Visible
                     end)
                     if hasActiveQuest then
-                        SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Defeating Enemies")
+                        SetTask("MainTask", "Cày Cấp | " .. tostring(MonName or "Quái") .. " | Đang đánh quái")
+                        SetTask("SubTask", "Đang gom và tiêu diệt: " .. tostring(MonName or "quái") .. "...")
                         local AttackTime1 = os.time()
                         CombatController.Attack(MonName)
                         LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
@@ -3955,7 +4082,8 @@ FunctionsHandler = {
                         end
                         local targetNpcVec = (typeof(NpcPosition) == "CFrame" and NpcPosition.Position) or (typeof(NpcPosition) == "Vector3" and NpcPosition) or Vector3.new(0, 0, 0)
                         TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
-                        SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Claiming Quest")
+                        SetTask("MainTask", "Cày Cấp | " .. tostring(MonName or "Quái") .. " | Nhận nhiệm vụ")
+                        SetTask("SubTask", "Đang di chuyển tới NPC nhận nhiệm vụ " .. tostring(QuestTitle or QuestId or "") .. "...")
                         if CaculateDistance(targetNpcVec) > 10 then
                             return
                         end
@@ -4113,7 +4241,7 @@ FunctionsHandler = {
                         local Questplates = FunctionsHandler.Saber.Methods.GetQuestplates:Call()
 
                         for Index, Questplate in Questplates do
-                            SetTask("MainTask", "Saber Quest | Quest Plates | Touching " .. Index .. "/5")
+                            SetTask("MainTask", "Nhiệm vụ Saber | Nút bí mật | Đang ấn nút " .. Index .. "/5")
                             -- Safety check: Ensure Questplate and Button exist before loop
                             if Questplate and Questplate:FindFirstChild("Button") then
                                 local LoopStartTime = os.time()
@@ -4139,12 +4267,12 @@ FunctionsHandler = {
                             task.wait(1)
                         end
                     elseif Progress == 2 then
-                        SetTask("MainTask", "Saber Quest | Torch Puzzle | Using Torch")
+                        SetTask("MainTask", "Nhiệm vụ Saber | Đuốc giải đố | Đang dùng Đuốc")
                         Remotes.CommF_:InvokeServer("ProQuestProgress", "GetTorch")
                         task.wait(1)
                         Remotes.CommF_:InvokeServer("ProQuestProgress", "DestroyTorch")
                     elseif Progress == 3 then
-                        SetTask("MainTask", "Saber Quest | Sick Man | Helping with Cup")
+                        SetTask("MainTask", "Nhiệm vụ Saber | Người ốm (Sick Man) | Trao Cốc Nước")
                         Remotes.CommF_:InvokeServer("ProQuestProgress", "GetCup")
 
                         if ScriptStorage.Tools.Cup then
@@ -4155,17 +4283,17 @@ FunctionsHandler = {
 
                         Remotes.CommF_:InvokeServer("ProQuestProgress", "SickMan")
                     elseif Progress == 4 then
-                        SetTask("MainTask", "Saber Quest | Rich Son | Getting Information")
+                        SetTask("MainTask", "Nhiệm vụ Saber | Con nhà giàu (Rich Son) | Nhận thông tin")
                         Remotes.CommF_:InvokeServer("ProQuestProgress", "RichSon")
                     elseif Progress == 5 then
-                        SetTask("MainTask", "Saber Quest | Mob Leader | Defeating Boss")
+                        SetTask("MainTask", "Nhiệm vụ Saber | Trùm cướp (Mob Leader) | Tiêu diệt Boss")
                         CombatController.Attack("Mob Leader")
                     elseif Progress == 6 then
-                        SetTask("MainTask", "Saber Quest | Relic | Placing at Location")
+                        SetTask("MainTask", "Nhiệm vụ Saber | Cổ vật (Relic) | Đặt vào bệ cửa")
                         Remotes.CommF_:InvokeServer("ProQuestProgress", "RichSon")
                         Remotes.CommF_:InvokeServer("ProQuestProgress", "PlaceRelic")
                     elseif Progress == 7 then
-                        SetTask("MainTask", "Saber Quest | Saber Expert | Final Battle")
+                        SetTask("MainTask", "Nhiệm vụ Saber | Saber Expert (Shanks) | Chiến đấu")
                         CombatController.Attack("Saber Expert")
                     end
                 end
@@ -4264,6 +4392,7 @@ FunctionsHandler = {
         _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex or 1
         _G.MeleesMasteryCompleted = _G.MeleesMasteryCompleted or {}
         _G.LastMeleeCheckTime = _G.LastMeleeCheckTime or 0
+        _G.MeleeProgressionFinished = _G.MeleeProgressionFinished or false
         _G.MeleeToolAliases = {
             ["Black Leg"] = "Dark Step",
             ["Dark Step"] = "Black Leg",
@@ -4271,16 +4400,10 @@ FunctionsHandler = {
             ["Water Kung-fu"] = "Fishman Karate"
         }
 
-        local function GetMeleeMasteryLevel(mName)
-            if ScriptStorage.Melees and ScriptStorage.Melees[mName] and tonumber(ScriptStorage.Melees[mName]) and tonumber(ScriptStorage.Melees[mName]) > 0 then
-                return tonumber(ScriptStorage.Melees[mName])
-            end
-            local alias = _G.MeleeToolAliases[mName]
-            if alias and ScriptStorage.Melees and ScriptStorage.Melees[alias] and tonumber(ScriptStorage.Melees[alias]) and tonumber(ScriptStorage.Melees[alias]) > 0 then
-                return tonumber(ScriptStorage.Melees[alias])
-            end
+        local function CheckMeleeToolLevel(mName)
             local char = LocalPlayer.Character
             local bp = LocalPlayer:FindFirstChild("Backpack")
+            local alias = _G.MeleeToolAliases[mName]
             local tool = (char and (char:FindFirstChild(mName) or (alias and char:FindFirstChild(alias)))) or
                          (bp and (bp:FindFirstChild(mName) or (alias and bp:FindFirstChild(alias))))
             if tool and tool:FindFirstChild("Level") and tonumber(tool.Level.Value) then
@@ -4288,6 +4411,12 @@ FunctionsHandler = {
                 ScriptStorage.Melees[mName] = lvl
                 if alias then ScriptStorage.Melees[alias] = lvl end
                 return lvl
+            end
+            if ScriptStorage.Melees and ScriptStorage.Melees[mName] and tonumber(ScriptStorage.Melees[mName]) and tonumber(ScriptStorage.Melees[mName]) > 0 then
+                return tonumber(ScriptStorage.Melees[mName])
+            end
+            if alias and ScriptStorage.Melees and ScriptStorage.Melees[alias] and tonumber(ScriptStorage.Melees[alias]) and tonumber(ScriptStorage.Melees[alias]) > 0 then
+                return tonumber(ScriptStorage.Melees[alias])
             end
             return 0
         end
@@ -4347,8 +4476,60 @@ FunctionsHandler = {
                     "Godhuman"
                 }
 
+                -- NẾU ĐÃ HOÀN TẤT TOÀN BỘ VÕ BAO GỒM GODHUMAN:
+                if _G.MeleeProgressionFinished and _G.MeleesMasteryCompleted["Godhuman"] then
+                    SetTask("SubTask", "Đã có Godhuman và hoàn tất võ -> Tiếp tục Farm Level!")
+                    return
+                end
+
+                -- 1. SUY LUẬN THÔNG MINH TỪ CÁC VÕ ĐÃ SỞ HỮU TRÊN TAY HOẶC TRONG BALO:
+                local hasGodhuman = CheckMeleeToolLevel("Godhuman") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Godhuman"])
+                if not hasGodhuman then
+                    local ok, res = pcall(function()
+                        return Remotes.CommF_:InvokeServer("BuyGodhuman", true)
+                    end)
+                    if ok and (res == 1 or res == 2 or res == "You already own this style") then
+                        hasGodhuman = true
+                    end
+                end
+
+                if hasGodhuman then
+                    -- Nếu người chơi đã có Godhuman -> Tất cả võ trước đều đã đạt 400!
+                    for _, m in ipairs(MeleeList) do
+                        _G.MeleesMasteryCompleted[m] = true
+                    end
+                    local curGhm = CheckMeleeToolLevel("Godhuman")
+                    if curGhm < 350 then
+                        SetTask("MainTask", "Godhuman | Cày Mastery (" .. curGhm .. "/350)")
+                        SetTask("SubTask", "Trang bị Godhuman và cày Mastery lên 350...")
+                        EquipMeleeByName("Godhuman")
+                        return
+                    else
+                        _G.MeleesMasteryCompleted["Godhuman"] = true
+                        _G.MeleeProgressionFinished = true
+                        _G.CurrentMeleeOrderIndex = #MeleeList + 1
+                        SetTask("SubTask", "Đã có Godhuman 350+ Mastery! Toàn bộ võ hoàn tất -> Tiếp tục Farm Level!")
+                        return
+                    end
+                end
+
+                -- Kế thừa các võ cấp 2:
+                if CheckMeleeToolLevel("Death Step") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Death Step"]) then
+                    _G.MeleesMasteryCompleted["Black Leg"] = true
+                end
+                if CheckMeleeToolLevel("Sharkman Karate") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Sharkman Karate"]) then
+                    _G.MeleesMasteryCompleted["Fishman Karate"] = true
+                end
+                if CheckMeleeToolLevel("Electric Claw") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Electric Claw"]) then
+                    _G.MeleesMasteryCompleted["Electro"] = true
+                end
+                if CheckMeleeToolLevel("Dragon Talon") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Dragon Talon"]) then
+                    _G.MeleesMasteryCompleted["Dragon Claw"] = true
+                end
+
                 _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex or 1
 
+                -- 2. DUYỆT KIỂM TRA THEO THỨ TỰ TỪNG VÕ:
                 while _G.CurrentMeleeOrderIndex <= #MeleeList do
                     local Melee = MeleeList[_G.CurrentMeleeOrderIndex]
                     local Data = MeleePrices[Melee]
@@ -4357,78 +4538,166 @@ FunctionsHandler = {
                         TargetMastery = 350
                     end
 
-                    -- 1. Nếu võ này đã được xác nhận hoàn thành trước đó (>= TargetMastery)
+                    -- A. Nếu võ này đã được xác nhận hoàn thành 400 mastery trước đó:
                     if _G.MeleesMasteryCompleted[Melee] then
                         _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex + 1
                     else
-                        -- 2. ĐẶC BIỆT: XỬ LÝ VÕ CUỐI CÙNG (GODHUMAN)
+                        -- B. XỬ LÝ VÕ CUỐI CÙNG: GODHUMAN
                         if Melee == "Godhuman" then
-                            -- Kiểm tra xem đã sở hữu Godhuman chưa
-                            local hasGodhuman = false
-                            local ghLevel = GetMeleeMasteryLevel("Godhuman")
-                            if ghLevel > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Godhuman"]) then
-                                hasGodhuman = true
-                            else
-                                local ok, res = pcall(function()
-                                    return Remotes.CommF_:InvokeServer("BuyGodhuman", true)
-                                end)
-                                if ok and res == 1 then
-                                    hasGodhuman = true
+                            pcall(RefreshInventory)
+                            local ftCount = (ScriptStorage.Backpack["Fish Tail"] or {Count = 0}).Count
+                            local moCount = (ScriptStorage.Backpack["Magma Ore"] or {Count = 0}).Count
+                            local dsCount = (ScriptStorage.Backpack["Dragon Scale"] or {Count = 0}).Count
+                            local mdCount = (ScriptStorage.Backpack["Mystic Droplet"] or {Count = 0}).Count
+                            local pData = ScriptStorage.PlayerData or {}
+                            local beli = pData.Beli or 0
+                            local frags = pData.Fragments or 0
+
+                            local hasAllMats = (ftCount >= 20 and moCount >= 20 and dsCount >= 10 and mdCount >= 10)
+                            local hasAllCurrency = (beli >= 5000000 and frags >= 5000)
+
+                            local monkPos = Vector3.new(-2864, 44, -14925)
+                            local monkNpc = workspace.NPCs:FindFirstChild("Ancient Monk") or (game.ReplicatedStorage:FindFirstChild("NPCs") and game.ReplicatedStorage.NPCs:FindFirstChild("Ancient Monk"))
+                            if monkNpc then
+                                monkPos = (monkNpc:IsA("Model") and monkNpc:GetPivot().Position) or monkNpc.Position
+                            end
+
+                            local matSubStatus = string.format("FT: %d/20 | MO: %d/20 | DS: %d/10 | MD: %d/10 | B: %s/5M | F: %s/5K",
+                                ftCount, moCount, dsCount, mdCount,
+                                (beli >= 1000000 and string.format("%.1fM", beli/1000000) or string.format("%.0fK", beli/1000)),
+                                (frags >= 1000 and string.format("%.1fK", frags/1000) or tostring(frags))
+                            )
+
+                            if hasAllMats and hasAllCurrency then
+                                if SeaIndex ~= 3 then
+                                    SetTask("MainTask", "Godhuman | Quay về Sea 3 mua võ")
+                                    SetTask("SubTask", matSubStatus)
+                                    Remotes.CommF_:InvokeServer("TravelZou")
+                                    return
                                 end
-                            end
 
-                            if hasGodhuman then
-                                -- Đã có Godhuman -> Đánh dấu hoàn tất toàn bộ hệ thống võ
-                                _G.MeleesMasteryCompleted["Godhuman"] = true
-                                _G.CurrentMeleeOrderIndex = #MeleeList + 1
-                                ScriptStorage.IsGettingMelee = false
-                                SetTask("SubTask", "Đã có Godhuman! Toàn bộ võ hoàn tất -> Tiếp tục Farm Level!")
-                                return
-                            end
-
-                            -- Chưa có Godhuman: kiểm tra xem có đủ điều kiện mua ngay tại Sea 3 không
-                            local canCraftNow = false
-                            if SeaIndex == 3 then
-                                local pData = ScriptStorage.PlayerData or {}
-                                local beli = pData.Beli or 0
-                                local frags = pData.Fragments or 0
-                                local hasMats = true
-                                for matName, matInfo in pairs(GodhumanMaterials or {}) do
-                                    local curCount = (ScriptStorage.Backpack[matName] or {Count = 0}).Count
-                                    if curCount < matInfo[1] then
-                                        hasMats = false
-                                        break
+                                SetTask("MainTask", "Godhuman | Nhận võ tại Ancient Monk")
+                                SetTask("SubTask", "Đang bay tới Ancient Monk để nhận võ Godhuman! " .. matSubStatus)
+                                TweenController.Create(monkPos + Vector3.new(0, 5, 3))
+                                if CaculateDistance(monkPos) < 25 then
+                                    task.wait(0.5)
+                                    pcall(function()
+                                        Remotes.CommF_:InvokeServer("BuyGodhuman")
+                                    end)
+                                    task.wait(1)
+                                    pcall(RefreshInventory)
+                                    pcall(function()
+                                        EquipMeleeByName("Godhuman")
+                                    end)
+                                    if CheckMeleeToolLevel("Godhuman") > 0 then
+                                        SetTask("SubTask", "Đã nhận thành công võ Godhuman!")
                                     end
                                 end
-                                if beli >= 5000000 and frags >= 5000 and hasMats then
-                                    canCraftNow = true
-                                end
-                            end
-
-                            if canCraftNow then
-                                SetTask("SubTask", "Đang nhận / mua võ Godhuman tại Ancient Monk...")
-                                ScriptStorage.IsGettingMelee = true
-                                pcall(function()
-                                    BuyMelee("Godhuman", false, "Ancient Monk")
-                                end)
-                                ScriptStorage.IsGettingMelee = false
-                                FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                 return
                             else
-                                -- CHƯA ĐỦ ĐIỀU KIỆN LÀM GODHUMAN:
-                                -- THEO YÊU CẦU: "nếu tới võ cuối cùng god human thì đi fam lever tiếp nhé"
-                                -- -> KHÔNG lặp lại check các võ trước!
-                                -- -> Tiếp tục để LevelFarm chạy farm level!
-                                ScriptStorage.IsGettingMelee = false
-                                SetTask("SubTask", "Đã xong các võ trước -> Đang Farm Level tiếp (Chờ đủ điều kiện Godhuman)")
+                                -- Nếu chưa từng tương tác với Ancient Monk ở Sea 3, bay qua kiểm tra trước
+                                if SeaIndex == 3 and not _G.AncientMonkVisited then
+                                    SetTask("MainTask", "Godhuman | Kiểm tra tại Ancient Monk")
+                                    SetTask("SubTask", "Đang tới gặp Ancient Monk kiểm tra nguyên liệu...")
+                                    TweenController.Create(monkPos + Vector3.new(0, 5, 3))
+                                    if CaculateDistance(monkPos) < 25 then
+                                        task.wait(0.5)
+                                        pcall(function()
+                                            Remotes.CommF_:InvokeServer("BuyGodhuman", true)
+                                        end)
+                                        _G.AncientMonkVisited = true
+                                        task.wait(0.5)
+                                    end
+                                    return
+                                end
+
+                                -- Tự động farm nguyên liệu còn thiếu cho Godhuman:
+                                if SeaIndex == 3 then
+                                    if ftCount < 20 then
+                                        SetTask("MainTask", "Godhuman Material | Fish Tail (" .. ftCount .. "/20)")
+                                        SetTask("SubTask", "Farm Fishman Raider/Captain tại Đảo Rùa | " .. matSubStatus)
+                                        local hasQ = false
+                                        pcall(function()
+                                            local qGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                                            hasQ = qGui and qGui.Visible
+                                        end)
+                                        if not hasQ then
+                                            pcall(function()
+                                                QuestManager.StartQuest("DeepForestIsland3", 1)
+                                            end)
+                                        end
+                                        CombatController.Attack({"Fishman Raider", "Fishman Captain"})
+                                        return
+                                    elseif dsCount < 10 then
+                                        SetTask("MainTask", "Godhuman Material | Dragon Scale (" .. dsCount .. "/10)")
+                                        SetTask("SubTask", "Farm Dragon Crew tại Đảo Nữ Nhi | " .. matSubStatus)
+                                        local hasQ = false
+                                        pcall(function()
+                                            local qGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                                            hasQ = qGui and qGui.Visible
+                                        end)
+                                        if not hasQ then
+                                            pcall(function()
+                                                QuestManager.StartQuest("AmazonQuest", 1)
+                                            end)
+                                        end
+                                        CombatController.Attack({"Dragon Crew Warrior", "Dragon Crew Archer"})
+                                        return
+                                    elseif moCount < 20 or mdCount < 10 then
+                                        SetTask("MainTask", "Godhuman Material | Sang Sea 2")
+                                        SetTask("SubTask", "Chuyển sang Sea 2 farm Magma Ore / Mystic Droplet | " .. matSubStatus)
+                                        Remotes.CommF_:InvokeServer("TravelDressrosa")
+                                        return
+                                    end
+                                elseif SeaIndex == 2 then
+                                    if moCount < 20 then
+                                        SetTask("MainTask", "Godhuman Material | Magma Ore (" .. moCount .. "/20)")
+                                        SetTask("SubTask", "Farm Magma Ninja tại Đảo Lửa | " .. matSubStatus)
+                                        local hasQ = false
+                                        pcall(function()
+                                            local qGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                                            hasQ = qGui and qGui.Visible
+                                        end)
+                                        if not hasQ then
+                                            pcall(function()
+                                                QuestManager.StartQuest("FireSideQuest", 1)
+                                            end)
+                                        end
+                                        CombatController.Attack({"Magma Ninja"})
+                                        return
+                                    elseif mdCount < 10 then
+                                        SetTask("MainTask", "Godhuman Material | Mystic Droplet (" .. mdCount .. "/10)")
+                                        SetTask("SubTask", "Farm Sea Soldier / Water Fighter tại Forgotten Island | " .. matSubStatus)
+                                        local hasQ = false
+                                        pcall(function()
+                                            local qGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                                            hasQ = qGui and qGui.Visible
+                                        end)
+                                        if not hasQ then
+                                            pcall(function()
+                                                QuestManager.StartQuest("ForgottenQuest", 1)
+                                            end)
+                                        end
+                                        CombatController.Attack({"Sea Soldier", "Water Fighter"})
+                                        return
+                                    elseif ftCount < 20 or dsCount < 10 or (hasAllMats and hasAllCurrency) then
+                                        SetTask("MainTask", "Godhuman Material | Sang Sea 3")
+                                        SetTask("SubTask", "Chuyển về Sea 3 tiếp tục | " .. matSubStatus)
+                                        Remotes.CommF_:InvokeServer("TravelZou")
+                                        return
+                                    end
+                                end
+
+                                -- Nếu thiếu Beli hoặc Frags: Farm tiếp để tích lũy
+                                SetTask("SubTask", "Đang tích lũy Beli / Frags cho Godhuman | " .. matSubStatus)
                                 return
                             end
                         end
 
-                        -- 3. XỬ LÝ CÁC VÕ TỪ 1 ĐẾN 9 (Black Leg -> Dragon Talon)
-                        local currentMastery = GetMeleeMasteryLevel(Melee)
+                        -- C. XỬ LÝ CÁC VÕ TỪ 1 ĐẾN 9:
+                        local currentMastery = CheckMeleeToolLevel(Melee)
 
-                        -- Nếu chưa có thông tin mastery, thử equip để đọc Level
+                        -- Thử trang bị võ để cập nhật mastery chính xác
                         if currentMastery == 0 then
                             local now = tick()
                             if now - (_G.LastMeleeCheckTime or 0) > 2 then
@@ -4436,33 +4705,77 @@ FunctionsHandler = {
                                 pcall(function()
                                     EquipMeleeByName(Melee)
                                 end)
-                                currentMastery = GetMeleeMasteryLevel(Melee)
+                                currentMastery = CheckMeleeToolLevel(Melee)
                             end
                         end
 
-                        -- Kiểm tra nếu đã đạt TargetMastery (400)
+                        -- Nếu đã đạt đủ TargetMastery (400):
                         if currentMastery >= TargetMastery then
                             _G.MeleesMasteryCompleted[Melee] = true
-                            print("[MeleeController] Hoàn thành võ " .. Melee .. " với thông thạo " .. currentMastery .. "/" .. TargetMastery)
+                            print("[MeleeController] Hoàn thành võ " .. Melee .. " (" .. currentMastery .. "/" .. TargetMastery .. ")")
                             _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex + 1
-                            -- Tiếp tục kiểm tra võ kế tiếp trong vòng lặp while
+                            -- Tiếp tục kiểm tra võ kế tiếp trong danh sách
                         else
-                            -- VÕ NÀY CHƯA XONG (< TargetMastery):
-                            -- Yêu cầu: "nếu võ nào chưa xong thì đi fam"
-                            -- Đảm bảo võ này được trang bị và để LevelFarm farm quái tích EXP!
+                            -- VÕ NÀY CHƯA XONG (< 400):
+                            -- YÊU CẦU CỦA BẠN: "nếu võ nào chưa xong thì đi fam"!
+                            -- Trang bị võ này, nhận nhiệm vụ và đánh quái cày Mastery (KHÔNG ĐỨNG IM!):
                             ScriptStorage.IsGettingMelee = false
-
                             EquipMeleeByName(Melee)
-                            local dispLevel = GetMeleeMasteryLevel(Melee)
+                            local dispLevel = CheckMeleeToolLevel(Melee)
+
                             SetTask("SubTask", "Đang cày thông thạo: " .. Melee .. " (" .. dispLevel .. "/" .. TargetMastery .. ")")
 
-                            -- DỪNG TẠI VÕ NÀY, KHÔNG CHECK CÁC VÕ TIẾP THEO, KHÔNG LOOP LẠI!
+                            -- Thực hiện đi farm quái nhận EXP cho võ:
+                            local qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
+                            local hasActiveQuest = false
+                            pcall(function()
+                                local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                                hasActiveQuest = questGui and questGui.Visible
+                            end)
+
+                            if hasActiveQuest and qMonName then
+                                SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Đang tiêu diệt " .. tostring(qMonName))
+                                CombatController.Attack(qMonName)
+                            else
+                                if not qNpcPos then
+                                    QuestManager:RefreshQuest()
+                                    qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
+                                    if not qNpcPos and qQuestId and BuiltInNpcPositions and BuiltInNpcPositions[qQuestId] then
+                                        qNpcPos = BuiltInNpcPositions[qQuestId]
+                                    end
+                                end
+
+                                if qNpcPos then
+                                    local targetNpcVec = (typeof(qNpcPos) == "CFrame" and qNpcPos.Position) or (typeof(qNpcPos) == "Vector3" and qNpcPos) or Vector3.new(0, 0, 0)
+                                    SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Nhận nhiệm vụ")
+                                    SetTask("SubTask", "Bay tới NPC nhận nhiệm vụ cày thông thạo võ " .. Melee .. "...")
+                                    TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
+                                    if CaculateDistance(targetNpcVec) <= 12 then
+                                        task.wait(0.5)
+                                        QuestManager.StartQuest(qQuestId, qQuestIndex)
+                                        task.wait(0.5)
+                                    end
+                                else
+                                    SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Đang gom quái đánh")
+                                    SetTask("SubTask", "Gom quái đánh cày thông thạo võ " .. Melee .. "...")
+                                    if SeaIndex == 3 then
+                                        CombatController.Attack({"Sun-kissed Warrior", "Isle Outlaw", "Island Boy", "Sun-kissed Champion", "Chocolate Bar Battler", "Cocoa Warrior", "Cookie Crafter", "Cake Guard", "Demonic Soul", "Posessed Mummy", "Reborn Skeleton", "Living Zombie"})
+                                    elseif SeaIndex == 2 then
+                                        CombatController.Attack({"Water Fighter", "Sea Soldier", "Snow Lurker", "Arctic Warrior", "Forgotten Quest Giver"})
+                                    else
+                                        CombatController.Attack({"Galley Captain", "Galley Pirate", "Royal Soldier", "Royal Squad"})
+                                    end
+                                end
+                            end
+
+                            -- Dừng lại tại võ này để farm đến 400, không nhảy võ!
                             return
                         end
                     end
                 end
 
-                -- Khi đã duyệt qua hết tất cả các võ
+                -- Sau khi duyệt xong tất cả các võ:
+                _G.MeleeProgressionFinished = true
                 ScriptStorage.IsGettingMelee = false
                 SetTask("SubTask", "Toàn bộ võ đã hoàn thành 400 mastery -> Tiếp tục Farm Level!")
             end
@@ -4512,7 +4825,7 @@ FunctionsHandler = {
                 if not Progress then
                     return
                 elseif Progress == 1 then
-                    SetTask("MainTask", "Auto Second Sea - Talk To Detective")
+                    SetTask("MainTask", "Lên Sea 2 - Gặp Thám tử (Military Detective)")
                     Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Detective")
 
                     Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Detective")
@@ -4526,7 +4839,7 @@ FunctionsHandler = {
 
                     task.wait(1)
                     Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "UseKey")
-                    SetTask("MainTask", "Auto Second Sea - Defeating Ice Admiral")
+                    SetTask("MainTask", "Lên Sea 2 - Tiêu diệt Đô Đốc Băng (Ice Admiral)")
                     CombatController.Attack("Ice Admiral")
                     alert("Traveling back to Dressrosa [ Ice Admiral ]")
                     Remotes.CommF_:InvokeServer("TravelDressrosa")
@@ -4585,7 +4898,7 @@ FunctionsHandler = {
                 if not Progress then
                     return
                 elseif Progress == 1 then
-                    SetTask("MainTask", "Auto Bartilo Quest - Defeating 50x Swan Pirate")
+                    SetTask("MainTask", "Nhiệm vụ Bartilo - Đang tiêu diệt 50x Swan Pirate")
                     local CurrentQuest, RawText = QuestManager:GetCurrentClaimQuest()
 
                     if CurrentQuest then
@@ -4598,10 +4911,10 @@ FunctionsHandler = {
                         QuestManager.StartQuest("BartiloQuest", 1)
                     end
                 elseif Progress == 2 then
-                    SetTask("MainTask", "Auto Bartilo Quest - Defeating Jeremy")
+                    SetTask("MainTask", "Nhiệm vụ Bartilo - Đang tiêu diệt Jeremy")
                     CombatController.Attack("Jeremy")
                 elseif Progress == 3 then
-                    SetTask("MainTask", "Auto Bartilo Quest - Doing Puzzle")
+                    SetTask("MainTask", "Nhiệm vụ Bartilo - Giải mã ký tự đấu trường (Colosseum)")
                     if
                         CaculateDistance(
                             CFrame.new(
@@ -4704,7 +5017,7 @@ FunctionsHandler = {
 
                     if not Check1 then
                         if Check2 and Check2.Transparency == 0 then
-                            SetTask("MainTask", "Auto Race V2 - Collecting Flower " .. i)
+                            SetTask("MainTask", "Nâng Tộc V2 - Đang nhặt hoa số " .. i)
                             while not ScriptStorage.Tools["Flower " .. i] do
                                 task.wait()
                                 TweenController.Create(Check2.CFrame + Vector3.new(0, math.random(-1, 2), 0))
@@ -4714,10 +5027,10 @@ FunctionsHandler = {
                 end
 
                 if not ScriptStorage.Tools["Flower 3"] then
-                    SetTask("MainTask", "Auto Race V2 - Collecting Flower " .. 3)
+                    SetTask("MainTask", "Nâng Tộc V2 - Đang đánh quái lấy Hoa Vàng (Flower 3)")
                     CombatController.Attack("Swan Pirate")
                 else
-                    SetTask("MainTask", "Auto Race V2 - Idling")
+                    SetTask("MainTask", "Nâng Tộc V2 - Chờ đợi / An toàn")
                     if LocalPlayer.Character.HumanoidRootPart.CFrame.Y < 50000 then
                         TweenController.Create(LocalPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 50, 0))
                     end
@@ -4762,7 +5075,7 @@ FunctionsHandler = {
             "Start",
             function(Boss)
                 if Boss then
-                    SetTask("MainTask", "Auto Farm Boss - Defeating " .. Boss.Name)
+                    SetTask("MainTask", "Săn Boss - Đang tiêu diệt " .. Boss.Name)
 
                     CombatController.Attack(
                         tostring(Boss),
@@ -4807,7 +5120,7 @@ FunctionsHandler = {
                 end
 
                 if Boss then
-                    SetTask("MainTask", "Auto Farm Boss - Defeating " .. Boss.Name)
+                    SetTask("MainTask", "Săn Boss - Đang tiêu diệt " .. Boss.Name)
                     CombatController.Attack(tostring(Boss))
                 end
             end
@@ -5016,6 +5329,11 @@ FunctionsHandler = {
                 return true
             end
 
+            -- Chống treo do cooldown mua chip raid 30s: nhường cho LevelFarm chạy
+            if getgenv().RaidBuyingCooldown and os.clock() - getgenv().RaidBuyingCooldown < 30 then
+                return false
+            end
+
             -- Nếu Level chưa Max: farm tích luỹ đến 10k Fragments
             -- Nếu đã Max Level: farm tích luỹ đến 15k Fragments
             if Level < MaxLevel then
@@ -5087,7 +5405,7 @@ FunctionsHandler = {
                     if not CurrentIsland then
                         SetTask(
                             "MainTask",
-                            "Auto Raid - Buying Chip - " .. FunctionsHandler.RaidController:Get("CurrentChip")
+                            "Đi Raid - Đang mua Chip " .. tostring(FunctionsHandler.RaidController:Get("CurrentChip"))
                         )
 
                         local RootRaidIsland = ({nil, "CircleIsland", "Boat Castle"})[SeaIndex]
@@ -5178,7 +5496,7 @@ FunctionsHandler = {
                         end)
 
                         local RaidStartSenque = os.time()
-                        SetTask("MainTask", "Auto Raid - Waiting Until Raid Is Started")
+                        SetTask("MainTask", "Đi Raid - Đang chờ phòng Raid bắt đầu")
 
                         local RaidStarted = false
                         repeat
@@ -5191,7 +5509,7 @@ FunctionsHandler = {
                         until os.time() - RaidStartSenque > 30
 
                         if not RaidStarted then
-                            SetTask("MainTask", "Auto Raid - Raid Is Not Started?")
+                            SetTask("MainTask", "Đi Raid - Hết thời gian chờ phòng Raid")
                             Report("[ Raid Error ] Time Limit Reached - No Island Detected")
                             getgenv().LastLoadedFruit = nil
                             getgenv().anchored = false
@@ -5222,11 +5540,11 @@ FunctionsHandler = {
                             CurrentIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
                             
                             if not CurrentIsland then
-                                SetTask("MainTask", "Auto Raid - Completed")
+                                SetTask("MainTask", "Đi Raid - Đã hoàn thành Raid!")
                                 return
                             end
                             
-                            SetTask("MainTask", "Auto Raid - " .. CurrentIsland.Name .. " / 5")
+                            SetTask("MainTask", "Đi Raid - Đang dọn Đảo " .. CurrentIsland.Name .. " / 5")
                             local Found = false
                             for _, Mon in GetMonAsSortedRange() do
                                 local StartTick1 = os.time()
@@ -5249,7 +5567,7 @@ FunctionsHandler = {
                                     
                                     local CheckIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
                                     if not CheckIsland then
-                                        SetTask("MainTask", "Auto Raid - Completed")
+                                        SetTask("MainTask", "Đi Raid - Đã hoàn thành Raid!")
                                         return
                                     end
                                 end
@@ -5310,7 +5628,7 @@ FunctionsHandler = {
                 local Fruit = FunctionsHandler.CollectDrops:Get("CurrentProgressLevel")
                 FunctionsHandler.CollectDrops:Set("CurrentProgressLevel", nil)
                 if Fruit then
-                    SetTask("MainTask", "Auto Collect Drop Items - " .. tostring(Fruit))
+                    SetTask("MainTask", "Nhặt Trái Ác Quỷ rơi - " .. tostring(Fruit))
                     getgenv().anchored = true  
                     TweenController.Create(Fruit:GetModelCFrame())
                 else
@@ -5629,6 +5947,11 @@ FunctionsHandler = {
         FunctionsHandler.Yama:RegisterMethod(
             "Refresh",
             function()
+                -- Chỉ làm Yama khi người dùng chủ động bật trong Config.Items
+                if not (Config and Config.Items and (Config.Items.Yama or Config.Items.CursedDualKatana)) then
+                    return
+                end
+
                 if SeaIndex ~= 3 then
                     return
                 end
@@ -5650,19 +5973,23 @@ FunctionsHandler = {
         FunctionsHandler.Yama:RegisterMethod(
             "Start",
             function()
-                if SeaIndex == 3 then 
-                if
-                    not workspace.Map:FindFirstChild("Waterfall") then
-                         return TweenController.Create(CFrame.new(5251.89990234375, 37.18115234375, 453.6022644042969))
-                    else
-                        if not workspace.Map.Waterfall:FindFirstChild("SealedKatana") then
-                         return TweenController.Create(CFrame.new(5251.89990234375, 37.18115234375, 453.6022644042969))
-
+                if SeaIndex == 3 then
+                    SetTask("MainTask", "Lấy Kiếm Yama | Đang rút Kiếm Katana Niêm Phong")
+                    local waterfall = (workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Waterfall")) or workspace:FindFirstChild("Waterfall", true)
+                    local sealedKatana = (waterfall and waterfall:FindFirstChild("SealedKatana")) or workspace:FindFirstChild("SealedKatana", true)
+                    
+                    if sealedKatana and sealedKatana:FindFirstChild("Hitbox") and sealedKatana.Hitbox:FindFirstChild("ClickDetector") then
+                        TweenController.Create(sealedKatana.Hitbox.CFrame * CFrame.new(0, 2, 0))
+                        if CaculateDistance(sealedKatana.Hitbox.CFrame) < 20 then
+                            for i = 1, 4 do
+                                fireclickdetector(sealedKatana.Hitbox.ClickDetector)
+                                task.wait(0.25)
+                            end
                         end
-                 return                fireclickdetector(workspace.Map.Waterfall.SealedKatana.Hitbox.ClickDetector)
-
+                    else
+                        TweenController.Create(CFrame.new(5251.89990234375, 37.18115234375, 453.6022644042969))
+                    end
                 end
-            end
             end
         )
 
@@ -5738,7 +6065,7 @@ FunctionsHandler = {
                 if not SoulGuitarProcess then
                     Remotes.CommF_:InvokeServer("gravestoneEvent", 2)
                     if not CheckFullMoon() then
-                        SetTask("MainTask", "Hopping for full moon ( soul guitar )")
+                        SetTask("MainTask", "Tìm Server Trăng Tròn (Lấy Soul Guitar)")
                         -- Hop()
                     end
                     return 7
@@ -5772,10 +6099,10 @@ FunctionsHandler = {
                     SoulGuitarProcess = Remotes.CommF_:InvokeServer("gravestoneEvent", 2, true)
                 elseif State == 1 then
                     if SeaIndex ~= 2 then
-                        SetTask("MainTask", "Teleport to second sea to farm ectoplasm")
+                        SetTask("MainTask", "Chuyển sang Sea 2 farm Ectoplasm (Lấy Soul Guitar)")
                         return Remotes.CommF_:InvokeServer("TravelDressrosa")
                     else
-                        SetTask("MainTask", "Farming ectoplasms for soul guitar")
+                        SetTask("MainTask", "Đang farm Ectoplasm trên Tàu Ma (Lấy Soul Guitar)")
                         CombatController.Attack({"Ship Deckhand", "Ship Engineer", "Ship Steward", "Ship Officer"})
                         return
                     end
@@ -5799,13 +6126,13 @@ FunctionsHandler = {
                     end
 
                     if #Objects < 6 then
-                        SetTask("MainTask", "Soul Guitar task 1 / 5: waiting until entity spawn")
+                        SetTask("MainTask", "Nhiệm vụ Soul Guitar (1/5) - Đang chờ quái Zombie xuất hiện")
                         TweenController.Create(ScriptStorage.MobRegions["Living Zombie"][1] + Vector3.new(0, 30, 0))
                     else
                         local StartTime19 = os.time()
                         for Idx, Object in Objects do
                             while task.wait() and Object.Humanoid.Health > 7000 do
-                                SetTask("MainTask", "Soul Guitar task 1 / 5: Hit mob " .. Idx .. " / 6")
+                                SetTask("MainTask", "Nhiệm vụ Soul Guitar (1/5) - Gom và đánh quái Zombie " .. Idx .. "/6")
                                 FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                 if os.time() - StartTime19 > 60 then
                                 end
@@ -5814,7 +6141,7 @@ FunctionsHandler = {
                                 AttackController:Attack()
                             end
                         end
-                        SetTask("MainTask", "Soul Guitar task 1 / 5: Attack")
+                        SetTask("MainTask", "Nhiệm vụ Soul Guitar (1/5) - Tiêu diệt cùng lúc 6 quái Zombie")
                         while workspace.Enemies:FindFirstChild("Living Zombie") and task.wait() do
                             if os.time() - StartTime19 > 60 then
                             end
@@ -5830,7 +6157,7 @@ FunctionsHandler = {
                     end
                     while CaculateDistance(CFrame.new(-8800, 178, 6033)) > 10 do
                         task.wait()
-                        SetTask("MainTask", "Soul Guitar task 2 / 5: completing placards")
+                        SetTask("MainTask", "Nhiệm vụ Soul Guitar (2/5) - Đang gạt biển báo nghĩa địa")
                         TweenController.Create(CFrame.new(-8800, 178, 6033))
                     end
 
@@ -5919,6 +6246,11 @@ FunctionsHandler = {
         FunctionsHandler.Tushita:RegisterMethod(
             "Refresh",
             function()
+                -- Chỉ làm Tushita khi người dùng chủ động bật trong Config.Items
+                if not (Config and Config.Items and (Config.Items.Tushita or Config.Items.CursedDualKatana)) then
+                    return
+                end
+
                 if ScriptStorage.Backpack.Tushita then
                     return
                 end
@@ -6504,8 +6836,8 @@ FunctionsHandler = {
         end)
         
         local LogCache = {}
-        SetTask("MainTask", "n/a")
-        SetTask("SubTask", "n/a")
+        SetTask("MainTask", "Sẵn sàng hoạt động")
+        SetTask("SubTask", "Khởi động hệ thống...")
         ParsingTimes = 0 
         function RefreshTasksData()
             if _G.Stop then
@@ -6531,8 +6863,26 @@ FunctionsHandler = {
                             ParsingTimes = ParsingTimes + 1
                             if ok and RefreshValue then
                                 CurrentTask = TaskName
+                                local TaskNamesVN = {
+                                    ExpRedeem = "Nhập Code X2 EXP",
+                                    SoulGuitar = "Lấy Đàn Soul Guitar",
+                                    Tushita = "Lấy Kiếm Tushita",
+                                    SpecialBossesTask = "Săn Boss Đặc Biệt",
+                                    RaidController = "Tự Động Đi Raid",
+                                    Trevor = "Nhiệm Vụ Trevor",
+                                    UtillyItemsActivitation = "Kích Hoạt Trang Bị",
+                                    ColosseumPuzzle = "Giải Mã Đấu Trường Bartilo",
+                                    ThirdSeaPuzzle = "Nhiệm Vụ Mở Cổng Sea 3",
+                                    Yama = "Lấy Kiếm Yama",
+                                    Saber = "Lấy Kiếm Saber (Shanks)",
+                                    PirateRaid = "Phòng Thủ Pirate Raid",
+                                    SecondSeaPuzzle = "Nhiệm Vụ Mở Cổng Sea 2",
+                                    CollectDrops = "Nhặt Trái Ác Quỷ Rơi",
+                                    BossesTask = "Săn Boss Thế Giới",
+                                    LevelFarm = "Cày Cấp & Farm Võ Godhuman"
+                                }
                                 if ScriptStorage.Interface and type(ScriptStorage.Interface.SetText) == "function" then
-                                    pcall(function() ScriptStorage.Interface.SetText("DebugLine", TaskName) end)
+                                    pcall(function() ScriptStorage.Interface.SetText("DebugLine", "Hoạt động: " .. (TaskNamesVN[TaskName] or TaskName)) end)
                                 end
                                 if Start then
                                     pcall(function() Start:Call(RefreshValue) end)
@@ -6545,13 +6895,13 @@ FunctionsHandler = {
             end
         end
 
-        SetText("MainTextLabel", "Refreshing Player Items...")
+        SetText("MainTextLabel", "Đang làm mới dữ liệu vật phẩm...")
         pcall(RefreshPlayerData)
         pcall(AddPoint)
         pcall(function() QuestManager:RefreshQuest() end)
-        SetText("MainTextLabel", "Loading Inventory...")
+        SetText("MainTextLabel", "Đang tải kho đồ (Inventory)...")
         pcall(RefreshInventory)
-        SetText("MainTextLabel", "Loading Race...")
+        SetText("MainTextLabel", "Đang tải thông tin Tộc (Race)...")
         pcall(RefreshRace)
         pcall(function()
             if Remotes and Remotes.CommE and Remotes.CommE.OnClientEvent then
@@ -6583,7 +6933,7 @@ FunctionsHandler = {
             end
         end)
 
-        SetText("MainTextLabel", "Loaded In " .. math.floor(tick() - StartTick) .. "ms!")
+        SetText("MainTextLabel", "Tải hoàn tất sau " .. math.floor(tick() - StartTick) .. "ms!")
         Loaded = 1
         QueueList = {}
 
@@ -6693,8 +7043,8 @@ FunctionsHandler = {
                             if ScriptStorage.Interface then
                                 SetText(
                                     "LiveTime",
-                                    "Total Elapsed Time: " ..
-                                        DispTime(TotalElapsed, true) .. " Elapsed Time: " .. DispTime(Elapsed, true)
+                                    "Tổng thời gian: " ..
+                                        DispTime(TotalElapsed, true) .. " | Phiên hiện tại: " .. DispTime(Elapsed, true)
                                 )
                             end
                             RefreshDebounce = os.time()
