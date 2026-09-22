@@ -40,8 +40,8 @@ print("========================================")
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Bocchi Hub",
-        Text = "Script đang khởi động... Vui lòng đợi!",
+        Title = "ko ai cho ko",
+        Text = "tự làm . tự ăn ",
         Duration = 5
     })
 end)
@@ -302,7 +302,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
+        NameHub.Text = "Tự Làm Tự Ăn"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1587,9 +1587,18 @@ ScriptStorage = {
 
         print(-4)
         game.Players.LocalPlayer.CharacterAdded:Connect(
-            function(Character)
-                print("[ Debug ] re-registering events")
+            function(newChar)
+                Character = newChar
+                Humanoid = newChar:WaitForChild("Humanoid", 5)
+                HumanoidRootPart = newChar:WaitForChild("HumanoidRootPart", 5)
+                print("[ Debug ] re-registering events on respawn")
                 RegisterLocalPlayerEventsConnection(LocalPlayer)
+                task.spawn(function()
+                    task.wait(1)
+                    if newChar and not newChar:FindFirstChild("HasBuso") then
+                        Remotes.CommF_:InvokeServer("Buso")
+                    end
+                end)
             end
         )
 
@@ -2299,6 +2308,101 @@ ScriptStorage = {
             SubmergedQuest2 = Vector3.new(11700, -2138, 10600)
         }
 
+        local MobPositionsFallback = {
+            -- Sea 1
+            ["Bandit"] = Vector3.new(1185, 17, 1618),
+            ["Monkey"] = Vector3.new(-1600, 22, 140),
+            ["Gorilla"] = Vector3.new(-1240, 6, -490),
+            ["Pirate"] = Vector3.new(-1180, 5, 3850),
+            ["Brute"] = Vector3.new(-1146, 15, 4350),
+            ["Desert Bandit"] = Vector3.new(900, 7, 4400),
+            ["Desert Officer"] = Vector3.new(1570, 4, 4370),
+            ["Snow Bandit"] = Vector3.new(1280, 106, -1350),
+            ["Snowman"] = Vector3.new(1280, 150, -1500),
+            ["Chief Petty Officer"] = Vector3.new(-4880, 21, 4260),
+            ["Sky Bandit"] = Vector3.new(-4980, 718, -2620),
+            ["Dark Master"] = Vector3.new(-5250, 389, -2270),
+            ["Prisoner"] = Vector3.new(5000, 6, 470),
+            ["Dangerous Prisoner"] = Vector3.new(5450, 6, 750),
+            ["Toga Warrior"] = Vector3.new(-1800, 7, -2750),
+            ["Gladiator"] = Vector3.new(-1380, 7, -3300),
+            ["Military Soldier"] = Vector3.new(-5400, 78, 8500),
+            ["Military Spy"] = Vector3.new(-5800, 78, 8820),
+            ["Fishman Warrior"] = Vector3.new(61120, 18, 1470),
+            ["Fishman Commando"] = Vector3.new(61800, 18, 1500),
+            ["Gods Guard"] = Vector3.new(-4700, 845, -1900),
+            ["Shanda"] = Vector3.new(-7700, 5600, -1450),
+            ["Royal Squad"] = Vector3.new(-7650, 5608, -1400),
+            ["Royal Soldier"] = Vector3.new(-7800, 5608, -1790),
+            ["Galley Pirate"] = Vector3.new(5590, 40, 4000),
+            ["Galley Captain"] = Vector3.new(5650, 40, 4950),
+
+            -- Sea 2
+            ["Raider"] = Vector3.new(-700, 73, 2400),
+            ["Mercenary"] = Vector3.new(-950, 73, 1700),
+            ["Swan Pirate"] = Vector3.new(880, 122, 1200),
+            ["Factory Staff"] = Vector3.new(300, 73, -50),
+            ["Marine Lieutenant"] = Vector3.new(-2700, 73, -2900),
+            ["Marine Captain"] = Vector3.new(-2000, 73, -3300),
+            ["Zombie"] = Vector3.new(-5650, 8, -700),
+            ["Vampire"] = Vector3.new(-6050, 8, -1300),
+            ["Snow Trooper"] = Vector3.new(500, 400, -5300),
+            ["Winter Warrior"] = Vector3.new(1200, 450, -5200),
+            ["Lab Subordinate"] = Vector3.new(-5800, 16, -4500),
+            ["Horned Warrior"] = Vector3.new(-6400, 16, -5800),
+            ["Magma Ninja"] = Vector3.new(-5400, 16, -6000),
+            ["Lava Pirate"] = Vector3.new(-5200, 16, -4800),
+            ["Ship Deckhand"] = Vector3.new(1200, 125, 33000),
+            ["Ship Engineer"] = Vector3.new(900, 125, 32800),
+            ["Ship Steward"] = Vector3.new(900, 125, 33400),
+            ["Ship Officer"] = Vector3.new(1100, 125, 33200),
+            ["Arctic Warrior"] = Vector3.new(6000, 28, -6200),
+            ["Snow Lurker"] = Vector3.new(5500, 28, -6800),
+            ["Sea Soldier"] = Vector3.new(-3050, 237, -10140),
+            ["Water Fighter"] = Vector3.new(-3400, 237, -10500),
+
+            -- Sea 3
+            ["Pirate Millionaire"] = Vector3.new(-370, 75, 5550),
+            ["Pistol Billionaire"] = Vector3.new(-470, 75, 5950),
+            ["Dragon Crew Warrior"] = Vector3.new(6500, 52, -1050),
+            ["Dragon Crew Archer"] = Vector3.new(6700, 385, 150),
+            ["Female Islander"] = Vector3.new(5400, 602, 750),
+            ["Giant Islander"] = Vector3.new(5000, 602, -150),
+            ["Marine Commodore"] = Vector3.new(2450, 73, -7000),
+            ["Rear Admiral"] = Vector3.new(2900, 73, -7200),
+            ["Fishman Raider"] = Vector3.new(-10400, 331, -8400),
+            ["Fishman Captain"] = Vector3.new(-11000, 331, -8900),
+            ["Forest Pirate"] = Vector3.new(-13300, 332, -7600),
+            ["Mythological Pirate"] = Vector3.new(-13600, 470, -6900),
+            ["Reborn Skeleton"] = Vector3.new(-8750, 142, 5950),
+            ["Living Zombie"] = Vector3.new(-10150, 142, 5950),
+            ["Demonic Soul"] = Vector3.new(-9500, 142, 5550),
+            ["Posessed Mummy"] = Vector3.new(-9500, 6, 6150),
+            ["Possessed Mummy"] = Vector3.new(-9500, 6, 6150),
+            ["Peanut Scout"] = Vector3.new(-2000, 50, -10200),
+            ["Peanut President"] = Vector3.new(-2150, 50, -10450),
+            ["Ice Cream Chef"] = Vector3.new(-650, 70, -10900),
+            ["Ice Cream Commander"] = Vector3.new(-900, 70, -11100),
+            ["Cookie Crafter"] = Vector3.new(-2350, 38, -12100),
+            ["Cake Guard"] = Vector3.new(-1600, 38, -12300),
+            ["Baking Staff"] = Vector3.new(-1900, 38, -12900),
+            ["Head Baker"] = Vector3.new(-2150, 38, -12700),
+            ["Cocoa Warrior"] = Vector3.new(230, 25, -12200),
+            ["Chocolate Bar Battler"] = Vector3.new(150, 25, -12700),
+            ["Sweet Thief"] = Vector3.new(70, 77, -12600),
+            ["Candy Rebel"] = Vector3.new(130, 77, -12850),
+            ["Candy Pirate"] = Vector3.new(-1350, 14, -14700),
+            ["Snow Demon"] = Vector3.new(-850, 65, -14500),
+            ["Sun-kissed Warrior"] = Vector3.new(-16300, 55, 1050),
+            ["Isle Outlaw"] = Vector3.new(-16700, 55, 1100),
+            ["Island Boy"] = Vector3.new(-16600, 55, 450),
+            ["Sun-kissed Champion"] = Vector3.new(-16200, 55, 400),
+            ["Deepsea Raider"] = Vector3.new(11500, -2138, 9750),
+            ["Ocean Prophet"] = Vector3.new(11600, -2138, 10100),
+            ["Abyssal Sentinel"] = Vector3.new(11800, -2138, 10600),
+            ["Grand Devotee"] = Vector3.new(12100, -2138, 10800)
+        }
+
         local NpcList = {}
         QuestManager.Quests = BuiltInQuests
 
@@ -2354,42 +2458,85 @@ ScriptStorage = {
                     end
                 end
 
+                local PlayerLevel = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
                 local QuestLevelFlag = 0
-                local CurrentQuestData = nil
+                local SelectedQuestData = nil
+                local SelectedQuestID = nil
 
-                if QuestManager and QuestManager.Quests then
-                    for QuestID, QuestDatas in pairs(QuestManager.Quests) do
+                local allQuests = QuestManager.Quests or BuiltInQuests
+
+                for QuestID, QuestDatas in pairs(allQuests) do
+                    if not QuestManager.BlacklistedQuestIds or not QuestManager.BlacklistedQuestIds[QuestID] then
+                        if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq then
+                            local req = QuestDatas[1].LevelReq
+                            -- Filter quests strictly by current Sea
+                            local isSeaMatch = true
+                            if SeaIndex == 1 then
+                                isSeaMatch = (req < 700)
+                            elseif SeaIndex == 2 then
+                                isSeaMatch = (req >= 700 and req < 1500)
+                            elseif SeaIndex == 3 then
+                                isSeaMatch = (req >= 1500)
+                            end
+
+                            if isSeaMatch and req <= PlayerLevel and req >= QuestLevelFlag then
+                                QuestLevelFlag = req
+                                SelectedQuestData = QuestDatas
+                                SelectedQuestID = QuestID
+                            end
+                        end
+                    end
+                end
+
+                -- Fallback if no sea match found
+                if not SelectedQuestData then
+                    for QuestID, QuestDatas in pairs(allQuests) do
                         if not QuestManager.BlacklistedQuestIds or not QuestManager.BlacklistedQuestIds[QuestID] then
-                            if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq and ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then
-                                if QuestDatas[1].LevelReq >= QuestLevelFlag and QuestDatas[1].LevelReq <= ScriptStorage.PlayerData.Level then
-                                    QuestLevelFlag = QuestDatas[1].LevelReq
-                                    CurrentQuestData = QuestDatas
-                                    Self.CurrentQuestId = QuestID
-                                    if ScriptStorage.PlayerData.Level >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
-                                        break
-                                    end
+                            if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq then
+                                local req = QuestDatas[1].LevelReq
+                                if req <= PlayerLevel and req >= QuestLevelFlag then
+                                    QuestLevelFlag = req
+                                    SelectedQuestData = QuestDatas
+                                    SelectedQuestID = QuestID
                                 end
                             end
                         end
                     end
                 end
 
-                if CurrentQuestData and #CurrentQuestData > 0 then
-                    local LastQuest = CurrentQuestData[#CurrentQuestData]
-                    if LastQuest and LastQuest.Task then
-                        for _, Count in pairs(LastQuest.Task) do
-                            if Count == 1 then
-                                table.remove(CurrentQuestData, #CurrentQuestData)
+                if SelectedQuestData and #SelectedQuestData > 0 then
+                    Self.CurrentQuestId = SelectedQuestID
+                    -- Deep clone into a new table so we never mutate BuiltInQuests / QuestManager.Quests
+                    local clonedQuests = {}
+                    for _, qItem in ipairs(SelectedQuestData) do
+                        local isSingleBoss = false
+                        if qItem.Task then
+                            for _, count in pairs(qItem.Task) do
+                                if count == 1 then
+                                    isSingleBoss = true
+                                    break
+                                end
                             end
                         end
+                        if not isSingleBoss then
+                            table.insert(clonedQuests, qItem)
+                        end
                     end
+                    if #clonedQuests == 0 then
+                        clonedQuests = {SelectedQuestData[1]}
+                    end
+                    Self.CurrentQuests = clonedQuests
+
+                    -- Find NPC Coordinates
+                    Self.CurrentNpc = nil
+                    local targetReq = clonedQuests[#clonedQuests] and clonedQuests[#clonedQuests].LevelReq or QuestLevelFlag
 
                     -- 1. Try GuideModule / NpcList
-                    if NpcList and CurrentQuestData[#CurrentQuestData] then
+                    if NpcList then
                         for i, v in pairs(NpcList) do
                             if v and v.Levels then
                                 for _, v1 in pairs(v.Levels) do
-                                    if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
+                                    if v1 == targetReq then
                                         if typeof(i) == "Instance" then
                                             Self.CurrentNpc = (i:IsA("Model") and i:GetPivot().Position) or (i:IsA("BasePart") and i.Position)
                                         elseif typeof(i) == "CFrame" then
@@ -2413,24 +2560,28 @@ ScriptStorage = {
                         Self.CurrentNpc = BuiltInNpcPositions[Self.CurrentQuestId]
                     end
                 end
-
-                Self.CurrentQuests = CurrentQuestData
             end)
         end
 
         function QuestManager.GetCurrentQuest(Self)
             if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
-                return nil, nil, nil, 1, nil
+                Self:RefreshQuest()
             end
-            local QuestIndex =
-                Self.CurrentQuests[Self.CurrentLevel] and
-                Self.CurrentQuests[Self.CurrentLevel].LevelReq <= (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level or 1) and
-                Self.CurrentLevel or
-                1
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                return nil, Self.CurrentNpc or (Self.CurrentQuestId and BuiltInNpcPositions[Self.CurrentQuestId]), Self.CurrentQuestId, 1, nil
+            end
 
-            if Self.CurrentQuests[QuestIndex] and Self.CurrentQuests[QuestIndex].Task then
-                for Name in Self.CurrentQuests[QuestIndex].Task do
-                    return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, Self.CurrentQuests[QuestIndex].Name
+            local pLevel = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+            local QuestIndex = 1
+            if Self.CurrentQuests[2] and Self.CurrentQuests[2].LevelReq and Self.CurrentQuests[2].LevelReq <= pLevel then
+                QuestIndex = 2
+            end
+
+            local qEntry = Self.CurrentQuests[QuestIndex] or Self.CurrentQuests[1]
+            if qEntry and qEntry.Task then
+                for Name in pairs(qEntry.Task) do
+                    local npcPos = Self.CurrentNpc or (Self.CurrentQuestId and BuiltInNpcPositions[Self.CurrentQuestId])
+                    return Name, npcPos, Self.CurrentQuestId, QuestIndex, qEntry.Name
                 end
             end
             return nil, Self.CurrentNpc, Self.CurrentQuestId, 1, nil
@@ -2448,38 +2599,147 @@ ScriptStorage = {
         end
 
         local VietnameseToEnglishMob = {
+            -- Sea 1
+            ["Băng Cướp"] = "Bandit",
+            ["Tên Cướp"] = "Bandit",
+            ["Kẻ Cướp"] = "Bandit",
+            ["Hải Tặc Băng Cướp"] = "Bandit",
+            ["Khỉ"] = "Monkey",
+            ["Con Khỉ"] = "Monkey",
+            ["Khỉ Đột"] = "Gorilla",
+            ["Vượn"] = "Gorilla",
+            ["Vua Khỉ Đột"] = "Gorilla King",
+            ["Hải Tặc"] = "Pirate",
+            ["Cướp Biển"] = "Pirate",
+            ["Kẻ Hung Bạo"] = "Brute",
+            ["Kẻ Bạo Lực"] = "Brute",
+            ["Bobby"] = "Bobby",
+            ["Cướp Sa Mạc"] = "Desert Bandit",
+            ["Băng Cướp Sa Mạc"] = "Desert Bandit",
+            ["Sĩ Quan Sa Mạc"] = "Desert Officer",
+            ["Cướp Tuyết"] = "Snow Bandit",
+            ["Băng Cướp Tuyết"] = "Snow Bandit",
+            ["Người Tuyết"] = "Snowman",
+            ["Yeti"] = "Yeti",
+            ["Thượng Sĩ Hải Quân"] = "Chief Petty Officer",
+            ["Hải Quân Thượng Sĩ"] = "Chief Petty Officer",
+            ["Cướp Trên Trời"] = "Sky Bandit",
+            ["Băng Cướp Bầu Trời"] = "Sky Bandit",
+            ["Hải Tặc Bầu Trời"] = "Sky Bandit",
+            ["Bậc Thầy Bóng Tối"] = "Dark Master",
+            ["Chúa Tể Bóng Tối"] = "Dark Master",
+            ["Tù Nhân"] = "Prisoner",
+            ["Tù Nhân Nguy Hiểm"] = "Dangerous Prisoner",
+            ["Trưởng Ngục"] = "Warden",
+            ["Phó Trưởng Ngục"] = "Chief Warden",
+            ["Hải Tặc Thiên Nga"] = "Swan",
+            ["Chiến Binh Toga"] = "Toga Warrior",
+            ["Đấu Sĩ"] = "Gladiator",
+            ["Lính Quân Đội"] = "Military Soldier",
+            ["Binh Lính Quân Đội"] = "Military Soldier",
+            ["Gián Điệp Quân Đội"] = "Military Spy",
+            ["Điệp Viên Quân Đội"] = "Military Spy",
+            ["Chiến Binh Người Cá"] = "Fishman Warrior",
+            ["Đặc Công Người Cá"] = "Fishman Commando",
+            ["Chúa Tể Người Cá"] = "Fishman Lord",
+            ["Vệ Binh Thần Thánh"] = "God's Guard",
+            ["Hộ Vệ Thần"] = "Gods Guard",
+            ["Shanda"] = "Shanda",
+            ["Chiến Binh Shanda"] = "Shanda",
+            ["Wysper"] = "Wysper",
+            ["Biệt Đội Hoàng Gia"] = "Royal Squad",
+            ["Đội Hoàng Gia"] = "Royal Squad",
+            ["Lính Hoàng Gia"] = "Royal Soldier",
+            ["Binh Lính Hoàng Gia"] = "Royal Soldier",
+            ["Hải Tặc Galley"] = "Galley Pirate",
+            ["Cướp Biển Galley"] = "Galley Pirate",
+            ["Thuyền Trưởng Galley"] = "Galley Captain",
+
+            -- Sea 2
+            ["Kẻ Cướp Phá"] = "Raider",
+            ["Kẻ Cướp Bóc"] = "Raider",
+            ["Lính Đánh Thuê"] = "Mercenary",
+            ["Kim Cương"] = "Diamond",
+            ["Hải Tặc Swan"] = "Swan Pirate",
+            ["Cướp Biển Swan"] = "Swan Pirate",
+            ["Nhân Viên Nhà Máy"] = "Factory Staff",
+            ["Jeremy"] = "Jeremy",
+            ["Trung Úy Hải Quân"] = "Marine Lieutenant",
+            ["Hải Quân Trung Úy"] = "Marine Lieutenant",
+            ["Đại Úy Hải Quân"] = "Marine Captain",
+            ["Hải Quân Đại Úy"] = "Marine Captain",
+            ["Fajita"] = "Fajita",
+            ["Zombie"] = "Zombie",
+            ["Xác Sống"] = "Zombie",
+            ["Ma Cà Rồng"] = "Vampire",
+            ["Lính Tuyết"] = "Snow Trooper",
+            ["Kỵ Binh Tuyết"] = "Snow Trooper",
+            ["Chiến Binh Mùa Đông"] = "Winter Warrior",
+            ["Thuộc Hạ Phòng Thí Nghiệm"] = "Lab Subordinate",
+            ["Chiến Binh Có Sừng"] = "Horned Warrior",
+            ["Khói Đen"] = "Smoke Admiral",
+            ["Ninja Dung Nham"] = "Magma Ninja",
+            ["Hải Tặc Dung Nham"] = "Lava Pirate",
+            ["Đô Đốc Dung Nham"] = "Magma Admiral",
+            ["Thủy Thủ Tàu"] = "Ship Deckhand",
+            ["Thủy Thủ Boong Tàu"] = "Ship Deckhand",
+            ["Kỹ Sư Tàu"] = "Ship Engineer",
+            ["Tiếp Viên Tàu"] = "Ship Steward",
+            ["Sĩ Quan Tàu"] = "Ship Officer",
+            ["Chiến Binh Bắc Cực"] = "Arctic Warrior",
+            ["Kẻ Ẩn Nấp Tuyết"] = "Snow Lurker",
+            ["Kẻ Rình Rập Tuyết"] = "Snow Lurker",
+            ["Đô Đốc Băng Thức Tỉnh"] = "Awakened Ice Admiral",
+            ["Lính Biển"] = "Sea Soldier",
+            ["Binh Lính Biển"] = "Sea Soldier",
+            ["Chiến Binh Nước"] = "Water Fighter",
+            ["Người Giữ Thủy Triều"] = "Tide Keeper",
+            ["Don Swan"] = "Don Swan",
+
+            -- Sea 3
+            ["Hải Tặc Triệu Phú"] = "Pirate Millionaire",
+            ["Tỷ Phú Súng Ngắn"] = "Pistol Billionaire",
+            ["Stone"] = "Stone",
+            ["Chiến Binh Thủy Thủ Đoàn Rồng"] = "Dragon Crew Warrior",
+            ["Chiến Binh Đoàn Rồng"] = "Dragon Crew Warrior",
+            ["Cung Thủ Thủy Thủ Đoàn Rồng"] = "Dragon Crew Archer",
+            ["Cung Thủ Đoàn Rồng"] = "Dragon Crew Archer",
+            ["Nữ Đảo Dân"] = "Female Islander",
+            ["Đảo Dân Khổng Lồ"] = "Giant Islander",
+            ["Nữ Hoàng Đảo Rừng"] = "Island Empress",
+            ["Chuẩn Đô Đốc"] = "Rear Admiral",
+            ["Hải Quân Thiếu Tướng"] = "Marine Commodore",
+            ["Kilo Đô Đốc"] = "Kilo Admiral",
+            ["Hải Tặc Người Cá"] = "Fishman Raider",
+            ["Thuyền Trưởng Người Cá"] = "Fishman Captain",
+            ["Hải Tặc Rừng Rậm"] = "Forest Pirate",
+            ["Hải Tặc Rừng"] = "Forest Pirate",
+            ["Hải Tặc Thần Thoại"] = "Mythological Pirate",
+            ["Thuyền Trưởng Voi"] = "Captain Elephant",
+            ["Hải Tặc Rừng Sâu"] = "Jungle Pirate",
+            ["Hải Tặc Xạ Thủ"] = "Musketeer Pirate",
+            ["Đô Đốc Đẹp Trai"] = "Beautiful Pirate",
+            ["Bộ Xương Tái Sinh"] = "Reborn Skeleton",
             ["Quỷ Linh"] = "Demonic Soul",
             ["Xác Ướp Bị Chiếm Đoạt"] = "Posessed Mummy",
-            ["Bộ Xương Tái Sinh"] = "Reborn Skeleton",
-            ["Xác Sống"] = "Living Zombie",
+            ["Xác Ướp Bị Nhập"] = "Posessed Mummy",
             ["Chiến Binh Đậu Phộng"] = "Peanut Scout",
+            ["Trinh Sát Đậu Phộng"] = "Peanut Scout",
             ["Chủ Tịch Đậu Phộng"] = "Peanut President",
             ["Đầu Bếp Kem"] = "Ice Cream Chef",
             ["Chỉ Huy Kem"] = "Ice Cream Commander",
             ["Thợ Làm Bánh Quy"] = "Cookie Crafter",
             ["Lính Bánh Ngọt"] = "Cake Guard",
+            ["Vệ Binh Bánh"] = "Cake Guard",
             ["Nhân Viên Làm Bánh"] = "Baking Staff",
             ["Bếp Trưởng"] = "Head Baker",
             ["Chiến Binh Ca Cao"] = "Cocoa Warrior",
             ["Võ Sĩ Thanh Sô-cô-la"] = "Chocolate Bar Battler",
+            ["Võ Sĩ Thanh Socola"] = "Chocolate Bar Battler",
             ["Kẻ Trộm Ngọt Ngào"] = "Sweet Thief",
             ["Kẻ Nổi Loạn Kẹo"] = "Candy Rebel",
             ["Hải Tặc Kẹo"] = "Candy Pirate",
             ["Ác Quỷ Tuyết"] = "Snow Demon",
-            ["Hải Tặc Triệu Phú"] = "Pirate Millionaire",
-            ["Tỷ Phú Súng Ngắn"] = "Pistol Billionaire",
-            ["Chiến Binh Thủy Thủ Đoàn Rồng"] = "Dragon Crew Warrior",
-            ["Cung Thủ Thủy Thủ Đoàn Rồng"] = "Dragon Crew Archer",
-            ["Nữ Đảo Dân"] = "Female Islander",
-            ["Đảo Dân Khổng Lồ"] = "Giant Islander",
-            ["Chuẩn Đô Đốc"] = "Rear Admiral",
-            ["Hải Quân Thiếu Tướng"] = "Marine Commodore",
-            ["Hải Tặc Người Cá"] = "Fishman Raider",
-            ["Thuyền Trưởng Người Cá"] = "Fishman Captain",
-            ["Hải Tặc Rừng Rậm"] = "Forest Pirate",
-            ["Hải Tặc Thần Thoại"] = "Mythological Pirate",
-            ["Hải Tặc Rừng Sâu"] = "Jungle Pirate",
-            ["Hải Tặc Xạ Thủ"] = "Musketeer Pirate",
             ["Chiến Binh Hôn Mặt Trời"] = "Sun-kissed Warrior",
             ["Kẻ Ngoài Vòng Pháp Luật"] = "Isle Outlaw",
             ["Cậu Bé Trên Đảo"] = "Island Boy",
@@ -2487,15 +2747,59 @@ ScriptStorage = {
             ["Kẻ Cướp Biển Sâu"] = "Deepsea Raider",
             ["Nhà Tiên Tri Đại Dương"] = "Ocean Prophet",
             ["Lính Canh Vực Thẳm"] = "Abyssal Sentinel",
-            ["Tín Đồ Vĩ Đại"] = "Grand Devotee",
-            ["Chiến Binh Nước"] = "Water Fighter",
-            ["Lính Biển"] = "Sea Soldier",
-            ["Ninja Dung Nham"] = "Magma Ninja",
-            ["Hải Tặc Dung Nham"] = "Lava Pirate",
-            ["Ma Cà Rồng"] = "Vampire",
-            ["Chiến Binh Mùa Đông"] = "Winter Warrior",
-            ["Lính Tuyết"] = "Snow Trooper"
+            ["Tín Đồ Vĩ Đại"] = "Grand Devotee"
         }
+
+        local function CleanQuestMobTitle(rawText)
+            if not rawText or rawText == "" then return "" end
+            local str = tostring(rawText)
+
+            -- 1. Xóa các tiền tố nhận nhiệm vụ thường gặp
+            str = str:gsub("^%s*[Dd]efeat%s*%d*%s*", "")
+            str = str:gsub("^%s*[Đđ]ánh%s*bại%s*%d*%s*", "")
+            str = str:gsub("^%s*[Kk]ill%s*%d*%s*", "")
+            str = str:gsub("^%s*[Tt]iêu%s*diệt%s*%d*%s*", "")
+
+            -- 2. Xóa các chỉ số tiến độ nhiệm vụ dạng (0/5), 0/5, [0/5], ( 0 / 5 )
+            str = str:gsub("%s*%b()", "")
+            str = str:gsub("%s*%b[]", "")
+            str = str:gsub("%s*%d+%s*/%s*%d+%s*", "")
+
+            -- 3. Xóa các tag cấp độ [Lv. 100], Lv. 100
+            str = str:gsub("%s*%[Lv%.?%s*%d+%]%s*", "")
+            str = str:gsub("%s*Lv%.?%s*%d+%s*", "")
+
+            -- 4. Trim khoảng trắng đầu/cuối
+            str = str:gsub("^%s*(.-)%s*$", "%1")
+
+            -- 5. Ánh xạ tiếng Việt sang tên quái tiếng Anh chuẩn
+            if VietnameseToEnglishMob[str] then
+                str = VietnameseToEnglishMob[str]
+            else
+                local lowStr = string.lower(str)
+                for vnName, engName in pairs(VietnameseToEnglishMob) do
+                    local lowVn = string.lower(vnName)
+                    if lowStr == lowVn or string.find(lowStr, lowVn, 1, true) or string.find(lowVn, lowStr, 1, true) then
+                        str = engName
+                        break
+                    end
+                end
+            end
+
+            -- 6. Chuẩn hóa số nhiều tiếng Anh (Bandits -> Bandit, Monkeys -> Monkey, Pirates -> Pirate, etc.)
+            if str:sub(-1) == "s" and not str:match("ss$") and not str:match("us$") and not str:match("is$") then
+                local singular = str:sub(1, -2)
+                if (MobPositionsFallback and MobPositionsFallback[singular]) or (BuiltInQuests and BuiltInQuests[singular]) then
+                    str = singular
+                end
+            end
+
+            if type(str) == "string" then
+                str = string.gsub(str, "Military ", "Mil. ")
+            end
+
+            return str
+        end
 
         function QuestManager.GetCurrentClaimQuest(RawResponse)
             local isVisible = false
@@ -2504,25 +2808,42 @@ ScriptStorage = {
                 local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
                 isVisible = questGui and questGui.Visible
                 if isVisible then
-                    rawText = questGui.Container.QuestTitle.Title.Text
+                    if questGui:FindFirstChild("Container") then
+                        local container = questGui.Container
+                        if container:FindFirstChild("QuestTitle") then
+                            local qt = container.QuestTitle
+                            if qt:FindFirstChild("Title") and qt.Title:IsA("TextLabel") and qt.Title.Text ~= "" then
+                                rawText = qt.Title.Text
+                            elseif qt:IsA("TextLabel") and qt.Text ~= "" then
+                                rawText = qt.Text
+                            end
+                        end
+                        if rawText == "" and container:FindFirstChild("Title") and container.Title:IsA("TextLabel") then
+                            rawText = container.Title.Text
+                        end
+                    end
+                    if rawText == "" then
+                        for _, desc in ipairs(questGui:GetDescendants()) do
+                            if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
+                                if string.find(desc.Text, "Defeat") or string.find(desc.Text, "Đánh bại") or string.find(desc.Text, "/") then
+                                    rawText = desc.Text
+                                    break
+                                end
+                            end
+                        end
+                    end
                 end
             end)
-            if not isVisible then
+
+            if not isVisible or rawText == "" then
                 return nil, nil
             end
             if RawResponse then
                 return isVisible, rawText
             end
-            local QuestTitle = rawText:gsub("%s*Defeat%s*(%d*)%s*(.-)%s*%b()", "%2")
-            if QuestTitle == rawText then
-                QuestTitle = rawText:gsub("%s*Đánh bại%s*(%d*)%s*(.-)%s*%b()", "%2")
-                QuestTitle = QuestTitle:gsub("%s*Đánh bại%s*(%d*)%s*(.-)$", "%2")
-            end
-            QuestTitle = string.gsub(QuestTitle, "^%s*(.-)%s*$", "%1")
-            if VietnameseToEnglishMob[QuestTitle] then
-                QuestTitle = VietnameseToEnglishMob[QuestTitle]
-            end
-            return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), rawText
+
+            local cleanTitle = CleanQuestMobTitle(rawText)
+            return cleanTitle, rawText
         end
 
         function QuestManager.StartQuest(QuestId, QuestLevel)
@@ -2715,10 +3036,22 @@ ScriptStorage = {
         
             local RootPart = Character.HumanoidRootPart
             local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
+
+            -- Tối ưu dịch chuyển nhanh qua cổng nếu khoảng cách quá xa (> 1800 studs)
+            if CurrentDist > 1800 and typeof(CheckNearestTeleporter) == "function" then
+                local nearestTp = CheckNearestTeleporter(TargetCFrame)
+                if nearestTp and (RootPart.Position - nearestTp).Magnitude > 500 then
+                    requestEntrance(nearestTp)
+                    task.wait(0.3)
+                    RootPart = Character:FindFirstChild("HumanoidRootPart")
+                    if not RootPart then return end
+                    CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
+                end
+            end
         
             -- 2. CHỐNG GIẬT / CHỐNG CANCEL LIÊN TỤC KHI ĐANG BAY TỚI CÙNG ĐÍCH
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
-                if TweenController._CurrentTarget and (TweenController._CurrentTarget.Position - TargetCFrame.Position).Magnitude < 15 then
+                if TweenController._CurrentTarget and (TweenController._CurrentTarget.Position - TargetCFrame.Position).Magnitude < 40 then
                     return
                 end
                 if CurrentDist < 5 then
@@ -2776,12 +3109,12 @@ ScriptStorage = {
                 return
             end
 
-            -- 6. THỰC THI TWEEN
+            -- 6. THỰC THI TWEEN TỐC ĐỘ CAO VÀ MƯỢT MÀ
             if TweenInstance then
                 pcall(function() TweenInstance:Cancel() end)
             end
 
-            local Speed = (CurrentDist < 30) and 50 or 175
+            local Speed = (CurrentDist < 30) and 80 or 160
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -2901,34 +3234,43 @@ ScriptStorage = {
         local cachedBladeHits = {}
         function GetAllBladeHits()
             local now = tick()
-            if now - lastBladeScan < 0.2 and #cachedBladeHits > 0 then
+            if now - lastBladeScan < 0.15 and #cachedBladeHits > 0 then
                 return cachedBladeHits
             end
             lastBladeScan = now
             cachedBladeHits = {}
             local myChar = game.Players.LocalPlayer.Character
-            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local myHrp = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart)
             local myPos = myHrp and myHrp.Position
             if not myPos then return cachedBladeHits end
 
-            local enemies = workspace:FindFirstChild("Enemies")
-            if enemies then
-                for _, v in pairs(enemies:GetChildren()) do
-                    if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-                        if (v.HumanoidRootPart.Position - myPos).Magnitude <= 65 then
-                            table.insert(cachedBladeHits, v)
+            local function addValidEnemies(folder)
+                if not folder then return end
+                for _, v in pairs(folder:GetChildren()) do
+                    if v:IsA("Model") and not game.Players:GetPlayerFromCharacter(v) then
+                        local hum = v:FindFirstChildOfClass("Humanoid") or v:FindFirstChild("Humanoid")
+                        local hrp = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart or v:FindFirstChild("Head") or v:FindFirstChild("Torso")
+                        if hum and hum.Health > 0 and hrp then
+                            if (hrp.Position - myPos).Magnitude <= 95 then
+                                table.insert(cachedBladeHits, v)
+                            end
                         end
                     end
                 end
             end
+
+            addValidEnemies(workspace:FindFirstChild("Enemies"))
+            addValidEnemies(workspace:FindFirstChild("Characters"))
+
             return cachedBladeHits
         end
+
         function Getplayerhit()
-            bladehits = {}
+            local playerHits = {}
             local myChar = game.Players.LocalPlayer.Character
-            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local myHrp = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart)
             local myPos = myHrp and myHrp.Position
-            if not myPos then return bladehits end
+            if not myPos then return playerHits end
 
             local chars = workspace:FindFirstChild("Characters")
             if chars then
@@ -2937,13 +3279,13 @@ ScriptStorage = {
                         v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild("Humanoid") and
                             v:FindFirstChild("HumanoidRootPart") and
                             v.Humanoid.Health > 0 and
-                            (v.HumanoidRootPart.Position - myPos).Magnitude <= 65
+                            (v.HumanoidRootPart.Position - myPos).Magnitude <= 95
                      then
-                        table.insert(bladehits, v)
+                        table.insert(playerHits, v)
                     end
                 end
             end
-            return bladehits
+            return playerHits
         end
 
         pcall(function()
@@ -2960,13 +3302,26 @@ ScriptStorage = {
             end
         end)
 
-        function Funcs:Attack()
+        function Funcs:Attack(targetMon)
             local bladehits = {}
-            for r, v in pairs(GetAllBladeHits()) do
+            for _, v in pairs(GetAllBladeHits()) do
                 table.insert(bladehits, v)
             end
-            for r, v in pairs(Getplayerhit()) do
+            for _, v in pairs(Getplayerhit()) do
                 table.insert(bladehits, v)
+            end
+
+            if targetMon and targetMon:IsA("Model") and targetMon:FindFirstChild("Humanoid") and targetMon.Humanoid.Health > 0 then
+                local alreadyIn = false
+                for _, b in ipairs(bladehits) do
+                    if b == targetMon then
+                        alreadyIn = true
+                        break
+                    end
+                end
+                if not alreadyIn then
+                    table.insert(bladehits, targetMon)
+                end
             end
 
             if #bladehits == 0 then
@@ -2981,7 +3336,7 @@ ScriptStorage = {
 
             local targetHead = nil
             local targetsTable = {}
-            for r, v in pairs(bladehits) do
+            for _, v in pairs(bladehits) do
                 if not targetHead and v:FindFirstChild("Head") then
                     targetHead = v.Head
                 end
@@ -2990,7 +3345,16 @@ ScriptStorage = {
                         [1] = v,
                         [2] = v.HumanoidRootPart
                     })
+                elseif v:FindFirstChild("Head") then
+                    table.insert(targetsTable, {
+                        [1] = v,
+                        [2] = v.Head
+                    })
                 end
+            end
+
+            if not targetHead and targetsTable[1] and targetsTable[1][1]:FindFirstChild("Head") then
+                targetHead = targetsTable[1][1].Head
             end
 
             if RegisterHit and targetHead and #targetsTable > 0 then
@@ -3003,14 +3367,16 @@ ScriptStorage = {
         -- Optimized FastAttack loop with Volt Actor support
         _G.FastAttackTick = 0
         local FastAttackLoop = function()
-            while task.wait(.06) do
-                if _G.FastAttack or (os.clock() - (_G.FastAttackTick or 0) < 1.5) then
+            while task.wait(.05) do
+                if _G.FastAttack or (os.clock() - (_G.FastAttackTick or 0) < 2) then
                     pcall(
                         function()
-                            Funcs:Attack()
-                            local VirtualUser = game:GetService("VirtualUser")
-                            VirtualUser:CaptureController()
-                            VirtualUser:ClickButton1(Vector2.new(0,0))
+                            Funcs:Attack(_G.CurrentAttackTarget)
+                            local char = game.Players.LocalPlayer.Character
+                            local tool = char and char:FindFirstChildOfClass("Tool")
+                            if tool then
+                                tool:Activate()
+                            end
                         end
                     )
                 end
@@ -3027,13 +3393,19 @@ ScriptStorage = {
             task.spawn(FastAttackLoop)
         end
 
-        function AttackController.Attack(MonResult)
-            pcall(
-                function()
-                    _G.FastAttack = true
-                    _G.FastAttackTick = os.clock()
+        function AttackController.Attack(selfOrMon, maybeMon)
+            local MonResult = (typeof(selfOrMon) == "Instance" and selfOrMon) or (typeof(maybeMon) == "Instance" and maybeMon) or nil
+            _G.CurrentAttackTarget = MonResult
+            _G.FastAttack = true
+            _G.FastAttackTick = os.clock()
+            pcall(function()
+                Funcs:Attack(MonResult)
+                local char = game.Players.LocalPlayer.Character
+                local tool = char and char:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
                 end
-            )
+            end)
         end
 
         
@@ -3147,6 +3519,111 @@ CombatController = {
         LastFound = os.time()
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
+        local function IsMobMatch(instName, targetName)
+            if not instName or not targetName then return false end
+            instName = tostring(instName)
+            targetName = tostring(targetName)
+            if instName == targetName then return true end
+
+            -- Strip [Lv. 123] suffix
+            local cleanInst = instName:gsub("%s*%[Lv%.%s*%d+%]%s*", ""):gsub("^%s*(.-)%s*$", "%1")
+            local cleanTarget = targetName:gsub("%s*%[Lv%.%s*%d+%]%s*", ""):gsub("^%s*(.-)%s*$", "%1")
+            if cleanInst == cleanTarget then return true end
+
+            if VietnameseToEnglishMob[cleanInst] then cleanInst = VietnameseToEnglishMob[cleanInst] end
+            if VietnameseToEnglishMob[cleanTarget] then cleanTarget = VietnameseToEnglishMob[cleanTarget] end
+            if cleanInst == cleanTarget then return true end
+
+            local s1 = string.lower(cleanInst)
+            local s2 = string.lower(cleanTarget)
+            if s1 == s2 then return true end
+            if string.find(s1, s2, 1, true) or string.find(s2, s1, 1, true) then return true end
+
+            local s1_no_s = (s1:sub(-1) == "s") and s1:sub(1, -2) or s1
+            local s2_no_s = (s2:sub(-1) == "s") and s2:sub(1, -2) or s2
+            if s1_no_s == s2_no_s or string.find(s1_no_s, s2_no_s, 1, true) or string.find(s2_no_s, s1_no_s, 1, true) then
+                return true
+            end
+
+            -- Common mob name variants / typo mappings
+            if (string.find(s1, "bandit") and string.find(s2, "bandit")) or
+               (string.find(s1, "cuop") and string.find(s2, "bandit")) or
+               (string.find(s1, "monkey") and string.find(s2, "monkey")) or
+               (string.find(s1, "gorilla") and string.find(s2, "gorilla")) or
+               (string.find(s1, "mummy") and string.find(s2, "mummy")) or
+               (string.find(s1, "demonic") and string.find(s2, "demonic")) or
+               (string.find(s1, "zombie") and string.find(s2, "zombie")) or
+               (string.find(s1, "skeleton") and string.find(s2, "skeleton")) or
+               (string.find(s1, "vampire") and string.find(s2, "vampire")) or
+               (string.find(s1, "swordsman") and string.find(s2, "swordsman")) or
+               (string.find(s1, "islander") and string.find(s2, "islander")) or
+               (string.find(s1, "soldier") and string.find(s2, "soldier")) or
+               (string.find(s1, "pirate") and string.find(s2, "pirate")) or
+               (string.find(s1, "captain") and string.find(s2, "captain")) or
+               (string.find(s1, "admiral") and string.find(s2, "admiral")) then
+                return true
+            end
+            return false
+        end
+
+        function GetMobPosition(mobName)
+            if not mobName or mobName == "" then return nil end
+            if type(mobName) == "table" then
+                mobName = mobName[1]
+            end
+            local strName = tostring(mobName)
+
+            -- 1. Check ScriptStorage.MobRegions
+            local reg = ScriptStorage.MobRegions and ScriptStorage.MobRegions[strName]
+            if reg and #reg > 0 then
+                local rawPos = reg[1]
+                local pos = (typeof(rawPos) == "CFrame" and rawPos.Position) or (typeof(rawPos) == "Vector3" and rawPos) or nil
+                if pos then return pos end
+            end
+
+            -- 2. Direct lookup in MobPositionsFallback
+            if MobPositionsFallback and MobPositionsFallback[strName] then
+                local rawPos = MobPositionsFallback[strName]
+                local pos = (typeof(rawPos) == "CFrame" and rawPos.Position) or (typeof(rawPos) == "Vector3" and rawPos) or nil
+                if pos then return pos end
+            end
+
+            -- 3. Fuzzy search in MobPositionsFallback
+            if MobPositionsFallback then
+                for fbName, fbPos in pairs(MobPositionsFallback) do
+                    if IsMobMatch(fbName, strName) then
+                        local rawPos = fbPos
+                        local pos = (typeof(rawPos) == "CFrame" and rawPos.Position) or (typeof(rawPos) == "Vector3" and rawPos) or nil
+                        if pos then return pos end
+                    end
+                end
+            end
+
+            -- 4. Check workspace.Enemies
+            local enemies = workspace:FindFirstChild("Enemies")
+            if enemies then
+                for _, enemy in ipairs(enemies:GetChildren()) do
+                    if enemy:IsA("Model") and IsMobMatch(enemy.Name, strName) then
+                        local hrp = enemy:FindFirstChild("HumanoidRootPart") or enemy.PrimaryPart
+                        if hrp then return hrp.Position end
+                    end
+                end
+            end
+
+            -- 5. Fallback scan in workspace for spawn parts
+            local foundPos = nil
+            pcall(function()
+                for _, spawnObj in pairs(workspace:GetDescendants()) do
+                    if spawnObj:IsA("BasePart") and (IsMobMatch(spawnObj.Name, strName) or string.find(string.lower(spawnObj.Name), string.lower(strName))) then
+                        foundPos = spawnObj.Position
+                        break
+                    end
+                end
+            end)
+
+            return foundPos
+        end
+
         function CombatController.Grab(MobName, TargetCFrame)
             if not CombatController.GRAB then return end
             pcall(function()
@@ -3157,11 +3634,9 @@ CombatController = {
 
             local lp = game:GetService("Players").LocalPlayer
             local myChar = lp and lp.Character
-            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local myHrp = myChar and (myChar:FindFirstChild("HumanoidRootPart") or myChar.PrimaryPart)
             if not myHrp then return end
 
-            local CenterPoint = (TargetCFrame and (typeof(TargetCFrame) == "CFrame" and TargetCFrame.Position or TargetCFrame)) or (myHrp.Position - Vector3.new(0, 15, 0))
-            local MobsTable = {}
             local enemies = workspace:FindFirstChild("Enemies")
             if not enemies then return end
 
@@ -3169,17 +3644,18 @@ CombatController = {
                 if not MobName or MobName == "" then return true end
                 if type(MobName) == "table" then
                     for _, targetName in ipairs(MobName) do
-                        if name == targetName or string.find(name, tostring(targetName), 1, true) then
+                        if IsMobMatch(name, targetName) then
                             return true
                         end
                     end
                     return false
                 elseif type(MobName) == "string" then
-                    return (name == MobName) or string.find(name, MobName, 1, true)
+                    return IsMobMatch(name, MobName)
                 end
                 return false
             end
 
+            local MobsTable = {}
             for _, Mon in ipairs(enemies:GetChildren()) do
                 if Mon:IsA("Model") and isMatchingMob(Mon.Name) then
                     local hum = Mon:FindFirstChildOfClass("Humanoid")
@@ -3195,7 +3671,27 @@ CombatController = {
 
             if #MobsTable == 0 then return end
 
-            -- Gom toàn bộ quái diện rộng về một điểm ngay dưới chân người chơi để FastAttack đánh lan toàn bộ:
+            -- Xác định tọa độ mặt đất của quái mục tiêu (giữ quái ở mặt đất, KHÔNG kéo lên không trung)
+            local CenterPoint = nil
+            if TargetCFrame then
+                if typeof(TargetCFrame) == "Instance" then
+                    local hrp = TargetCFrame:FindFirstChild("HumanoidRootPart") or TargetCFrame.PrimaryPart
+                    CenterPoint = hrp and hrp.Position
+                elseif typeof(TargetCFrame) == "CFrame" then
+                    CenterPoint = TargetCFrame.Position
+                elseif typeof(TargetCFrame) == "Vector3" then
+                    CenterPoint = TargetCFrame
+                end
+            end
+
+            if not CenterPoint and MobsTable[1] then
+                local firstHrp = MobsTable[1]:FindFirstChild("HumanoidRootPart") or MobsTable[1].PrimaryPart
+                CenterPoint = firstHrp and firstHrp.Position
+            end
+
+            if not CenterPoint then return end
+
+            -- Gom quái tại mặt đất (giữ nguyên độ cao Y của bãi quái, không nhấc lên trời)
             for _, Mon in ipairs(MobsTable) do
                 pcall(function()
                     local hrp = Mon:FindFirstChild("HumanoidRootPart") or Mon.PrimaryPart
@@ -3240,16 +3736,23 @@ CombatController = {
         end
 
         function CombatController.Search(MobTable)
+            MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
             local Lists = {}
             local Found = false
             for _, ChildInstance in GetMonAsSortedRange() do
-                if
-                    table.find(MobTable, ChildInstance.Name) and ChildInstance:FindFirstChild("Humanoid") and
-                        ChildInstance.Humanoid.Health > 0
-                 then
-                    if (ChildInstance:GetAttribute("FailureCount") or 0) < 3 then
-                        Found = true
-                        table.insert(Lists, ChildInstance)
+                if ChildInstance and ChildInstance:FindFirstChild("Humanoid") and ChildInstance.Humanoid.Health > 0 then
+                    local isTarget = false
+                    for _, targetName in ipairs(MobTable) do
+                        if IsMobMatch(ChildInstance.Name, targetName) then
+                            isTarget = true
+                            break
+                        end
+                    end
+                    if isTarget then
+                        if (ChildInstance:GetAttribute("FailureCount") or 0) < 3 then
+                            Found = true
+                            table.insert(Lists, ChildInstance)
+                        end
                     end
                 end
             end
@@ -3285,11 +3788,12 @@ CombatController = {
                     sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
                 end
             end)
+
             MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
 
             -- Ưu tiên quái theo nhiệm vụ hiện tại nếu có
             pcall(function()
-                local curQuestName = GetCurrentClaimQuest()
+                local curQuestName = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
                 if curQuestName and type(curQuestName) == "string" and curQuestName ~= "" then
                     local prioritized = {}
                     for _, mName in ipairs(MobTable) do
@@ -3301,9 +3805,21 @@ CombatController = {
                             table.insert(prioritized, mName)
                         end
                     end
+                    if #prioritized == 0 then
+                        table.insert(prioritized, curQuestName)
+                    end
                     MobTable = prioritized
                 end
             end)
+
+            if #MobTable == 0 then
+                pcall(function()
+                    local curQuest = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
+                    if curQuest and curQuest ~= "" then
+                        MobTable = {curQuest}
+                    end
+                end)
+            end
 
             for _, Child in ipairs(MobTable) do
                 local ChildName = tostring(Child)
@@ -3331,7 +3847,7 @@ CombatController = {
                     local Count, Debounce = 0, os.time()
                     local Count2 = 0
                     -- Loop đánh quái
-                    while task.wait(0.1) do
+                    while task.wait(0.05) do
                         if _G.Stop then
                             return
                         end
@@ -3342,8 +3858,8 @@ CombatController = {
                             return
                         end
 
-                        local MobHumanoid = MonResult:FindFirstChild("Humanoid")
-                        local MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart")
+                        local MobHumanoid = MonResult:FindFirstChild("Humanoid") or MonResult:FindFirstChildOfClass("Humanoid")
+                        local MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart") or MonResult.PrimaryPart
 
                         if not MobHumanoid or MobHumanoid.Health <= 0 then
                             if MonResult.Name == "Don Swan" then
@@ -3352,12 +3868,13 @@ CombatController = {
                             break
                         end
 
-                        TweenController.Create(
-                            CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
-                        )
+                        if MobHumanoidRootPart then
+                            -- Đứng trên đầu quái đúng 20 studs theo yêu cầu
+                            TweenController.Create(CFrame.new(MobHumanoidRootPart.Position + Vector3.new(0, 20, 0)))
+                        end
 
-                        if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
-                            CombatController.Grab(ChildName or "")
+                        if MobHumanoidRootPart and CaculateDistance(MobHumanoidRootPart.Position) < 150 then
+                            CombatController.Grab(ChildName or MonResult.Name or "", MobHumanoidRootPart.CFrame)
                             if MonResult.Name ~= "Core" then
                                 if
                                     ScriptStorage.PlayerData.Level > 100 and
@@ -3402,11 +3919,33 @@ CombatController = {
                                 end
                             end
                          
-                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
-                                    ScriptStorage.ForceToUseSword and "Sword" or "Melee"
-                                )
+                            pcall(function()
+                                if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(
+                                        ScriptStorage.ForceToUseSword and "Sword" or "Melee"
+                                    )
+                                end
+                            end)
 
-                            AttackController:Attack(MonResult)
+                            -- Đảm bảo bật Haki vũ trang
+                            pcall(function()
+                                local char = game.Players.LocalPlayer.Character
+                                if char and not char:FindFirstChild("HasBuso") then
+                                    Remotes.CommF_:InvokeServer("Buso")
+                                end
+                            end)
+
+                            AttackController.Attack(MonResult)
+                            Funcs:Attack(MonResult)
+
+                            pcall(function()
+                                local char = game.Players.LocalPlayer.Character
+                                local tool = char and char:FindFirstChildOfClass("Tool")
+                                if tool then
+                                    tool:Activate()
+                                end
+                            end)
+
                             if os.time() ~= Debounce then
                                 Debounce = os.time()
                                 Count = Count + 1
@@ -3420,43 +3959,11 @@ CombatController = {
                     end
                     return
                 elseif not NearbyHit then
-                    local Region = ScriptStorage.MobRegions[ChildName]
+                    local targetPos = GetMobPosition(ChildName)
 
-                    if not Region then
-                        local Inst = Services.Workspace.Enemies:FindFirstChild(ChildName)
-                        Region = Inst and {Inst:GetPrimaryPartCFrame().p}
-                    end
-
-                    if not Region and MobPositionsFallback and MobPositionsFallback[ChildName] then
-                        Region = {MobPositionsFallback[ChildName]}
-                    end
-
-                    if not Region then
-                        pcall(function()
-                            for _, spawnObj in pairs(workspace:GetDescendants()) do
-                                if spawnObj.Name == ChildName or (spawnObj:IsA("BasePart") and string.find(spawnObj.Name, ChildName)) then
-                                    Region = {spawnObj.Position}
-                                    break
-                                end
-                            end
-                        end)
-                    end
-
-                    if Region and #Region > 0 then
+                    if targetPos then
                         LastFound = os.time()
-                        if not Region[CombatController.CurrentIndex] then
-                            CombatController.CurrentIndex = 1
-                        end
-
-                        local rawPos = Region[CombatController.CurrentIndex]
-                        local CurrentPosition = (typeof(rawPos) == "CFrame" and rawPos.Position) or (typeof(rawPos) == "Vector3" and rawPos) or Vector3.new()
-                        TweenController.Create(CurrentPosition + Vector3.new(0, 35, 35))
-                        if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 35)) < 25 then
-                            CombatController.CurrentIndex = CombatController.CurrentIndex + 1
-                            if CombatController.CurrentIndex > #Region then
-                                CombatController.CurrentIndex = 1
-                            end
-                        end
+                        TweenController.Create(targetPos + Vector3.new(0, 20, 0))
                         return
                     end
                 end
@@ -3790,54 +4297,24 @@ FunctionsHandler = {
                     return
                 end
                 
-                local Level = ScriptStorage.PlayerData.Level
-                if Level < 10 then
-                    return 1
-                elseif Level < 70 then
-                    return 2
-                else
-                    return 4
-                end
-                return true
+                -- Always return 4 for standard level-based island progression
+                return 4
             end
         )
 
         FunctionsHandler.LevelFarm:RegisterMethod(
             "Start",
             function(Level)
-                -- if SeaIndex == 1 then 
-                --     if getrenv()._G.ServerData.ExpBoost - (tick() - getrenv()._G.ServerData.ExpBoostTick) < 60*60 then 
-                --         local args = {
-                --             [1] = "Purchase",
-                --             [2] = "15minDouble"
-                --         }
-                        
-                --         game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Celebration"):InvokeServer(unpack(args))
-                --     end
-                -- else 
-                --     if getrenv()._G.ServerData.ExpBoost - (tick() - getrenv()._G.ServerData.ExpBoostTick) < 0 then 
-                --         local args = {
-                --             [1] = "Purchase",
-                --             [2] = "15minDouble"
-                --         }
-                        
-                --         game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Celebration"):InvokeServer(unpack(args))
-                --     end
-                -- end
-                    
-                -- Don't buy bones if currently in raid process
+                -- 1. Auto Roll Bones if available in Sea 3
                 if SeaIndex == 3 then
                     if (ScriptStorage.Backpack.Bones or {Count = 0}).Count >= 50 then
                         if os.time() > (BonesCooldown or 0) then
                             local _, _, State, Message = Remotes.CommF_:InvokeServer("Bones", "Check")
-                            print("State", State, "Message", Message)
                             if tonumber(State or 1) == 0 then
                                 local SplitedNum = Split(Message, ":")
                                 local SecondsLeft = ((tonumber(SplitedNum[1]) * 60) + tonumber(SplitedNum[2])) * 60
                                 BonesCooldown = os.time() + SecondsLeft
-                                print("Next", BonesCooldown)
                             else
-                                print("Roll")
                                 if CaculateDistance(Vector3.new(-8727, 143, 6249)) > 30 then
                                     TweenController.Create(Vector3.new(-8727, 143, 6249))
                                     return task.wait(2)
@@ -3848,7 +4325,9 @@ FunctionsHandler = {
                     end
                 end
 
-                local PlayerLevel = ScriptStorage.PlayerData.Level
+                local PlayerLevel = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+
+                -- 2. Godhuman Material Check
                 if GodHumanFlag then
                     local Material, MaterialData = (function()
                         getgenv()["     mphm >< <3"] = {}
@@ -3888,23 +4367,21 @@ FunctionsHandler = {
                     return true
                 end
 
-                    LastTravel = os.time()
-                    if PlayerLevel >= 1500 and (SeaIndex == 2) then
-                        
-                        if not Services.Workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor")  then
-                            
+                -- 3. Automatic Sea Progression by Level
+                LastTravel = os.time()
+                if PlayerLevel >= 1500 and (SeaIndex == 2) then
+                    SetTask("MainTask", "Chuyển Sea | Đang dịch chuyển sang Sea 3")
+                    SetTask("SubTask", "Đạt cấp 1500+ -> Chuyển sang Sea 3 để farm tiếp...")
+                    Remotes.CommF_:InvokeServer("TravelZou")
+                    return
+                elseif PlayerLevel >= 700 and (SeaIndex == 1) then
+                    SetTask("MainTask", "Chuyển Sea | Đang dịch chuyển sang Sea 2")
+                    SetTask("SubTask", "Đạt cấp 700+ -> Chuyển sang Sea 2 để farm tiếp...")
+                    Remotes.CommF_:InvokeServer("TravelDressrosa")
+                    return
+                end
 
-                            Remotes.CommF_:InvokeServer("TravelZou")
-
-                            SetTask("MainTask", "Chuyển Sea | Đang dịch chuyển sang Sea 3")
-                             
-                        end
-                    elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
-                        SetTask("MainTask", "Chuyển Sea | Đang dịch chuyển sang Sea 2")
-                        Remotes.CommF_:InvokeServer("TravelDressrosa")
-                    end
-                
-
+                -- 4. Sweet Chalice Boss handling (Chỉ kích hoạt khi thực sự có God's Chalice / Sweet Chalice)
                 if ScriptStorage.Tools["God's Chalice"] and not ScriptStorage.Tools["Mirror Fractal"] then
                     if (ScriptStorage.Backpack["Conjured Cocoa"] or {Count = 0}).Count < 10 then
                         SetTask("MainTask", "Farm Nguyên Liệu | Conjured Cocoa | Cần 10x | Đang cày...")
@@ -3914,13 +4391,9 @@ FunctionsHandler = {
                     Remotes.CommF_:InvokeServer("SweetChaliceNpc")
                 end
 
-                if
-                    ScriptStorage.Tools["Sweet Chalice"] or
-                        (PlayerLevel == MaxLevel and (ScriptStorage.Backpack.Bones or {Count = 0}).Count >= 500)
-                 then
-                    SetTask("MainTask", "Cày Fragments | Cake Prince / Dough King")
-
-                    if (ScriptStorage.Tools["Sweet Chalice"]) and (not SpawnReflect or os.time() - SpawnReflect > 10) then
+                if ScriptStorage.Tools["Sweet Chalice"] then
+                    SetTask("MainTask", "Cày Fragments | Dough King / Cake Prince")
+                    if (not SpawnReflect or os.time() - SpawnReflect > 10) then
                         task.spawn(
                             function()
                                 while not ScriptStorage.Enemies["Dough King"] and task.wait() and
@@ -3931,7 +4404,6 @@ FunctionsHandler = {
                             end
                         )
                     end
-
                     CombatController.Attack(
                         {
                             "Head Baker",
@@ -3940,158 +4412,65 @@ FunctionsHandler = {
                             "Cake Guard"
                         }
                     )
-
-                    if PlayerLevel >= 2200 then
-                        local hasCakeQuest = false
-                        pcall(function()
-                            local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
-                            hasCakeQuest = questGui and questGui.Visible
-                        end)
-
-                        if hasCakeQuest then
-                            Remotes.CommF_:InvokeServer("CakePrinceSpawner")
-                            CombatController.Attack(
-                                {
-                                    "Head Baker",
-                                    "Baking Staff",
-                                    "Cookie Crafter",
-                                    "Cake Guard"
-                                }
-                            )
-                            return
-                        else
-                            local cakeNpc = ScriptStorage.NPCs["Cake Quest Giver 1"] or workspace.NPCs:FindFirstChild("Cake Quest Giver 1") or game.ReplicatedStorage.NPCs:FindFirstChild("Cake Quest Giver 1")
-                            local NpcPosition1 = cakeNpc and cakeNpc:GetModelCFrame() or CFrame.new(-2020, 38, -12025)
-
-                            TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
-                            if CaculateDistance(NpcPosition1) < 25 then
-                                task.wait(0.3)
-                                QuestManager.StartQuest("CakeQuest1", 1)
-                                task.wait(0.3)
-                            end
-                            return
-                        end
-                    end
-                    print("attack ohoo")
-
                     return
                 end
-                if PlayerLevel == MaxLevel and SeaIndex == 3 then
-              if
-                    
-                        (PlayerLevel == MaxLevel and (ScriptStorage.Backpack.Bones or {Count = 0}).Count >= 500)
-                 then
-                    SetTask("MainTask", "Cày Fragments | Cake Prince / Dough King")
 
-                    if (not SpawnReflect or os.time() - SpawnReflect > 10) then
-                        task.spawn(
-                            function()
-                                while not ScriptStorage.Enemies["Cake Prince"] and task.wait()  do
-                                    SpawnReflect = os.time()
-                                    Remotes.CommF_:InvokeServer("CakePrinceSpawner")
-                                end
-                            end
-                        )
+                -- 5. Standard Island & Level-Based Farm (Farm Theo Cấp & Chuyển Đảo Tự Động)
+                QuestManager:RefreshQuest()
+                local MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
+
+                local hasActiveQuest = false
+                pcall(function()
+                    local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                    if questGui and questGui.Visible then
+                        hasActiveQuest = true
+                    elseif questGui and questGui:FindFirstChild("Container") and questGui.Container.Visible then
+                        hasActiveQuest = true
                     end
+                end)
 
-                    CombatController.Attack(
-                        {
-                            "Head Baker",
-                            "Baking Staff",
-                            "Cookie Crafter",
-                            "Cake Guard"
-                        }
-                    )
-
-                    
-                    print("attack ohoo")
-
-                    return
-                end
-            end
-                if
-                    PlayerLevel >= 2025 and
-                        (GetExpBoost() == 0 or
-                            PlayerLevel == MaxLevel) and
-                        (ScriptStorage.Backpack.Bones or {Count = 0}).Count < 500 and SeaIndex == 3
-                then
-                    SetTask("MainTask", "Farm Xương (Bones) | Đổi X2 Thông Thạo / Beli")
-                    
-                    local hasBoneQuest = false
-                    pcall(function()
-                        local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
-                        hasBoneQuest = questGui and questGui.Visible
-                    end)
-
-                    if hasBoneQuest then
-                        CombatController.Attack(
-                            {
-                                "Demonic Soul",
-                                "Posessed Mummy",
-                                "Possessed Mummy"
-                            }
-                        )
-                        return
-                    else
-                        local npcModel = ScriptStorage.NPCs["Haunted Castle Quest Giver 2"] or workspace.NPCs:FindFirstChild("Haunted Castle Quest Giver 2") or game.ReplicatedStorage.NPCs:FindFirstChild("Haunted Castle Quest Giver 2")
-                        local NpcPosition1 = npcModel and npcModel:GetModelCFrame() or CFrame.new(-9515, 142, 5520)
-
-                        TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
-                        if CaculateDistance(NpcPosition1) < 25 then
-                            task.wait(0.3)
-                            QuestManager.StartQuest("HauntedQuest2", 1)
-                            task.wait(0.3)
-                        end
-                        return
-                    end
+                -- Kiểm tra nhiệm vụ đang nhận trong game
+                local activeMobName = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
+                if activeMobName and activeMobName ~= "" then
+                    hasActiveQuest = true
                 end
 
-                if Level == 1 then
-                    SetTask("MainTask", "Cày Cấp | Bỏ qua nhiệm vụ | Tầng " .. Level)
-                    CombatController.Attack("Sky Bandit")
-                elseif Level == 2 then
-                    SetTask("MainTask", "Cày Cấp | Bỏ qua nhiệm vụ | Tầng " .. Level)
-                     CombatController.Attack({"Royal Soldier", "Royal Squad"})
-                elseif Level == 3 then
-                    SetTask("MainTask", "Cày Cấp | Bỏ qua nhiệm vụ | Tầng " .. Level)
-                    CombatController.Attack({"Royal Soldier", "Royal Squad"})
-                elseif Level == 4 then
-                    local MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
-                    local hasActiveQuest = false
-                    pcall(function()
-                        local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
-                        hasActiveQuest = questGui and questGui.Visible
-                    end)
-                    if hasActiveQuest then
-                        SetTask("MainTask", "Cày Cấp | " .. tostring(MonName or "Quái") .. " | Đang đánh quái")
-                        SetTask("SubTask", "Đang gom và tiêu diệt: " .. tostring(MonName or "quái") .. "...")
-                        local AttackTime1 = os.time()
-                        CombatController.Attack(MonName)
-                        LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
-                    else
-                        if not NpcPosition then
-                            QuestManager:RefreshQuest()
-                            MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
-                            if not NpcPosition and QuestId and BuiltInNpcPositions[QuestId] then
-                                NpcPosition = BuiltInNpcPositions[QuestId]
-                            end
-                            if not NpcPosition then
-                                Report("failed to get npc position quest 528")
-                                return
-                            end
+                if hasActiveQuest then
+                    local targetMob = (activeMobName and activeMobName ~= "" and activeMobName) or MonName
+                    SetTask("MainTask", "Cày Cấp | " .. tostring(targetMob or "Quái") .. " | Đang tiêu diệt")
+                    SetTask("SubTask", "Đang tự động di chuyển & tiêu diệt: " .. tostring(targetMob or "quái") .. "...")
+                    local AttackTime1 = os.time()
+                    CombatController.Attack(targetMob)
+                    LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
+                else
+                    if not NpcPosition then
+                        QuestManager:RefreshQuest()
+                        MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
+                        if not NpcPosition and QuestId and BuiltInNpcPositions[QuestId] then
+                            NpcPosition = BuiltInNpcPositions[QuestId]
                         end
+                    end
+                    if NpcPosition then
                         local targetNpcVec = (typeof(NpcPosition) == "CFrame" and NpcPosition.Position) or (typeof(NpcPosition) == "Vector3" and NpcPosition) or Vector3.new(0, 0, 0)
-                        TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
                         SetTask("MainTask", "Cày Cấp | " .. tostring(MonName or "Quái") .. " | Nhận nhiệm vụ")
-                        SetTask("SubTask", "Đang di chuyển tới NPC nhận nhiệm vụ " .. tostring(QuestTitle or QuestId or "") .. "...")
-                        if CaculateDistance(targetNpcVec) > 10 then
-                            return
+                        SetTask("SubTask", "Đang bay tới NPC nhận nhiệm vụ: " .. tostring(QuestTitle or QuestId or "") .. "...")
+                        TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
+                        if CaculateDistance(targetNpcVec) <= 30 then
+                            task.wait(0.2)
+                            LevelFarmTTL = 0
+                            QuestManager.StartQuest(QuestId, QuestIndex)
+                            task.wait(0.3)
+                            -- Sau khi nhận nhiệm vụ, lập tức chuyển sang target quái
+                            local afterMob = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or MonName
+                            if afterMob and afterMob ~= "" then
+                                CombatController.Attack(afterMob)
+                            end
                         end
-
-                        task.wait(1)
-                        LevelFarmTTL = 0
-                        QuestManager.StartQuest(QuestId, QuestIndex)
-                        task.wait(0.5)
+                    else
+                        -- Nếu không xác định được NPC thì trực tiếp đi đánh quái cày cấp theo tên quái
+                        SetTask("MainTask", "Cày Cấp | " .. tostring(MonName or "Quái") .. " | Đang tiêu diệt")
+                        SetTask("SubTask", "Đang tự động đánh quái farm cấp...")
+                        CombatController.Attack(MonName or {"Bandit", "Raider", "Pirate Millionaire"})
                     end
                 end
             end
@@ -4101,16 +4480,38 @@ FunctionsHandler = {
         FunctionsHandler.LocalPlayerController:RegisterMethod(
             "EquipTool",
             function(Tool)
-                if not Humanoid then
+                local char = game.Players.LocalPlayer.Character
+                local hum = char and (char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("Humanoid"))
+                if not hum then
                     return
                 end
 
-                for _, Item in LocalPlayer.Backpack:GetChildren() do
-                    if
-                        Item:IsA("Tool") and Item.Name ~= "Tool" and
-                            (Item.Name == tostring(Tool) or Item.ToolTip == Tool)
-                     then
-                        LocalPlayer.Character:WaitForChild "Humanoid":EquipTool(Item)
+                -- Check if tool is already equipped
+                local heldTool = char:FindFirstChildOfClass("Tool")
+                if heldTool then
+                    if Tool == "Melee" or Tool == "Sword" or Tool == "Blox Fruit" or Tool == "Gun" then
+                        if heldTool.ToolTip == Tool or heldTool:GetAttribute("WeaponType") == Tool then
+                            return true
+                        end
+                    elseif heldTool.Name == tostring(Tool) or heldTool.ToolTip == Tool then
+                        return true
+                    end
+                end
+
+                local backpack = game.Players.LocalPlayer:FindFirstChild("Backpack")
+                if not backpack then return end
+
+                for _, Item in ipairs(backpack:GetChildren()) do
+                    if Item:IsA("Tool") and Item.Name ~= "Tool" then
+                        if Tool == "Melee" or Tool == "Sword" or Tool == "Blox Fruit" or Tool == "Gun" then
+                            if Item.ToolTip == Tool or Item:GetAttribute("WeaponType") == Tool or (Tool == "Melee" and (Item.ToolTip == "Melee" or Item.Name == "Combat" or (MeleesTable and table.find(MeleesTable, Item.Name)))) then
+                                hum:EquipTool(Item)
+                                return true
+                            end
+                        elseif Item.Name == tostring(Tool) or Item.ToolTip == Tool then
+                            hum:EquipTool(Item)
+                            return true
+                        end
                     end
                 end
             end
@@ -4747,6 +5148,17 @@ FunctionsHandler = {
                                 hasActiveQuest = questGui and questGui.Visible
                             end)
 
+                            local activeMobName = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
+                            if activeMobName and activeMobName ~= "" then
+                                hasActiveQuest = true
+                                qMonName = activeMobName
+                            end
+
+                            if not qMonName then
+                                QuestManager:RefreshQuest()
+                                qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
+                            end
+
                             if hasActiveQuest and qMonName then
                                 SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Đang tiêu diệt " .. tostring(qMonName))
                                 CombatController.Attack(qMonName)
@@ -4764,10 +5176,15 @@ FunctionsHandler = {
                                     SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Nhận nhiệm vụ")
                                     SetTask("SubTask", "Bay tới NPC nhận nhiệm vụ cày thông thạo võ " .. Melee .. "...")
                                     TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
-                                    if CaculateDistance(targetNpcVec) <= 12 then
-                                        task.wait(0.5)
+                                    if CaculateDistance(targetNpcVec) <= 30 then
+                                        task.wait(0.2)
                                         QuestManager.StartQuest(qQuestId, qQuestIndex)
-                                        task.wait(0.5)
+                                        task.wait(0.2)
+                                        -- Sau khi nhận nhiệm vụ, lập tức bay đi đánh quái luôn không cần chờ loop kế tiếp:
+                                        local afterMob = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or qMonName
+                                        if afterMob and afterMob ~= "" then
+                                            CombatController.Attack(afterMob)
+                                        end
                                     end
                                 else
                                     SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Đang gom quái đánh")
@@ -5573,9 +5990,6 @@ FunctionsHandler = {
                                         if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
                                             FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                         end
-                                        local VirtualUser = game:GetService("VirtualUser")
-                                        VirtualUser:CaptureController()
-                                        VirtualUser:ClickButton1(Vector2.new(0,0))
                                     end)
                                     CombatController.Attack(Mon.Name)
                                     
@@ -6982,10 +7396,7 @@ FunctionsHandler = {
                 Players.LocalPlayer.Idled:Connect(
                     function()
                         pcall(function()
-                            if Services and Services.VirtualUser then
-                                Services.VirtualUser:CaptureController()
-                                Services.VirtualUser:ClickButton2(Vector2.new())
-                            end
+                            -- Anti-AFK without virtual click
                         end)
                     end
                 )
