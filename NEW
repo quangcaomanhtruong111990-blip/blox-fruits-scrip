@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove v2"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2752,7 +2752,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 280
+            local Speed = (CurrentDist < 30) and 45 or 180
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -3945,6 +3945,30 @@ FunctionsHandler = {
                     return
                 end
             end
+                -- Nếu đang bật AutoFullyMelees và võ hiện tại đã đạt đủ Mastery:
+                if Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
+                    local curMelee, curMastery, reqMastery = GetCurrentMeleeMastery()
+                    if curMelee and curMastery and curMastery >= reqMastery then
+                        -- Kiểm tra xem còn võ nào khác cần cày hoặc mua không
+                        local hasOtherMelee = false
+                        for _, mName in ipairs(MeleesTable or {}) do
+                            if mName ~= "SanguineArt" and mName ~= curMelee then
+                                local mData = MeleePrices and MeleePrices[mName]
+                                local mReq = (mData and mData.NextLevelRequirement) or 400
+                                local knownMastery = ScriptStorage.Melees and ScriptStorage.Melees[mName]
+                                if not knownMastery or knownMastery < mReq then
+                                    hasOtherMelee = true
+                                    break
+                                end
+                            end
+                        end
+                        if hasOtherMelee then
+                            -- Nhường lượt cho MeleesController mua/đổi sang võ tiếp theo!
+                            return
+                        end
+                    end
+                end
+
                 QuestManager:RefreshQuest()
                 local MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
                 if not MonName or not QuestId then
@@ -3989,6 +4013,18 @@ FunctionsHandler = {
 
                     while task.wait(0.05) do
                         if _G.Stop then break end
+
+                        -- KIỂM TRA MASTERY VÕ: Nếu AutoFullyMelees bật và võ hiện tại đã đủ Mastery (>= 400 hoặc req)
+                        -- Dừng farm ngay lập tức, hủy quest và thoát khỏi loop farm để đổi/nhận võ mới không tốn thời gian!
+                        if Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
+                            local curMelee, curMastery, reqMastery = GetCurrentMeleeMastery()
+                            if curMelee and curMastery and curMastery >= reqMastery then
+                                print("[Mastery Complete] Võ " .. tostring(curMelee) .. " đã đủ Mastery (" .. tostring(curMastery) .. "/" .. tostring(reqMastery) .. ") -> Dừng farm ngay để nhận võ tiếp theo!")
+                                pcall(function() QuestManager.AbandonQuest() end)
+                                task.wait(0.2)
+                                break
+                            end
+                        end
 
                         -- KIỂM TRA TIẾN ĐỘ NHIỆM VỤ:
                         local isQuestActive, currentKills, totalKills = QuestManager.HasActiveQuest()
@@ -4246,6 +4282,45 @@ FunctionsHandler = {
         FirstCall = true
         CanPurchase = {}
         FruitDataCache = {}
+        function GetCurrentMeleeMastery()
+            local success, mName, mLvl, maxReq = pcall(function()
+                local CurrentPlayer = game.Players.LocalPlayer
+                if not CurrentPlayer then return nil, 0, 400 end
+
+                -- Check character equipped tool first
+                local char = CurrentPlayer.Character
+                local equippedTool = char and char:FindFirstChildOfClass("Tool")
+                if equippedTool and equippedTool.ToolTip == "Melee" then
+                    local lvlVal = equippedTool:FindFirstChild("Level") and equippedTool.Level.Value
+                    local name = equippedTool.Name
+                    local curLvl = lvlVal or (ScriptStorage.Melees and ScriptStorage.Melees[name]) or 0
+                    local req = (MeleePrices and MeleePrices[name] and MeleePrices[name].NextLevelRequirement) or 400
+                    return name, curLvl, req
+                end
+
+                -- Check backpack
+                local bp = CurrentPlayer:FindFirstChild("Backpack")
+                if bp then
+                    for _, tool in ipairs(bp:GetChildren()) do
+                        if tool:IsA("Tool") and tool.ToolTip == "Melee" then
+                            local lvlVal = tool:FindFirstChild("Level") and tool.Level.Value
+                            local name = tool.Name
+                            local curLvl = lvlVal or (ScriptStorage.Melees and ScriptStorage.Melees[name]) or 0
+                            local req = (MeleePrices and MeleePrices[name] and MeleePrices[name].NextLevelRequirement) or 400
+                            return name, curLvl, req
+                        end
+                    end
+                end
+
+                return nil, 0, 400
+            end)
+
+            if success and mName then
+                return mName, mLvl or 0, maxReq or 400
+            end
+            return nil, 0, 400
+        end
+
         function GetCurrentFruitMastery()
             local success, level, maxLvl = pcall(function()
                 local CurrentPlayer = game.Players.LocalPlayer
@@ -4334,8 +4409,8 @@ FunctionsHandler = {
 
                         if not Data then
                             print("no m1 data")
-                            Data.Buy()
-                            break
+                            pcall(function() Data.Buy() end)
+                            continue
                         end
 
                         if Melee == "Dragon Talon" then
@@ -4354,7 +4429,7 @@ FunctionsHandler = {
                             if not IsFireEssenceGave then
                                 print("no fire essence provided")
                                 ScriptStorage.IsGettingMelee = false
-                                break
+                                continue
                             end
                         end
                         if Melee == "Godhuman" then
