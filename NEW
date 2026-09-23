@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v3"
+        NameHub.Text = "sanglove v4"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2739,7 +2739,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 280
+            local Speed = (CurrentDist < 30) and 45 or 180
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
