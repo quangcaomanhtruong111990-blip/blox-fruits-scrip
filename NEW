@@ -40,8 +40,8 @@ print("========================================")
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "ko ai cho ko",
-        Text = "tự làm . tự ăn ",
+        Title = "Bocchi Hub",
+        Text = "Script đang khởi động... Vui lòng đợi!",
         Duration = 5
     })
 end)
@@ -302,7 +302,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "Tự Làm Tự Ăn"
+        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -951,9 +951,42 @@ ScriptStorage = {
             ScriptStorage.Enemies,
             {
                 __index = function(_, Index)
+                    if not Index then return nil end
+                    local strIndex = tostring(Index)
+                    local targetLower = string.lower(strIndex)
                     local enemies = workspace:FindFirstChild("Enemies")
-                    return (enemies and enemies:FindFirstChild(Index)) or
-                        Services.ReplicatedStorage:FindFirstChild(Index)
+                    if enemies then
+                        local direct = enemies:FindFirstChild(strIndex)
+                        if direct and direct:IsA("Model") and direct:FindFirstChildOfClass("Humanoid") and direct:FindFirstChildOfClass("Humanoid").Health > 0 then return direct end
+                        for _, child in ipairs(enemies:GetChildren()) do
+                            if child:IsA("Model") then
+                                local cName = string.lower(child.Name)
+                                if cName == targetLower or string.find(cName, targetLower, 1, true) then
+                                    local hum = child:FindFirstChildOfClass("Humanoid")
+                                    if hum and hum.Health > 0 then
+                                        return child
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    local chars = workspace:FindFirstChild("Characters")
+                    if chars then
+                        local direct = chars:FindFirstChild(strIndex)
+                        if direct and direct:IsA("Model") and direct:FindFirstChildOfClass("Humanoid") and direct:FindFirstChildOfClass("Humanoid").Health > 0 then return direct end
+                        for _, child in ipairs(chars:GetChildren()) do
+                            if child:IsA("Model") then
+                                local cName = string.lower(child.Name)
+                                if cName == targetLower or string.find(cName, targetLower, 1, true) then
+                                    local hum = child:FindFirstChildOfClass("Humanoid")
+                                    if hum and hum.Health > 0 then
+                                        return child
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    return nil
                 end
             }
         )
@@ -1227,26 +1260,51 @@ ScriptStorage = {
 
         function AddPoint()
             pcall(function()
-                if not LocalPlayer or not LocalPlayer:FindFirstChild("Data") or not LocalPlayer.Data:FindFirstChild("Stats") then return end
+                if not LocalPlayer or not LocalPlayer:FindFirstChild("Data") then return end
+
+                -- 1. Kiểm tra số điểm tiềm năng (Stat Points) hiện có
+                local pointsInst = LocalPlayer.Data:FindFirstChild("Points")
+                local availablePoints = pointsInst and tonumber(pointsInst.Value) or 0
+                if availablePoints <= 0 then
+                    -- Không có điểm cộng (0 điểm) thì tuyệt đối không gọi remote lên server
+                    return
+                end
+
+                if not LocalPlayer.Data:FindFirstChild("Stats") then return end
                 local PointsValue = {}
-                local Result
                 for _, CInst in pairs(LocalPlayer.Data.Stats:GetChildren()) do
                     if CInst and CInst:FindFirstChild("Level") then
-                        PointsValue[CInst.Name] = CInst.Level.Value
+                        PointsValue[CInst.Name] = tonumber(CInst.Level.Value) or 0
                     end
                 end
+
                 local defense = PointsValue.Defense or 0
                 local melee = PointsValue.Melee or 0
-                local lvl = (ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
-                if defense < MaxLevel and (defense < (lvl / 80) or MaxLevel - melee < 100) then
-                    Result = "Defense"
-                elseif melee < MaxLevel then
+                local sword = PointsValue.Sword or 0
+                local maxStat = MaxLevel or 2800
+
+                -- 2. Phân phối điểm chuẩn cho cày võ & Godhuman:
+                -- Cân bằng Melee và Defense 1:1 để quái không 1-hit chết
+                local Result = nil
+                if melee < maxStat and defense < maxStat then
+                    if defense < melee then
+                        Result = "Defense"
+                    else
+                        Result = "Melee"
+                    end
+                elseif melee < maxStat then
                     Result = "Melee"
-                else
+                elseif defense < maxStat then
+                    Result = "Defense"
+                elseif sword < maxStat then
                     Result = "Sword"
+                else
+                    return
                 end
-                if Remotes and Remotes.CommF_ then
-                    Remotes.CommF_:InvokeServer("AddPoint", Result, 999)
+
+                if Result and Remotes and Remotes.CommF_ then
+                    local pointsToAdd = math.min(availablePoints, 999)
+                    Remotes.CommF_:InvokeServer("AddPoint", Result, pointsToAdd)
                 end
             end)
         end
@@ -1565,18 +1623,44 @@ ScriptStorage = {
 
             pcall(function()
                 if not LocalPlayer or not LocalPlayer:FindFirstChild("Data") then return end
+
+                -- Hủy kết nối cũ khi nhân vật hồi sinh để tránh tạo trùng lặp
+                if ScriptStorage.Connections.LocalPlayer.PointConnection then
+                    pcall(function() ScriptStorage.Connections.LocalPlayer.PointConnection:Disconnect() end)
+                    ScriptStorage.Connections.LocalPlayer.PointConnection = nil
+                end
+                if ScriptStorage.Connections.LocalPlayer.LevelConnection then
+                    pcall(function() ScriptStorage.Connections.LocalPlayer.LevelConnection:Disconnect() end)
+                    ScriptStorage.Connections.LocalPlayer.LevelConnection = nil
+                end
+
                 local PointsInstance = LocalPlayer.Data:FindFirstChild("Points") or LocalPlayer.Data:WaitForChild("Points", 3)
                 if PointsInstance then
+                    OldPointValue = tonumber(PointsInstance.Value) or 0
                     ScriptStorage.Connections.LocalPlayer.PointConnection =
                         PointsInstance:GetPropertyChangedSignal("Value"):Connect(
                         function()
-                            local CurrentValue = PointsInstance.Value
-                            if OldPointValue == CurrentValue then
-                                return
+                            local CurrentValue = tonumber(PointsInstance.Value) or 0
+                            -- Chỉ kích hoạt khi điểm TĂNG LÊN và > 0 (khi lên cấp hoặc reset)
+                            if CurrentValue > 0 and CurrentValue > (OldPointValue or 0) then
+                                OldPointValue = CurrentValue
+                                task.wait(0.5)
+                                AddPoint()
+                            else
+                                -- Khi điểm giảm về 0 (do vừa cộng xong), chỉ ghi nhớ mốc chứ không gọi AddPoint nữa
+                                OldPointValue = CurrentValue
                             end
+                        end
+                    )
+                end
 
-                            OldPointValue = CurrentValue
-                            task.wait(1)
+                -- Lắng nghe riêng sự kiện tăng cấp (Level): khi lên cấp mới kích hoạt cộng điểm
+                local LevelInstance = LocalPlayer.Data:FindFirstChild("Level") or LocalPlayer.Data:WaitForChild("Level", 3)
+                if LevelInstance then
+                    ScriptStorage.Connections.LocalPlayer.LevelConnection =
+                        LevelInstance:GetPropertyChangedSignal("Value"):Connect(
+                        function()
+                            task.wait(0.8) -- Chờ server đồng bộ điểm vào Data.Points
                             AddPoint()
                         end
                     )
@@ -1927,17 +2011,17 @@ ScriptStorage = {
         BossesOrderLevel = {
             ["Awakened Ice Admiral"] = 700,
             ["Tide Keeper"] = 700,
-            ["Deandre"] = 1500,
-            ["Urban"] = 1500,
-            ["Diablo"] = 1500,
+            ["Deandre"] = 1750,
+            ["Urban"] = 1750,
+            ["Diablo"] = 1750,
             ["Cake Prince"] = 1500,
             ["Soul Reaper"] = 1500
         }
 
         BossesOrderWL = {
-            ["Deandre"] = 1500,
-            ["Urban"] = 1500,
-            ["Diablo"] = 1500,
+            ["Deandre"] = 1750,
+            ["Urban"] = 1750,
+            ["Diablo"] = 1750,
             ["Cake Prince"] = 1500,
             ["Don Swan"] = 1100,
             ["Awakened Ice Admiral"] = 700,
@@ -2678,6 +2762,7 @@ ScriptStorage = {
             ["Thuộc Hạ Phòng Thí Nghiệm"] = "Lab Subordinate",
             ["Chiến Binh Có Sừng"] = "Horned Warrior",
             ["Khói Đen"] = "Smoke Admiral",
+            ["Đô Đốc Khói"] = "Smoke Admiral",
             ["Ninja Dung Nham"] = "Magma Ninja",
             ["Hải Tặc Dung Nham"] = "Lava Pirate",
             ["Đô Đốc Dung Nham"] = "Magma Admiral",
@@ -2690,16 +2775,22 @@ ScriptStorage = {
             ["Kẻ Ẩn Nấp Tuyết"] = "Snow Lurker",
             ["Kẻ Rình Rập Tuyết"] = "Snow Lurker",
             ["Đô Đốc Băng Thức Tỉnh"] = "Awakened Ice Admiral",
+            ["Đô Đốc Băng Tỉnh Thức"] = "Awakened Ice Admiral",
             ["Lính Biển"] = "Sea Soldier",
             ["Binh Lính Biển"] = "Sea Soldier",
             ["Chiến Binh Nước"] = "Water Fighter",
             ["Người Giữ Thủy Triều"] = "Tide Keeper",
             ["Don Swan"] = "Don Swan",
+            ["Jeremy"] = "Jeremy",
+            ["Fajita"] = "Fajita",
+            ["Diamond"] = "Diamond",
+            ["Trùm Kim Cương"] = "Diamond",
 
             -- Sea 3
             ["Hải Tặc Triệu Phú"] = "Pirate Millionaire",
             ["Tỷ Phú Súng Ngắn"] = "Pistol Billionaire",
             ["Stone"] = "Stone",
+            ["Thạch Ma"] = "Stone",
             ["Chiến Binh Thủy Thủ Đoàn Rồng"] = "Dragon Crew Warrior",
             ["Chiến Binh Đoàn Rồng"] = "Dragon Crew Warrior",
             ["Cung Thủ Thủy Thủ Đoàn Rồng"] = "Dragon Crew Archer",
@@ -2707,9 +2798,11 @@ ScriptStorage = {
             ["Nữ Đảo Dân"] = "Female Islander",
             ["Đảo Dân Khổng Lồ"] = "Giant Islander",
             ["Nữ Hoàng Đảo Rừng"] = "Island Empress",
+            ["Nữ Hoàng Đảo"] = "Island Empress",
             ["Chuẩn Đô Đốc"] = "Rear Admiral",
             ["Hải Quân Thiếu Tướng"] = "Marine Commodore",
             ["Kilo Đô Đốc"] = "Kilo Admiral",
+            ["Đô Đốc Kilo"] = "Kilo Admiral",
             ["Hải Tặc Người Cá"] = "Fishman Raider",
             ["Thuyền Trưởng Người Cá"] = "Fishman Captain",
             ["Hải Tặc Rừng Rậm"] = "Forest Pirate",
@@ -2719,6 +2812,7 @@ ScriptStorage = {
             ["Hải Tặc Rừng Sâu"] = "Jungle Pirate",
             ["Hải Tặc Xạ Thủ"] = "Musketeer Pirate",
             ["Đô Đốc Đẹp Trai"] = "Beautiful Pirate",
+            ["Hải Tặc Đẹp Trai"] = "Beautiful Pirate",
             ["Bộ Xương Tái Sinh"] = "Reborn Skeleton",
             ["Quỷ Linh"] = "Demonic Soul",
             ["Xác Ướp Bị Chiếm Đoạt"] = "Posessed Mummy",
@@ -2747,32 +2841,151 @@ ScriptStorage = {
             ["Kẻ Cướp Biển Sâu"] = "Deepsea Raider",
             ["Nhà Tiên Tri Đại Dương"] = "Ocean Prophet",
             ["Lính Canh Vực Thẳm"] = "Abyssal Sentinel",
-            ["Tín Đồ Vĩ Đại"] = "Grand Devotee"
+            ["Tín Đồ Vĩ Đại"] = "Grand Devotee",
+            ["Nữ Hoàng Bánh"] = "Cake Queen",
+            ["Chủ Tịch Bánh"] = "Cake Queen",
+            ["Hoàng Tử Bánh"] = "Cake Prince",
+            ["Vua Bột"] = "Dough King",
+            ["Linh Hồn Tử Thần"] = "Soul Reaper",
+            ["Tử Thần"] = "Soul Reaper",
+
+            -- Bosses & Elite Hunter Sea 3
+            ["Diablo"] = "Diablo",
+            ["Trùm Diablo"] = "Diablo",
+            ["Boss Diablo"] = "Diablo",
+            ["Quỷ Diablo"] = "Diablo",
+            ["Urban"] = "Urban",
+            ["Trùm Urban"] = "Urban",
+            ["Boss Urban"] = "Urban",
+            ["Deandre"] = "Deandre",
+            ["Trùm Deandre"] = "Deandre",
+            ["Boss Deandre"] = "Deandre",
+            ["Stone"] = "Stone",
+            ["Trùm Stone"] = "Stone",
+            ["Thạch Ma"] = "Stone",
+            ["Trùm Thạch Ma"] = "Stone",
+            ["Island Empress"] = "Island Empress",
+            ["Nữ Hoàng Đảo Rừng"] = "Island Empress",
+            ["Trùm Nữ Hoàng Đảo Rừng"] = "Island Empress",
+            ["Trùm Island Empress"] = "Island Empress",
+            ["Kilo Admiral"] = "Kilo Admiral",
+            ["Đô Đốc Kilo"] = "Kilo Admiral",
+            ["Kilo Đô Đốc"] = "Kilo Admiral",
+            ["Trùm Kilo Admiral"] = "Kilo Admiral",
+            ["Captain Elephant"] = "Captain Elephant",
+            ["Thuyền Trưởng Voi"] = "Captain Elephant",
+            ["Trùm Thuyền Trưởng Voi"] = "Captain Elephant",
+            ["Beautiful Pirate"] = "Beautiful Pirate",
+            ["Hải Tặc Đẹp Trai"] = "Beautiful Pirate",
+            ["Đô Đốc Đẹp Trai"] = "Beautiful Pirate",
+            ["Trùm Hải Tặc Đẹp Trai"] = "Beautiful Pirate",
+            ["rip_indra"] = "rip_indra True Form",
+            ["rip_indra True Form"] = "rip_indra True Form",
+            ["Trùm rip_indra"] = "rip_indra True Form",
+            ["Trùm Cake Prince"] = "Cake Prince",
+            ["Trùm Hoàng Tử Bánh"] = "Cake Prince",
+            ["Trùm Dough King"] = "Dough King",
+            ["Trùm Vua Bột"] = "Dough King",
+            ["Trùm Soul Reaper"] = "Soul Reaper",
+            ["Trùm Tử Thần"] = "Soul Reaper",
+            ["Trùm Cake Queen"] = "Cake Queen",
+            ["Trùm Nữ Hoàng Bánh"] = "Cake Queen",
+
+            -- Bosses Sea 2
+            ["Awakened Ice Admiral"] = "Awakened Ice Admiral",
+            ["Đô Đốc Băng Thức Tỉnh"] = "Awakened Ice Admiral",
+            ["Trùm Đô Đốc Băng Thức Tỉnh"] = "Awakened Ice Admiral",
+            ["Tide Keeper"] = "Tide Keeper",
+            ["Người Giữ Thủy Triều"] = "Tide Keeper",
+            ["Trùm Người Giữ Thủy Triều"] = "Tide Keeper",
+            ["Don Swan"] = "Don Swan",
+            ["Trùm Don Swan"] = "Don Swan",
+            ["Jeremy"] = "Jeremy",
+            ["Trùm Jeremy"] = "Jeremy",
+            ["Fajita"] = "Fajita",
+            ["Trùm Fajita"] = "Fajita",
+            ["Diamond"] = "Diamond",
+            ["Trùm Diamond"] = "Diamond",
+            ["Trùm Kim Cương"] = "Diamond",
+            ["Smoke Admiral"] = "Smoke Admiral",
+            ["Trùm Khói Đen"] = "Smoke Admiral",
+            ["Đô Đốc Khói"] = "Smoke Admiral",
+            ["Magma Admiral"] = "Magma Admiral",
+            ["Trùm Magma"] = "Magma Admiral",
+            ["Darkbeard"] = "Darkbeard",
+            ["Râu Đen"] = "Darkbeard",
+            ["Trùm Râu Đen"] = "Darkbeard",
+
+            -- Bosses Sea 1
+            ["Gorilla King"] = "Gorilla King",
+            ["Vua Khỉ Đột"] = "Gorilla King",
+            ["Trùm Vua Khỉ Đột"] = "Gorilla King",
+            ["Bobby"] = "Bobby",
+            ["Trùm Bobby"] = "Bobby",
+            ["Yeti"] = "Yeti",
+            ["Trùm Yeti"] = "Yeti",
+            ["Mob Leader"] = "Mob Leader",
+            ["Vice Admiral"] = "Vice Admiral",
+            ["Warden"] = "Warden",
+            ["Chief Warden"] = "Chief Warden",
+            ["Swan"] = "Swan",
+            ["Fishman Lord"] = "Fishman Lord",
+            ["Chúa Tể Người Cá"] = "Fishman Lord",
+            ["Wysper"] = "Wysper",
+            ["Thunder God"] = "Thunder God",
+            ["Cyborg"] = "Cyborg",
+            ["Saber Expert"] = "Saber Expert"
         }
 
         local function CleanQuestMobTitle(rawText)
             if not rawText or rawText == "" then return "" end
             local str = tostring(rawText)
 
-            -- 1. Xóa các tiền tố nhận nhiệm vụ thường gặp
-            str = str:gsub("^%s*[Dd]efeat%s*%d*%s*", "")
-            str = str:gsub("^%s*[Đđ]ánh%s*bại%s*%d*%s*", "")
-            str = str:gsub("^%s*[Kk]ill%s*%d*%s*", "")
-            str = str:gsub("^%s*[Tt]iêu%s*diệt%s*%d*%s*", "")
+            -- 1. Xóa các tiền tố nhận nhiệm vụ thường gặp (Case-Insensitive toàn diện)
+            str = str:gsub("^%s*[Dd][Ee][Ff][Ee][Aa][Tt]%s*%d*%s*", "")
+            str = str:gsub("^%s*[Đđ][Áá]nh%s*[Bb]ại%s*%d*%s*", "")
+            str = str:gsub("^%s*[Kk][Ii][Ll][Ll]%s*%d*%s*", "")
+            str = str:gsub("^%s*[Tt][Ii]êu%s*[Dd]iệt%s*%d*%s*", "")
+            str = str:gsub("^%s*[Tt]rùm%s*", "")
+            str = str:gsub("^%s*[Bb][Oo][Ss][Ss]%s*", "")
+            str = str:gsub("^%s*[Tt]hủ%s*[Ll]ĩnh%s*", "")
+            str = str:gsub("^%s*[Ee][Ll][Ii][Tt][Ee]%s*:%s*", "")
+            str = str:gsub("^%s*[Ee][Ll][Ii][Tt][Ee]%s*", "")
 
             -- 2. Xóa các chỉ số tiến độ nhiệm vụ dạng (0/5), 0/5, [0/5], ( 0 / 5 )
             str = str:gsub("%s*%b()", "")
             str = str:gsub("%s*%b[]", "")
             str = str:gsub("%s*%d+%s*/%s*%d+%s*", "")
 
-            -- 3. Xóa các tag cấp độ [Lv. 100], Lv. 100
+            -- 3. Xóa số lượng quái còn sót lại ở đầu chuỗi (ví dụ: "5 Bandits" -> "Bandits")
+            str = str:gsub("^%s*%d+%s*", "")
+
+            -- 4. Xóa các tag cấp độ [Lv. 100], Lv. 100
             str = str:gsub("%s*%[Lv%.?%s*%d+%]%s*", "")
             str = str:gsub("%s*Lv%.?%s*%d+%s*", "")
 
-            -- 4. Trim khoảng trắng đầu/cuối
+            -- 5. Trim khoảng trắng đầu/cuối
             str = str:gsub("^%s*(.-)%s*$", "%1")
 
-            -- 5. Ánh xạ tiếng Việt sang tên quái tiếng Anh chuẩn
+            -- Xử lý nhanh các Elite Hunter Bosses
+            local lowerCheck = string.lower(str)
+            if string.find(lowerCheck, "diablo", 1, true) then
+                return "Diablo"
+            elseif string.find(lowerCheck, "urban", 1, true) then
+                return "Urban"
+            elseif string.find(lowerCheck, "deandre", 1, true) then
+                return "Deandre"
+            end
+
+            -- 6. Chuẩn hóa số nhiều tiếng Anh (Bandits -> Bandit, Monkeys -> Monkey, Pirates -> Pirate, etc.)
+            if #str > 4 and str:sub(-1) == "s" and not str:match("ss$") and not str:match("us$") and not str:match("is$") then
+                local singular = str:sub(1, -2)
+                if (MobPositionsFallback and MobPositionsFallback[singular]) or (BuiltInQuests and BuiltInQuests[singular]) or VietnameseToEnglishMob[singular] then
+                    str = singular
+                end
+            end
+
+            -- 7. Ánh xạ tiếng Việt sang tên quái tiếng Anh chuẩn
             if VietnameseToEnglishMob[str] then
                 str = VietnameseToEnglishMob[str]
             else
@@ -2786,30 +2999,76 @@ ScriptStorage = {
                 end
             end
 
-            -- 6. Chuẩn hóa số nhiều tiếng Anh (Bandits -> Bandit, Monkeys -> Monkey, Pirates -> Pirate, etc.)
-            if str:sub(-1) == "s" and not str:match("ss$") and not str:match("us$") and not str:match("is$") then
-                local singular = str:sub(1, -2)
-                if (MobPositionsFallback and MobPositionsFallback[singular]) or (BuiltInQuests and BuiltInQuests[singular]) then
-                    str = singular
-                end
-            end
-
             if type(str) == "string" then
                 str = string.gsub(str, "Military ", "Mil. ")
+            end
+
+            -- Nếu ở Sea 2 hoặc Sea 3 mà tên quái là Bandit cơ bản (không phải Desert/Snow) -> Chắc chắn là text mẫu lỗi của game
+            if SeaIndex and SeaIndex >= 2 then
+                local lCheck = string.lower(str)
+                if lCheck == "bandit" or lCheck == "bandits" or (string.find(lCheck, "bandit") and not string.find(lCheck, "desert") and not string.find(lCheck, "snow") and not string.find(lCheck, "sky")) then
+                    return ""
+                end
             end
 
             return str
         end
 
+        function QuestManager.GetQuestProgress()
+            local currentKills, totalKills, mobName = nil, nil, nil
+            local hasActive = false
+            pcall(function()
+                local playerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                local mainGui = playerGui and playerGui:FindFirstChild("Main")
+                local questGui = mainGui and mainGui:FindFirstChild("Quest")
+                if questGui and questGui.Visible then
+                    for _, desc in ipairs(questGui:GetDescendants()) do
+                        if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" and desc.Visible then
+                            local txt = desc.Text
+                            -- Trích xuất chỉ số tiến độ: (3/8), 3/8, ( 3 / 8 ), 3 / 8
+                            local c, m = string.match(txt, "(%d+)%s*/%s*(%d+)")
+                            if c and m then
+                                currentKills = tonumber(c)
+                                totalKills = tonumber(m)
+                                if currentKills and totalKills and totalKills > 0 then
+                                    hasActive = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            return hasActive, currentKills, totalKills
+        end
+
         function QuestManager.GetCurrentClaimQuest(RawResponse)
+            if type(RawResponse) == "table" then RawResponse = false end
             local isVisible = false
             local rawText = ""
             pcall(function()
-                local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
-                isVisible = questGui and questGui.Visible
-                if isVisible then
-                    if questGui:FindFirstChild("Container") then
-                        local container = questGui.Container
+                local playerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                local mainGui = playerGui and playerGui:FindFirstChild("Main")
+                local questGui = mainGui and mainGui:FindFirstChild("Quest")
+                if questGui then
+                    -- Kiểm tra xem UI Quest có thực sự Visible hay không
+                    local container = questGui:FindFirstChild("Container")
+                    if questGui.Visible and (not container or container.Visible) then
+                        isVisible = true
+                    end
+
+                    -- Kiểm tra thanh tiến độ: nếu có progress bar hoặc số quái (x/y) thì quest chắc chắn active
+                    local progActive, qCur, qTot = nil, nil, nil
+                    if QuestManager and QuestManager.GetQuestProgress then
+                        progActive, qCur, qTot = QuestManager.GetQuestProgress()
+                    end
+
+                    -- Chỉ tìm quest khi UI thực sự hiện HOẶC có tiến độ active
+                    if not isVisible and not progActive then
+                        return
+                    end
+
+                    if container then
                         if container:FindFirstChild("QuestTitle") then
                             local qt = container.QuestTitle
                             if qt:FindFirstChild("Title") and qt.Title:IsA("TextLabel") and qt.Title.Text ~= "" then
@@ -2818,19 +3077,49 @@ ScriptStorage = {
                                 rawText = qt.Text
                             end
                         end
-                        if rawText == "" and container:FindFirstChild("Title") and container.Title:IsA("TextLabel") then
+                        if rawText == "" and container:FindFirstChild("Title") and container.Title:IsA("TextLabel") and container.Title.Text ~= "" then
                             rawText = container.Title.Text
                         end
                     end
+
                     if rawText == "" then
+                        local candidateMobText = ""
                         for _, desc in ipairs(questGui:GetDescendants()) do
-                            if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
-                                if string.find(desc.Text, "Defeat") or string.find(desc.Text, "Đánh bại") or string.find(desc.Text, "/") then
-                                    rawText = desc.Text
-                                    break
+                            if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" and desc.Visible then
+                                local txt = desc.Text
+                                local upperTxt = string.upper(txt)
+                                -- BỎ QUA text template mặc định ẩn của Blox Fruits ("DEFEAT 5 BANDITS")
+                                if string.find(upperTxt, "BANDIT") and (SeaIndex and SeaIndex >= 2) then
+                                    -- Ignore dummy bandit placeholder in Sea 2 and Sea 3
+                                elseif upperTxt == "DEFEAT 5 BANDITS" or upperTxt == "DEFEAT 5 BANDIT" then
+                                    -- Ignore template
+                                else
+                                    -- Ưu tiên tuyệt đối nhãn Elite: (như Elite:Urban)
+                                    if string.find(txt, "Elite:", 1, true) then
+                                        rawText = txt
+                                        break
+                                    end
+                                    -- Bỏ qua các text chỉ chứa tiến độ (0/1, 0/8), tiền ($15,000), hoặc EXP
+                                    local isProgressOnly = string.match(txt, "^%s*%d+%s*/%s*%d+%s*$")
+                                    local isMoneyOrExp = string.find(txt, "$", 1, true) or string.find(txt, "EXP", 1, true)
+                                    if not isProgressOnly and not isMoneyOrExp then
+                                        if string.find(upperTxt, "DEFEAT") or string.find(txt, "Đánh bại") or string.find(upperTxt, "KILL") or string.find(txt, "Tiêu diệt") then
+                                            rawText = txt
+                                            break
+                                        elseif candidateMobText == "" and not string.find(txt, ":") and #txt > 2 then
+                                            candidateMobText = txt
+                                        end
+                                    end
                                 end
                             end
                         end
+                        if rawText == "" and candidateMobText ~= "" then
+                            rawText = candidateMobText
+                        end
+                    end
+
+                    if rawText ~= "" then
+                        isVisible = true
                     end
                 end
             end)
@@ -2838,16 +3127,52 @@ ScriptStorage = {
             if not isVisible or rawText == "" then
                 return nil, nil
             end
+
+            -- Chặn text template lỗi
+            local upperRaw = string.upper(rawText)
+            if upperRaw == "DEFEAT 5 BANDITS" or upperRaw == "DEFEAT 5 BANDIT" then
+                return nil, nil
+            end
+            if SeaIndex and SeaIndex >= 2 and string.find(upperRaw, "BANDIT") and not string.find(upperRaw, "DESERT") and not string.find(upperRaw, "SNOW") then
+                return nil, nil
+            end
+
             if RawResponse then
                 return isVisible, rawText
             end
 
             local cleanTitle = CleanQuestMobTitle(rawText)
+            if not cleanTitle or cleanTitle == "" then
+                return nil, nil
+            end
             return cleanTitle, rawText
         end
 
         function QuestManager.StartQuest(QuestId, QuestLevel)
-            return Remotes.CommF_:InvokeServer("StartQuest", QuestId, QuestLevel)
+            local res = Remotes.CommF_:InvokeServer("StartQuest", QuestId, QuestLevel)
+            pcall(function()
+                local mName = nil
+                pcall(function()
+                    mName = QuestManager:GetCurrentQuest()
+                end)
+                ScriptStorage.ClaimedQuest = {
+                    QuestId = QuestId,
+                    QuestIndex = QuestLevel,
+                    MonName = mName,
+                    StartTime = os.time(),
+                    LastProgressTime = os.time(),
+                    Active = true
+                }
+            end)
+            return res
+        end
+
+        function QuestManager.AbandonQuest()
+            pcall(function()
+                Remotes.CommF_:InvokeServer("AbandonQuest")
+            end)
+            ScriptStorage.ClaimedQuest = nil
+            return true
         end
 
         ScriptStorage.MobRegions = {}
@@ -3220,7 +3545,6 @@ ScriptStorage = {
         local RunService = game:GetService("RunService")
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local Workspace = game:GetService("Workspace")
-        local VirtualInputManager = game:GetService("VirtualInputManager")
         local Player = Players.LocalPlayer
         local Modules = ReplicatedStorage:FindFirstChild("Modules") or ReplicatedStorage:WaitForChild("Modules", 3)
         local Net = Modules and (Modules:FindFirstChild("Net") or Modules:WaitForChild("Net", 3))
@@ -3453,7 +3777,31 @@ ScriptStorage = {
             ["Ocean Prophet"] = Vector3.new(11400, -2138, 10200),
             ["Abyssal Sentinel"] = Vector3.new(11600, -2138, 10600),
             ["Grand Devotee"] = Vector3.new(11850, -2138, 10800),
-            -- Sea 2 Mobs
+            -- Sea 3 Bosses Fallback Coordinates
+            ["Diablo"] = Vector3.new(-12463, 375, -7523),
+            ["Urban"] = Vector3.new(5700, 602, 200),
+            ["Deandre"] = Vector3.new(-380, 75, 5550),
+            ["rip_indra True Form"] = Vector3.new(-5330, 424, -2670),
+            ["rip_indra"] = Vector3.new(-5330, 424, -2670),
+            ["Stone"] = Vector3.new(-1050, 40, 6700),
+            ["Island Empress"] = Vector3.new(5700, 600, 200),
+            ["Kilo Admiral"] = Vector3.new(2880, 15, -7230),
+            ["Captain Elephant"] = Vector3.new(-13380, 320, -8470),
+            ["Beautiful Pirate"] = Vector3.new(-11990, 330, -8850),
+            ["Cake Queen"] = Vector3.new(-1900, 38, -12100),
+            ["Cake Prince"] = Vector3.new(-2100, 38, -12200),
+            ["Dough King"] = Vector3.new(-2100, 38, -12200),
+            ["Soul Reaper"] = Vector3.new(-9500, 142, 5520),
+            -- Sea 2 Mobs & Bosses
+            ["Awakened Ice Admiral"] = Vector3.new(6000, 30, -6200),
+            ["Tide Keeper"] = Vector3.new(-3800, 10, -11200),
+            ["Don Swan"] = Vector3.new(2280, 15, 905),
+            ["Jeremy"] = Vector3.new(2300, 440, 780),
+            ["Fajita"] = Vector3.new(-2085, 73, -3320),
+            ["Diamond"] = Vector3.new(-1580, 198, -200),
+            ["Smoke Admiral"] = Vector3.new(-5060, 20, -5340),
+            ["Magma Admiral"] = Vector3.new(-5800, 16, -4500),
+            ["Darkbeard"] = Vector3.new(3680, 15, -3450),
             ["Raider"] = Vector3.new(-760, 50, 2400),
             ["Mercenary"] = Vector3.new(-950, 50, 2600),
             ["Swan Pirate"] = Vector3.new(700, 120, 1200),
@@ -3566,14 +3914,237 @@ CombatController = {
             return false
         end
 
+        -- Tìm kiếm boss đang sống trực tiếp trong workspace (Enemies, Characters, workspace root)
+        function FindLiveBoss(bossName)
+            if not bossName or bossName == "" then return nil end
+            local cleanTarget = tostring(bossName)
+            if CleanQuestMobTitle then
+                local c = CleanQuestMobTitle(cleanTarget)
+                if c and c ~= "" then cleanTarget = c end
+            end
+            local targetLower = string.lower(cleanTarget)
+
+            local function checkModel(model)
+                if not model or not model:IsA("Model") then return nil end
+                if not model:IsDescendantOf(workspace) then return nil end
+                -- Bỏ qua player
+                if game:GetService("Players"):GetPlayerFromCharacter(model) then return nil end
+                local hum = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChild("Humanoid")
+                if not hum or hum.Health <= 0 then return nil end
+
+                local mName = string.lower(model.Name)
+                local isMatch = false
+                if IsMobMatch then
+                    isMatch = IsMobMatch(model.Name, cleanTarget)
+                end
+                if not isMatch then
+                    if mName == targetLower or string.find(mName, targetLower, 1, true) or string.find(targetLower, mName, 1, true) then
+                        isMatch = true
+                    end
+                end
+
+                if isMatch then
+                    local hrp = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
+                    if hrp then
+                        return model, hrp.Position
+                    end
+                end
+                return nil
+            end
+
+            -- 1. Ưu tiên workspace.Enemies
+            local enemies = workspace:FindFirstChild("Enemies")
+            if enemies then
+                for _, child in ipairs(enemies:GetChildren()) do
+                    local m, pos = checkModel(child)
+                    if m then return m, pos end
+                end
+            end
+
+            -- 2. workspace.Characters
+            local chars = workspace:FindFirstChild("Characters")
+            if chars then
+                for _, child in ipairs(chars:GetChildren()) do
+                    local m, pos = checkModel(child)
+                    if m then return m, pos end
+                end
+            end
+
+            -- 3. Quét workspace trực tiếp
+            for _, child in ipairs(workspace:GetChildren()) do
+                if child.Name ~= "Enemies" and child.Name ~= "Characters" and child:IsA("Model") then
+                    local m, pos = checkModel(child)
+                    if m then return m, pos end
+                end
+            end
+
+            return nil, nil
+        end
+
+        local EliteTracking = {
+            CurrentIsland = nil,
+            LastDetectedTime = 0,
+            LastRemoteCall = 0,
+            CurrentSpawnIndex = 1,
+            ArrivedAtSpawnTime = 0,
+            Spawns = {
+                Tree = {
+                    Vector3.new(2680, 75, -6430),  -- Bãi đất sau thân cây Đại Thụ
+                    Vector3.new(2280, 280, -6800), -- Thân cây cao / bệ đá
+                    Vector3.new(2880, 25, -7200),  -- Lối vào Great Tree
+                },
+                Turtle = {
+                    Vector3.new(-12463, 375, -7523), -- Dinh thự Mansion
+                    Vector3.new(-10500, 330, -8700), -- Đồi dứa Pineapple
+                    Vector3.new(-13200, 400, -7800), -- Đồi đá cao sau Dinh Thự
+                    Vector3.new(-11800, 350, -9000), -- Làng Người Cá
+                },
+                Hydra = {
+                    Vector3.new(5700, 602, 200),     -- Đỉnh núi Cung Điện
+                    Vector3.new(5200, 150, 800),     -- Thác nước Nữ Nhi
+                    Vector3.new(5800, 20, -100),     -- Cảng bến thuyền
+                },
+                Port = {
+                    Vector3.new(-380, 75, 5550),     -- Trung tâm Đảo Cảng
+                    Vector3.new(-250, 150, 5800),    -- Ngọn đồi sau thị trấn Port Town
+                    Vector3.new(-500, 30, 4800),     -- Bến tàu Port Town
+                }
+            },
+            AllIslands = {"Turtle", "Port", "Hydra", "Tree"},
+            UnknownIslandIndex = 1
+        }
+
+        local function DetectEliteIsland()
+            if EliteTracking.CurrentIsland and (os.time() - EliteTracking.LastDetectedTime) < 90 then
+                return EliteTracking.CurrentIsland
+            end
+
+            local textToScan = ""
+            if (os.time() - (EliteTracking.LastRemoteCall or 0)) > 15 then
+                EliteTracking.LastRemoteCall = os.time()
+                pcall(function()
+                    local res = Remotes.CommF_:InvokeServer("EliteHunter")
+                    if type(res) == "string" then
+                        textToScan = textToScan .. " " .. res
+                    elseif type(res) == "table" then
+                        for k, v in pairs(res) do
+                            textToScan = textToScan .. " " .. tostring(k) .. " " .. tostring(v)
+                        end
+                    end
+                end)
+            end
+
+            pcall(function()
+                local lp = game:GetService("Players").LocalPlayer
+                local pg = lp and lp:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, gui in ipairs(pg:GetChildren()) do
+                        if gui:IsA("ScreenGui") and gui.Enabled then
+                            for _, desc in ipairs(gui:GetDescendants()) do
+                                if desc:IsA("TextLabel") and desc.Visible and desc.Text and desc.Text ~= "" then
+                                    local t = desc.Text
+                                    if string.find(t, "Port", 1, true) or string.find(t, "Hydra", 1, true) or string.find(t, "Turtle", 1, true) or string.find(t, "Tree", 1, true)
+                                       or string.find(t, "Cảng", 1, true) or string.find(t, "Nữ Nhi", 1, true) or string.find(t, "Rùa", 1, true) or string.find(t, "Đại Thụ", 1, true) then
+                                        textToScan = textToScan .. " " .. t
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+
+            local lowerScan = string.lower(textToScan)
+            local foundIsland = nil
+            if string.find(lowerScan, "port") or string.find(lowerScan, "cảng") then
+                foundIsland = "Port"
+            elseif string.find(lowerScan, "hydra") or string.find(lowerScan, "nữ nhi") then
+                foundIsland = "Hydra"
+            elseif string.find(lowerScan, "turtle") or string.find(lowerScan, "floating") or string.find(lowerScan, "rùa") or string.find(lowerScan, "mansion") then
+                foundIsland = "Turtle"
+            elseif string.find(lowerScan, "tree") or string.find(lowerScan, "cây") or string.find(lowerScan, "đại thụ") then
+                foundIsland = "Tree"
+            end
+
+            if foundIsland then
+                if EliteTracking.CurrentIsland ~= foundIsland then
+                    EliteTracking.CurrentSpawnIndex = 1
+                    EliteTracking.ArrivedAtSpawnTime = 0
+                end
+                EliteTracking.CurrentIsland = foundIsland
+                EliteTracking.LastDetectedTime = os.time()
+                return foundIsland
+            end
+
+            return EliteTracking.CurrentIsland
+        end
+
         function GetMobPosition(mobName)
             if not mobName or mobName == "" then return nil end
             if type(mobName) == "table" then
                 mobName = mobName[1]
             end
             local strName = tostring(mobName)
+            local lowerName = string.lower(strName)
 
-            -- 1. Check ScriptStorage.MobRegions
+            -- 1. ƯU TIÊN TUYỆT ĐỐI: Quét boss/quái đang sống thực tế trong workspace
+            local liveModel, livePos = FindLiveBoss(strName)
+            if liveModel and livePos then
+                return livePos
+            end
+
+            -- 2. XỬ LÝ CHUYÊN BIỆT CHO ELITE HUNTER BOSSES (Deandre, Urban, Diablo)
+            local isElite = (lowerName == "diablo" or lowerName == "urban" or lowerName == "deandre" or string.find(lowerName, "elite", 1, true))
+            if isElite then
+                local detectedIsland = DetectEliteIsland()
+                if detectedIsland and EliteTracking.Spawns[detectedIsland] then
+                    local spawns = EliteTracking.Spawns[detectedIsland]
+                    if EliteTracking.CurrentSpawnIndex > #spawns then
+                        EliteTracking.CurrentSpawnIndex = 1
+                    end
+                    local targetSpawn = spawns[EliteTracking.CurrentSpawnIndex]
+                    local dist = CaculateDistance(targetSpawn)
+
+                    -- Khi người chơi đã bay tới gần điểm spawn (<= 75 studs):
+                    if dist <= 75 then
+                        if EliteTracking.ArrivedAtSpawnTime == 0 then
+                            EliteTracking.ArrivedAtSpawnTime = tick()
+                        end
+                        -- Chờ 2.5s tại tọa độ để game stream load quái
+                        if tick() - EliteTracking.ArrivedAtSpawnTime > 2.5 then
+                            -- Chuyển sang điểm spawn kế tiếp trên cùng đảo
+                            EliteTracking.CurrentSpawnIndex = (EliteTracking.CurrentSpawnIndex % #spawns) + 1
+                            EliteTracking.ArrivedAtSpawnTime = 0
+                            targetSpawn = spawns[EliteTracking.CurrentSpawnIndex]
+                        end
+                    else
+                        EliteTracking.ArrivedAtSpawnTime = 0
+                    end
+                    return targetSpawn
+                end
+
+                -- Nếu chưa rõ đảo cụ thể, tuần tra từng đảo một cách có thứ tự (chỉ đổi đảo sau khi ĐÃ TỚI NƠI)
+                local islandName = EliteTracking.AllIslands[EliteTracking.UnknownIslandIndex] or "Turtle"
+                local primarySpawns = EliteTracking.Spawns[islandName]
+                local targetPoint = primarySpawns and primarySpawns[1] or Vector3.new(-12463, 375, -7523)
+                local dist = CaculateDistance(targetPoint)
+                if dist <= 90 then
+                    if EliteTracking.ArrivedAtSpawnTime == 0 then
+                        EliteTracking.ArrivedAtSpawnTime = tick()
+                    end
+                    if tick() - EliteTracking.ArrivedAtSpawnTime > 3 then
+                        EliteTracking.UnknownIslandIndex = (EliteTracking.UnknownIslandIndex % #EliteTracking.AllIslands) + 1
+                        EliteTracking.ArrivedAtSpawnTime = 0
+                        local nextIsland = EliteTracking.AllIslands[EliteTracking.UnknownIslandIndex]
+                        targetPoint = EliteTracking.Spawns[nextIsland][1]
+                    end
+                else
+                    EliteTracking.ArrivedAtSpawnTime = 0
+                end
+                return targetPoint
+            end
+
+            -- 3. Check ScriptStorage.MobRegions
             local reg = ScriptStorage.MobRegions and ScriptStorage.MobRegions[strName]
             if reg and #reg > 0 then
                 local rawPos = reg[1]
@@ -3581,14 +4152,14 @@ CombatController = {
                 if pos then return pos end
             end
 
-            -- 2. Direct lookup in MobPositionsFallback
+            -- 4. Direct lookup in MobPositionsFallback
             if MobPositionsFallback and MobPositionsFallback[strName] then
                 local rawPos = MobPositionsFallback[strName]
                 local pos = (typeof(rawPos) == "CFrame" and rawPos.Position) or (typeof(rawPos) == "Vector3" and rawPos) or nil
                 if pos then return pos end
             end
 
-            -- 3. Fuzzy search in MobPositionsFallback
+            -- 5. Fuzzy search in MobPositionsFallback
             if MobPositionsFallback then
                 for fbName, fbPos in pairs(MobPositionsFallback) do
                     if IsMobMatch(fbName, strName) then
@@ -3599,18 +4170,7 @@ CombatController = {
                 end
             end
 
-            -- 4. Check workspace.Enemies
-            local enemies = workspace:FindFirstChild("Enemies")
-            if enemies then
-                for _, enemy in ipairs(enemies:GetChildren()) do
-                    if enemy:IsA("Model") and IsMobMatch(enemy.Name, strName) then
-                        local hrp = enemy:FindFirstChild("HumanoidRootPart") or enemy.PrimaryPart
-                        if hrp then return hrp.Position end
-                    end
-                end
-            end
-
-            -- 5. Fallback scan in workspace for spawn parts
+            -- 6. Fallback scan in workspace for spawn parts
             local foundPos = nil
             pcall(function()
                 for _, spawnObj in pairs(workspace:GetDescendants()) do
@@ -3622,6 +4182,195 @@ CombatController = {
             end)
 
             return foundPos
+        end
+
+        local MobPositionsFallbackMulti = {
+            -- Sea 1
+            ["Bandit"] = { Vector3.new(1060, 16, 1550), Vector3.new(1195, 17, 1630) },
+            ["Monkey"] = { Vector3.new(-1496, 23, 137), Vector3.new(-1350, 23, 200), Vector3.new(-1650, 23, 50) },
+            ["Gorilla"] = { Vector3.new(-1240, 7, -500), Vector3.new(-1100, 7, -520) },
+            ["Pirate"] = { Vector3.new(-1215, 5, 3915), Vector3.new(-1050, 15, 4100) },
+            ["Brute"] = { Vector3.new(-1145, 15, 4350), Vector3.new(-1300, 15, 4200) },
+            ["Desert Bandit"] = { Vector3.new(930, 7, 4480), Vector3.new(1050, 7, 4350) },
+            ["Desert Officer"] = { Vector3.new(1570, 4, 4370), Vector3.new(1450, 4, 4250) },
+            ["Snow Bandit"] = { Vector3.new(1285, 106, -1440), Vector3.new(1380, 106, -1350) },
+            ["Snowman"] = { Vector3.new(1200, 106, -1500), Vector3.new(1320, 106, -1550) },
+            ["Chief Petty Officer"] = { Vector3.new(-4870, 21, 4260), Vector3.new(-5000, 21, 4350) },
+            ["Sky Bandit"] = { Vector3.new(-4980, 278, -2830), Vector3.new(-5100, 278, -2950) },
+            ["Toga Warrior"] = { Vector3.new(-1820, 7, -2760), Vector3.new(-1650, 7, -2850) },
+            ["Gladiator"] = { Vector3.new(-1390, 7, -3150), Vector3.new(-1500, 7, -3250) },
+            ["Military Soldier"] = { Vector3.new(-5410, 11, 8450), Vector3.new(-5250, 11, 8600) },
+            ["Military Spy"] = { Vector3.new(-5800, 11, 8820), Vector3.new(-5950, 11, 8950) },
+            ["Fishman Warrior"] = { Vector3.new(60850, 19, 1500), Vector3.new(61150, 19, 1550) },
+            ["Fishman Commando"] = { Vector3.new(61800, 19, 1470), Vector3.new(62050, 19, 1400) },
+            ["God's Guard"] = { Vector3.new(-4700, 845, -1950), Vector3.new(-4550, 845, -1850) },
+            ["Shanda"] = { Vector3.new(-7700, 555, -450), Vector3.new(-7550, 555, -350) },
+            ["Royal Squad"] = { Vector3.new(-7900, 555, -600), Vector3.new(-7750, 555, -750) },
+            ["Royal Soldier"] = { Vector3.new(-7900, 555, -950), Vector3.new(-8050, 555, -800) },
+            ["Galley Pirate"] = { Vector3.new(5590, 40, 3980), Vector3.new(5750, 40, 4100) },
+            ["Galley Captain"] = { Vector3.new(5650, 40, 4920), Vector3.new(5450, 40, 4800) },
+
+            -- Sea 2
+            ["Raider"] = { Vector3.new(-760, 50, 2400), Vector3.new(-600, 50, 2550) },
+            ["Mercenary"] = { Vector3.new(-950, 50, 2600), Vector3.new(-1100, 50, 2750) },
+            ["Swan Pirate"] = { Vector3.new(700, 120, 1200), Vector3.new(900, 120, 1100) },
+            ["Factory Staff"] = { Vector3.new(300, 75, -50), Vector3.new(450, 75, -200) },
+            ["Marine Lieutenant"] = { Vector3.new(-2800, 75, -3000), Vector3.new(-2950, 75, -3100) },
+            ["Marine Captain"] = { Vector3.new(-1900, 75, -3300), Vector3.new(-2050, 75, -3450) },
+            ["Zombie"] = { Vector3.new(-5600, 50, -800), Vector3.new(-5450, 50, -950) },
+            ["Vampire"] = { Vector3.new(-6000, 50, -1200), Vector3.new(-6150, 50, -1350) },
+            ["Snow Trooper"] = { Vector3.new(600, 400, -5300), Vector3.new(800, 400, -5400) },
+            ["Winter Warrior"] = { Vector3.new(1200, 450, -5200), Vector3.new(1050, 450, -5050) },
+            ["Lab Subordinate"] = { Vector3.new(-5800, 15, -4500), Vector3.new(-5650, 15, -4350) },
+            ["Horned Warrior"] = { Vector3.new(-6400, 15, -5800), Vector3.new(-6250, 15, -5650) },
+            ["Magma Ninja"] = { Vector3.new(-5400, 50, -5900), Vector3.new(-5250, 50, -6050) },
+            ["Lava Pirate"] = { Vector3.new(-5200, 50, -4800), Vector3.new(-5050, 50, -4950) },
+            ["Ship Deckhand"] = { Vector3.new(1000, 130, 33000), Vector3.new(1200, 130, 33200) },
+            ["Ship Engineer"] = { Vector3.new(900, 45, 32800), Vector3.new(1100, 45, 33000) },
+            ["Ship Steward"] = { Vector3.new(900, 130, 33400), Vector3.new(1100, 130, 33600) },
+            ["Ship Officer"] = { Vector3.new(1000, 180, 33300), Vector3.new(1200, 180, 33500) },
+            ["Arctic Warrior"] = { Vector3.new(6000, 30, -6200), Vector3.new(6200, 30, -6350) },
+            ["Snow Lurker"] = { Vector3.new(5500, 45, -6800), Vector3.new(5700, 45, -6950) },
+            ["Sea Soldier"] = { Vector3.new(-3000, 50, -10000), Vector3.new(-3250, 50, -9800) },
+            ["Water Fighter"] = { Vector3.new(-3400, 50, -10500), Vector3.new(-3600, 50, -10300) },
+
+            -- Sea 3
+            ["Pirate Millionaire"] = { Vector3.new(-373, 75, 5550), Vector3.new(-250, 75, 5350) },
+            ["Pistol Billionaire"] = { Vector3.new(-470, 75, 5950), Vector3.new(-300, 75, 6050) },
+            ["Dragon Crew Warrior"] = { Vector3.new(6500, 385, 140), Vector3.new(6750, 385, 200) },
+            ["Dragon Crew Archer"] = { Vector3.new(6580, 385, 140), Vector3.new(6400, 385, 50) },
+            ["Female Islander"] = { Vector3.new(4650, 745, 100), Vector3.new(4800, 745, -50) },
+            ["Giant Islander"] = { Vector3.new(4650, 745, -450), Vector3.new(4500, 745, -600) },
+            ["Marine Commodore"] = { Vector3.new(2450, 73, -6800), Vector3.new(2250, 73, -6650) },
+            ["Marine Rear Admiral"] = { Vector3.new(3600, 73, -6900), Vector3.new(3800, 73, -7100) },
+            ["Fishman Raider"] = { Vector3.new(-10500, 332, -8700), Vector3.new(-10750, 332, -8550) },
+            ["Fishman Captain"] = { Vector3.new(-10900, 332, -8900), Vector3.new(-11150, 332, -8750) },
+            ["Forest Pirate"] = { Vector3.new(-13400, 332, -7900), Vector3.new(-13200, 332, -7700) },
+            ["Mythological Pirate"] = { Vector3.new(-13550, 470, -6900), Vector3.new(-13700, 470, -7100) },
+            ["Jungle Pirate"] = { Vector3.new(-12100, 332, -10500), Vector3.new(-11850, 332, -10350) },
+            ["Musketeer Pirate"] = { Vector3.new(-13250, 395, -9750), Vector3.new(-13500, 395, -9550) },
+            ["Reborn Skeleton"] = { Vector3.new(-8800, 142, 6000), Vector3.new(-9050, 142, 6150) },
+            ["Living Zombie"] = { Vector3.new(-10150, 142, 5950), Vector3.new(-9900, 142, 5800) },
+            ["Demonic Soul"] = { Vector3.new(-9500, 172, 6150), Vector3.new(-9350, 172, 6300) },
+            ["Posessed Mummy"] = { Vector3.new(-9570, 6, 6150), Vector3.new(-9700, 6, 6000) },
+            ["Possessed Mummy"] = { Vector3.new(-9570, 6, 6150), Vector3.new(-9700, 6, 6000) },
+            ["Peanut Scout"] = { Vector3.new(-2050, 38, -10450), Vector3.new(-1900, 38, -10300) },
+            ["Peanut President"] = { Vector3.new(-2150, 38, -10150), Vector3.new(-2300, 38, -10300) },
+            ["Ice Cream Chef"] = { Vector3.new(-650, 66, -11100), Vector3.new(-800, 66, -10950) },
+            ["Ice Cream Commander"] = { Vector3.new(-850, 66, -10800), Vector3.new(-1000, 66, -10950) },
+            ["Cookie Crafter"] = { Vector3.new(-2350, 38, -12100), Vector3.new(-2150, 38, -11950) },
+            ["Cake Guard"] = { Vector3.new(-1600, 38, -12300), Vector3.new(-1450, 38, -12450) },
+            ["Baking Staff"] = { Vector3.new(-1800, 38, -12000), Vector3.new(-1950, 38, -12150) },
+            ["Head Baker"] = { Vector3.new(-1900, 38, -12800), Vector3.new(-2050, 38, -12650) },
+            ["Cocoa Warrior"] = { Vector3.new(200, 75, -12400), Vector3.new(350, 75, -12250) },
+            ["Chocolate Bar Battler"] = { Vector3.new(650, 75, -12600), Vector3.new(500, 75, -12750) },
+            ["Sweet Thief"] = { Vector3.new(100, 75, -12600), Vector3.new(250, 75, -12750) },
+            ["Candy Rebel"] = { Vector3.new(150, 75, -12900), Vector3.new(300, 75, -13050) },
+            ["Sun-kissed Warrior"] = { Vector3.new(-16250, 55, 1000), Vector3.new(-16450, 55, 1150) },
+            ["Isle Outlaw"] = { Vector3.new(-16100, 55, -500), Vector3.new(-16300, 55, -350) },
+            ["Island Boy"] = { Vector3.new(-16800, 55, -1000), Vector3.new(-16600, 55, -850) },
+            ["Sun-kissed Champion"] = { Vector3.new(-17200, 55, 500), Vector3.new(-17000, 55, 650) },
+        }
+
+        function GetMobCamps(mobName)
+            if not mobName or mobName == "" then return {} end
+            if type(mobName) == "table" then mobName = mobName[1] end
+            local strName = tostring(mobName)
+            local cleanName = (CleanQuestMobTitle and CleanQuestMobTitle(strName)) or strName
+
+            ScriptStorage.MobCamps = ScriptStorage.MobCamps or {}
+            if ScriptStorage.MobCamps[cleanName] and #ScriptStorage.MobCamps[cleanName] > 0 then
+                return ScriptStorage.MobCamps[cleanName]
+            end
+
+            local rawPoints = {}
+            -- 1. Tìm trong ScriptStorage.MobRegions
+            for regName, pts in pairs(ScriptStorage.MobRegions or {}) do
+                if IsMobMatch(regName, cleanName) or IsMobMatch(regName, strName) then
+                    for _, p in ipairs(pts) do
+                        table.insert(rawPoints, p)
+                    end
+                end
+            end
+
+            -- 2. Tìm trong MobPositionsFallbackMulti
+            if MobPositionsFallbackMulti then
+                for fbName, camps in pairs(MobPositionsFallbackMulti) do
+                    if IsMobMatch(fbName, cleanName) or IsMobMatch(fbName, strName) then
+                        for _, p in ipairs(camps) do
+                            table.insert(rawPoints, p)
+                        end
+                    end
+                end
+            end
+
+            -- 3. Phân cụm các điểm (Clustering: các điểm cách nhau <= 95 studs gom vào 1 bãi quái)
+            local clusters = {}
+            for _, pt in ipairs(rawPoints) do
+                local pos = (typeof(pt) == "CFrame" and pt.Position) or (typeof(pt) == "Vector3" and pt) or nil
+                if pos then
+                    local matched = false
+                    for _, cl in ipairs(clusters) do
+                        if (cl.Center - pos).Magnitude <= 95 then
+                            cl.Count = cl.Count + 1
+                            cl.Center = (cl.Center * (cl.Count - 1) + pos) / cl.Count
+                            table.insert(cl.Points, pos)
+                            matched = true
+                            break
+                        end
+                    end
+                    if not matched then
+                        table.insert(clusters, {
+                            Center = pos,
+                            Points = {pos},
+                            Count = 1
+                        })
+                    end
+                end
+            end
+
+            -- Fallback đơn điểm nếu không có cụm
+            if #clusters == 0 and MobPositionsFallback then
+                for fbName, fbPos in pairs(MobPositionsFallback) do
+                    if IsMobMatch(fbName, cleanName) or IsMobMatch(fbName, strName) then
+                        local pos = (typeof(fbPos) == "CFrame" and fbPos.Position) or (typeof(fbPos) == "Vector3" and fbPos) or nil
+                        if pos then
+                            table.insert(clusters, { Center = pos, Points = {pos}, Count = 1 })
+                            break
+                        end
+                    end
+                end
+            end
+
+            local resultCamps = {}
+            for _, cl in ipairs(clusters) do
+                table.insert(resultCamps, cl.Center)
+            end
+
+            ScriptStorage.MobCamps[cleanName] = resultCamps
+            return resultCamps
+        end
+
+        function GetNextMobCampPosition(mobName, forceNext)
+            local camps = GetMobCamps(mobName)
+            if not camps or #camps == 0 then
+                local singlePos = GetMobPosition(mobName)
+                return singlePos, 1, 1
+            end
+            if #camps == 1 then
+                return camps[1], 1, 1
+            end
+
+            ScriptStorage.CurrentMobCampIndex = ScriptStorage.CurrentMobCampIndex or {}
+            local cleanName = (CleanQuestMobTitle and CleanQuestMobTitle(tostring(mobName))) or tostring(mobName)
+            local curIdx = ScriptStorage.CurrentMobCampIndex[cleanName] or 1
+
+            if forceNext then
+                curIdx = (curIdx % #camps) + 1
+                ScriptStorage.CurrentMobCampIndex[cleanName] = curIdx
+            end
+
+            return camps[curIdx], curIdx, #camps
         end
 
         function CombatController.Grab(MobName, TargetCFrame)
@@ -3823,12 +4572,20 @@ CombatController = {
 
             for _, Child in ipairs(MobTable) do
                 local ChildName = tostring(Child)
-                if
-                    ChildName == "Deandre" or ChildName == "Urban" or
-                        ChildName == "Diablo" and (os.time() - (LastFire12 or 0)) > 180
-                 then
+                if CleanQuestMobTitle then
+                    local cleaned = CleanQuestMobTitle(ChildName)
+                    if cleaned and cleaned ~= "" then
+                        ChildName = cleaned
+                    end
+                end
+
+                local lowerChild = string.lower(ChildName)
+                local currentLvl = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+                if currentLvl >= 1750 and (lowerChild == "deandre" or lowerChild == "urban" or lowerChild == "diablo" or string.find(lowerChild, "elite", 1, true)) and (os.time() - (LastFire12 or 0)) > 15 then
                     LastFire12 = os.time()
-                    Remotes.CommF_:InvokeServer("EliteHunter")
+                    pcall(function()
+                        Remotes.CommF_:InvokeServer("EliteHunter")
+                    end)
                 end
 
                 local MonResult = nil
@@ -3959,10 +4716,31 @@ CombatController = {
                     end
                     return
                 elseif not NearbyHit then
-                    local targetPos = GetMobPosition(ChildName)
+                    local targetPos, campIdx, totalCamps = nil, 1, 1
+                    if GetNextMobCampPosition then
+                        targetPos, campIdx, totalCamps = GetNextMobCampPosition(ChildName, false)
+                    end
+                    if not targetPos then
+                        targetPos = GetMobPosition(ChildName)
+                        campIdx, totalCamps = 1, 1
+                    end
 
                     if targetPos then
                         LastFound = os.time()
+                        local distToCamp = CaculateDistance(targetPos)
+                        -- Nếu đã tới gần bãi hiện tại (<= 95 studs) mà không thấy quái nào (bãi đã bị dọn sạch):
+                        if distToCamp <= 95 and totalCamps and totalCamps > 1 and GetNextMobCampPosition then
+                            local nextPos, nextIdx = GetNextMobCampPosition(ChildName, true)
+                            if nextPos then
+                                SetTask("SubTask", "Bãi " .. tostring(campIdx or 1) .. " hết quái! Đang bay sang bãi " .. tostring(nextIdx) .. "/" .. tostring(totalCamps) .. " để tìm quái tiếp...")
+                                TweenController.Create(nextPos + Vector3.new(0, 20, 0))
+                                return
+                            end
+                        end
+
+                        if totalCamps and totalCamps > 1 then
+                            SetTask("SubTask", "Đang bay tới bãi " .. tostring(campIdx or 1) .. "/" .. tostring(totalCamps) .. " của " .. tostring(ChildName) .. "...")
+                        end
                         TweenController.Create(targetPos + Vector3.new(0, 20, 0))
                         return
                     end
@@ -4102,28 +4880,49 @@ FunctionsHandler = {
         end
 
         function GetCurrentClaimQuest(RawResponse)
+            if QuestManager and QuestManager.GetCurrentClaimQuest then
+                return QuestManager.GetCurrentClaimQuest(RawResponse)
+            end
             local isVisible = false
             local rawText = ""
             pcall(function()
                 local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
                 isVisible = questGui and questGui.Visible
                 if isVisible then
-                    rawText = questGui.Container.QuestTitle.Title.Text
+                    if questGui:FindFirstChild("Container") then
+                        local container = questGui.Container
+                        if container:FindFirstChild("QuestTitle") then
+                            local qt = container.QuestTitle
+                            if qt:FindFirstChild("Title") and qt.Title:IsA("TextLabel") and qt.Title.Text ~= "" then
+                                rawText = qt.Title.Text
+                            elseif qt:IsA("TextLabel") and qt.Text ~= "" then
+                                rawText = qt.Text
+                            end
+                        end
+                        if rawText == "" and container:FindFirstChild("Title") and container.Title:IsA("TextLabel") then
+                            rawText = container.Title.Text
+                        end
+                    end
+                    if rawText == "" then
+                        for _, desc in ipairs(questGui:GetDescendants()) do
+                            if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
+                                if string.find(desc.Text, "Defeat") or string.find(desc.Text, "Đánh bại") or string.find(desc.Text, "/") then
+                                    rawText = desc.Text
+                                    break
+                                end
+                            end
+                        end
+                    end
                 end
             end)
-            if not isVisible then
+            if not isVisible or rawText == "" then
                 return nil, nil
             end
             if RawResponse then
                 return isVisible, rawText
             end
-            local QuestTitle = rawText:gsub("%s*Defeat%s*(%d*)%s*(.-)%s*%b()", "%2")
-            if QuestTitle == rawText then
-                QuestTitle = rawText:gsub("%s*Đánh bại%s*(%d*)%s*(.-)%s*%b()", "%2")
-                QuestTitle = QuestTitle:gsub("%s*Đánh bại%s*(%d*)%s*(.-)$", "%2")
-            end
-            QuestTitle = string.gsub(QuestTitle, "^%s*(.-)%s*$", "%1")
-            return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), rawText
+            local cleanTitle = CleanQuestMobTitle(rawText)
+            return cleanTitle, rawText
         end
 
  
@@ -4420,25 +5219,88 @@ FunctionsHandler = {
                 local MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
 
                 local hasActiveQuest = false
+                local qProgActive, qCurrent, qTotal = nil, nil, nil
+                pcall(function()
+                    if QuestManager and QuestManager.GetQuestProgress then
+                        qProgActive, qCurrent, qTotal = QuestManager.GetQuestProgress()
+                    end
+                end)
+
+                if qProgActive then
+                    if qCurrent and qTotal then
+                        if qCurrent < qTotal then
+                            hasActiveQuest = true
+                        else
+                            -- Nhiệm vụ đã hoàn thành đủ số lượng quái
+                            hasActiveQuest = false
+                            ScriptStorage.ClaimedQuest = nil
+                        end
+                    else
+                        hasActiveQuest = true
+                    end
+                end
+
                 pcall(function()
                     local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
-                    if questGui and questGui.Visible then
-                        hasActiveQuest = true
-                    elseif questGui and questGui:FindFirstChild("Container") and questGui.Container.Visible then
-                        hasActiveQuest = true
+                    if questGui and questGui.Visible and (not questGui:FindFirstChild("Container") or questGui.Container.Visible) then
+                        if qProgActive then
+                            hasActiveQuest = true
+                        end
                     end
                 end)
 
                 -- Kiểm tra nhiệm vụ đang nhận trong game
                 local activeMobName = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
                 if activeMobName and activeMobName ~= "" then
-                    hasActiveQuest = true
+                    -- Bỏ qua quest ảo Bandit nếu ở Sea 2 hoặc Sea 3
+                    if SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(activeMobName)), "bandit") and not string.find(string.lower(tostring(activeMobName)), "desert") and not string.find(string.lower(tostring(activeMobName)), "snow") then
+                        activeMobName = nil
+                    else
+                        hasActiveQuest = true
+                    end
+                end
+
+                -- Fallback an toàn: Nếu vừa nhận nhiệm vụ trong vòng 10 phút và chưa có tín hiệu hoàn thành
+                if not hasActiveQuest and ScriptStorage.ClaimedQuest and ScriptStorage.ClaimedQuest.Active then
+                    local elapsed = os.time() - (ScriptStorage.ClaimedQuest.StartTime or os.time())
+                    if elapsed < 600 then
+                        hasActiveQuest = true
+                        if not activeMobName or activeMobName == "" then
+                            activeMobName = ScriptStorage.ClaimedQuest.MonName
+                        end
+                    else
+                        ScriptStorage.ClaimedQuest = nil
+                    end
+                end
+
+                -- XỬ LÝ NHIỆM VỤ ĐÁNH BOSS SAI / LỆCH CẤP KHI CÀY LEVEL:
+                local isBossQuest = false
+                if activeMobName and activeMobName ~= "" then
+                    local lAct = string.lower(tostring(activeMobName))
+                    if lAct == "urban" or lAct == "diablo" or lAct == "deandre" or string.find(lAct, "elite", 1, true) or string.find(lAct, "boss", 1, true) or string.find(lAct, "trùm", 1, true) then
+                        isBossQuest = true
+                    end
+                end
+
+                local myLevel = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+                -- Nếu cấp < 1750 mà bị vướng quest Elite Boss (chưa đủ cấp để đánh):
+                if isBossQuest and myLevel < 1750 then
+                    SetTask("MainTask", "Cày Cấp - Sửa lỗi nhiệm vụ")
+                    SetTask("SubTask", "Tự động hủy nhiệm vụ Boss sai cấp để nhận đúng nhiệm vụ cày cấp...")
+                    pcall(function()
+                        QuestManager.AbandonQuest()
+                    end)
+                    hasActiveQuest = false
+                    activeMobName = nil
+                    LevelFarmTTL = 0
+                    task.wait(0.5)
                 end
 
                 if hasActiveQuest then
                     local targetMob = (activeMobName and activeMobName ~= "" and activeMobName) or MonName
-                    SetTask("MainTask", "Cày Cấp | " .. tostring(targetMob or "Quái") .. " | Đang tiêu diệt")
-                    SetTask("SubTask", "Đang tự động di chuyển & tiêu diệt: " .. tostring(targetMob or "quái") .. "...")
+                    local progStr = (qCurrent and qTotal and (" [" .. tostring(qCurrent) .. "/" .. tostring(qTotal) .. "]")) or ""
+                    SetTask("MainTask", "Cày Cấp | " .. tostring(targetMob or "Quái") .. progStr .. " | Đang tiêu diệt")
+                    SetTask("SubTask", "Đang tự động di chuyển & tiêu diệt: " .. tostring(targetMob or "quái") .. progStr .. "...")
                     local AttackTime1 = os.time()
                     CombatController.Attack(targetMob)
                     LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
@@ -5143,18 +6005,60 @@ FunctionsHandler = {
                             -- Thực hiện đi farm quái nhận EXP cho võ:
                             local qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
                             local hasActiveQuest = false
+                            local qProgActive, qCurrent, qTotal = nil, nil, nil
+                            pcall(function()
+                                if QuestManager and QuestManager.GetQuestProgress then
+                                    qProgActive, qCurrent, qTotal = QuestManager.GetQuestProgress()
+                                end
+                            end)
+
+                            if qProgActive then
+                                if qCurrent and qTotal then
+                                    if qCurrent < qTotal then
+                                        hasActiveQuest = true
+                                    else
+                                        hasActiveQuest = false
+                                        ScriptStorage.ClaimedQuest = nil
+                                    end
+                                else
+                                    hasActiveQuest = true
+                                end
+                            end
+
                             pcall(function()
                                 local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
-                                hasActiveQuest = questGui and questGui.Visible
+                                if questGui and questGui.Visible and (not questGui:FindFirstChild("Container") or questGui.Container.Visible) then
+                                    if qProgActive then
+                                        hasActiveQuest = true
+                                    end
+                                end
                             end)
 
                             local activeMobName = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
                             if activeMobName and activeMobName ~= "" then
-                                hasActiveQuest = true
-                                qMonName = activeMobName
+                                -- Bỏ qua quest ảo Bandit nếu ở Sea 2 hoặc Sea 3
+                                if SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(activeMobName)), "bandit") and not string.find(string.lower(tostring(activeMobName)), "desert") and not string.find(string.lower(tostring(activeMobName)), "snow") then
+                                    activeMobName = nil
+                                else
+                                    hasActiveQuest = true
+                                    qMonName = activeMobName
+                                end
                             end
 
-                            if not qMonName then
+                            if not hasActiveQuest and ScriptStorage.ClaimedQuest and ScriptStorage.ClaimedQuest.Active then
+                                local elapsed = os.time() - (ScriptStorage.ClaimedQuest.StartTime or os.time())
+                                if elapsed < 600 then
+                                    local cName = activeMobName or ScriptStorage.ClaimedQuest.MonName or qMonName
+                                    if not (SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(cName or "")), "bandit")) then
+                                        hasActiveQuest = true
+                                        qMonName = cName
+                                    end
+                                else
+                                    ScriptStorage.ClaimedQuest = nil
+                                end
+                            end
+
+                            if not qMonName or (SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(qMonName)), "bandit") and not string.find(string.lower(tostring(qMonName)), "desert") and not string.find(string.lower(tostring(qMonName)), "snow")) then
                                 QuestManager:RefreshQuest()
                                 qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
                             end
@@ -5477,47 +6381,98 @@ FunctionsHandler = {
         FunctionsHandler.BossesTask:RegisterMethod(
             "Refresh",
             function()
-                local Boss
-                for _, BossName in BossesOrder do
-                    if BossName then 
-                    local LevelReq = BossesOrderLevel[BossName]
+                local myLevel = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
 
-                    if ScriptStorage.PlayerData.Level >= LevelReq then
-                        local Result = ScriptStorage.Enemies[BossName]
-                        if Result and Result:FindFirstChild("Humanoid") and Result.Humanoid.Health > 0 then
-                            Boss = Result
+                -- 1. ƯU TIÊN: Nếu người chơi đang có quest đánh Boss hợp lệ với cấp độ
+                local curQuest = nil
+                pcall(function()
+                    curQuest = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
+                end)
+                if curQuest and type(curQuest) == "string" and curQuest ~= "" then
+                    local cleanQ = CleanQuestMobTitle(curQuest)
+                    if cleanQ and cleanQ ~= "" then
+                        local lq = string.lower(cleanQ)
+                        local isEliteQ = (lq == "diablo" or lq == "urban" or lq == "deandre" or string.find(lq, "elite", 1, true))
+                        -- Nếu cấp người chơi chưa đủ 1750, KHÔNG chạy BossesTask cho Elite Boss (nhường cho LevelFarm hủy quest và cày cấp)
+                        if isEliteQ and myLevel < 1750 then
+                            return nil
                         end
-                    end
+
+                        for _, BossName in ipairs(BossesOrder) do
+                            if IsMobMatch(cleanQ, BossName) or string.find(string.lower(cleanQ), string.lower(BossName), 1, true) then
+                                local req = BossesOrderLevel[BossName] or 0
+                                if myLevel >= req then
+                                    return BossName
+                                end
+                            end
+                        end
+                        if (string.find(lq, "boss", 1, true) or string.find(lq, "trùm", 1, true) or BossesOrderLevel[cleanQ] or BossesOrderWL[cleanQ]) and not (isEliteQ and myLevel < 1750) then
+                            return cleanQ
+                        end
                     end
                 end
 
-                if
-                    Boss and
-                        (CaculateDistance(Boss.HumanoidRootPart.CFrame) < (SeaIndex == 2 and 3000 or 5000) or
-                            BossesOrderWL[tostring(Boss)] or
-                            ScriptStorage.PlayerData.Level == MaxLevel)
-                 then
+                -- 2. Chỉ săn các boss trong danh sách BossesOrder KHI VÀ CHỈ KHI boss đó ĐANG CÓ (thực sự tồn tại và còn sống trong workspace)
+                local Boss = nil
+                for _, BossName in ipairs(BossesOrder) do
+                    if BossName then 
+                        local LevelReq = BossesOrderLevel[BossName] or 0
+                        if myLevel >= LevelReq then
+                            local liveModel, livePos = FindLiveBoss(BossName)
+                            if liveModel and livePos then
+                                Boss = liveModel
+                                break
+                            end
+                        end
+                    end
+                end
+
+                if Boss then
                     return Boss
                 end
             end
         )
 
+        local LastBossHuntStart = 0
         FunctionsHandler.BossesTask:RegisterMethod(
             "Start",
             function(Boss)
                 if Boss then
-                    SetTask("MainTask", "Săn Boss - Đang tiêu diệt " .. Boss.Name)
+                    local bossNameStr = type(Boss) == "string" and Boss or (typeof(Boss) == "Instance" and Boss.Name) or tostring(Boss)
+                    local liveModel, livePos = FindLiveBoss(bossNameStr)
+                    if liveModel then
+                        SetTask("MainTask", "Săn Boss - Đang tiêu diệt " .. bossNameStr)
+                        LastBossHuntStart = os.time()
+                    else
+                        SetTask("MainTask", "Săn Boss - Đang tìm kiếm " .. bossNameStr)
+                    end
+
+                    if LastBossHuntStart == 0 then
+                        LastBossHuntStart = os.time()
+                    end
 
                     CombatController.Attack(
-                        tostring(Boss),
-                        null,
-                        null,
+                        bossNameStr,
+                        nil,
+                        nil,
                         function()
                             SpecialItems = nil
                         end
                     )
 
+                    -- Chỉ hủy quest khi đã săn quá lâu (240s cho Elite Boss, 90s cho boss thường) mà hoàn toàn không tìm thấy
+                    local isElite = string.find(string.lower(bossNameStr), "deandre") or string.find(string.lower(bossNameStr), "urban") or string.find(string.lower(bossNameStr), "diablo")
+                    local maxWait = isElite and 240 or 90
+                    if not liveModel and (os.time() - LastBossHuntStart) > maxWait then
+                        pcall(function()
+                            QuestManager.AbandonQuest()
+                        end)
+                        LastBossHuntStart = 0
+                    end
+
                     SpecialItems = nil
+                else
+                    LastBossHuntStart = 0
                 end
             end
         )
@@ -5527,11 +6482,12 @@ FunctionsHandler = {
             function()
                 local Boss2
 
-                for BossName, LevelReq in SpecialBossesOrder do
+                for BossName, LevelReq in pairs(SpecialBossesOrder) do
                     if ScriptStorage.PlayerData.Level >= LevelReq then
-                        local Result = ScriptStorage.Enemies[BossName]
-                        if Result and Result:FindFirstChild("Humanoid") and Result.Humanoid.Health > 0 then
-                            Boss2 = Result
+                        local liveModel = FindLiveBoss(BossName)
+                        if liveModel then
+                            Boss2 = liveModel
+                            break
                         end
                     end
                 end
@@ -5551,8 +6507,9 @@ FunctionsHandler = {
                 end
 
                 if Boss then
-                    SetTask("MainTask", "Săn Boss - Đang tiêu diệt " .. Boss.Name)
-                    CombatController.Attack(tostring(Boss))
+                    local bossNameStr = type(Boss) == "string" and Boss or (typeof(Boss) == "Instance" and Boss.Name) or tostring(Boss)
+                    SetTask("MainTask", "Săn Boss - Đang tiêu diệt " .. bossNameStr)
+                    CombatController.Attack(bossNameStr)
                 end
             end
         )
@@ -7535,12 +8492,7 @@ FunctionsHandler = {
                     -- 1. Kiểm tra sự tồn tại của Remotes
                     if Remotes and Remotes.CommF_ then
                         
-                        -- 2. Gọi hàm cộng điểm (nếu có)
-                        if type(AddPoint) == "function" then
-                            AddPoint()
-                        end
-
-                        -- 3. Thực hiện mua trái ác quỷ
+                        -- 2. Thực hiện mua trái ác quỷ (Cousin Buy)
                         -- Blox Fruits trả về thông tin thời gian nếu chưa đủ 2 tiếng
                         local result = Remotes.CommF_:InvokeServer("Cousin", "Buy")
                         
