@@ -41,7 +41,7 @@ print("========================================")
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Bocchi Hub",
-        Text = "Script đang khởi động... Vui lòng đợi!",
+        Text = "tự làm tự ăn",
         Duration = 5
     })
 end)
@@ -74,7 +74,7 @@ Config =
                 -- Melees
                 AutoFullyMelees = true,
                 -- Swords
-                Saber = false,
+                Saber = true,
                 CursedDualKatana = false,
                 Yama = false,
                 Tushita = false,
@@ -302,7 +302,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.24 (SMART RAID FRUIT TRADING & NO BELI COOLDOWN)"
+        NameHub.Text = "v1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1376,6 +1376,88 @@ ScriptStorage = {
             end
         end
 
+        local LastFruitInventoryFetch = 0
+        local CachedInventoryFruits = {}
+
+        local function normalizeFruit(name)
+            if not name or type(name) ~= "string" then return "" end
+            local s = string.lower(name)
+            s = s:gsub(" fruit", ""):gsub("fruit", ""):gsub("%-", ""):gsub("%s+", "")
+            return s
+        end
+
+        local function getFruitRoot(name)
+            local norm = normalizeFruit(name)
+            if norm == "" then return "" end
+            local halfLen = math.floor(#norm / 2)
+            if halfLen >= 3 and string.sub(norm, 1, halfLen) == string.sub(norm, halfLen + 1, halfLen * 2) then
+                return string.sub(norm, 1, halfLen)
+            end
+            return norm
+        end
+
+        function GetStoredFruitsList(forceRefresh)
+            local now = tick()
+            if forceRefresh or now - LastFruitInventoryFetch > 4 or #CachedInventoryFruits == 0 then
+                LastFruitInventoryFetch = now
+                pcall(function()
+                    local fruits = Remotes.CommF_:InvokeServer("getInventoryFruits")
+                    if type(fruits) == "table" then
+                        CachedInventoryFruits = fruits
+                    end
+                end)
+            end
+            return CachedInventoryFruits
+        end
+
+        function IsFruitAlreadyInStorage(fruitItemOrName)
+            if not fruitItemOrName then return false end
+            local origName = ""
+            local toolName = ""
+            if typeof(fruitItemOrName) == "Instance" then
+                origName = fruitItemOrName:GetAttribute("OriginalName") or ""
+                toolName = fruitItemOrName.Name or ""
+            elseif type(fruitItemOrName) == "string" then
+                toolName = fruitItemOrName
+            elseif type(fruitItemOrName) == "table" and fruitItemOrName.Name then
+                toolName = fruitItemOrName.Name
+            end
+
+            local root1 = getFruitRoot(origName)
+            local root2 = getFruitRoot(toolName)
+
+            local storedFruits = GetStoredFruitsList()
+            if type(storedFruits) == "table" then
+                for _, item in pairs(storedFruits) do
+                    if type(item) == "table" and item.Name then
+                        local storedRoot = getFruitRoot(item.Name)
+                        if storedRoot ~= "" then
+                            if (root1 ~= "" and (root1 == storedRoot or string.find(root1, storedRoot) or string.find(storedRoot, root1))) or
+                               (root2 ~= "" and (root2 == storedRoot or string.find(root2, storedRoot) or string.find(storedRoot, root2))) then
+                                return true, item.Name
+                            end
+                        end
+                    end
+                end
+            end
+
+            if ScriptStorage and ScriptStorage.Backpack and type(ScriptStorage.Backpack) == "table" then
+                for bName, bItem in pairs(ScriptStorage.Backpack) do
+                    if bItem and (bItem.Type == "Blox Fruit" or string.find(tostring(bName), "Fruit")) then
+                        local bRoot = getFruitRoot(bName)
+                        if bRoot ~= "" then
+                            if (root1 ~= "" and (root1 == bRoot or string.find(root1, bRoot) or string.find(bRoot, root1))) or
+                               (root2 ~= "" and (root2 == bRoot or string.find(root2, bRoot) or string.find(bRoot, root2))) then
+                                return true, bName
+                            end
+                        end
+                    end
+                end
+            end
+
+            return false, nil
+        end
+
         function RefreshInventory()
             pcall(function()
                 ScriptStorage.Backpack2 = {}
@@ -1404,6 +1486,8 @@ ScriptStorage = {
                 local fruits = nil
                 pcall(function() fruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
                 if type(fruits) == "table" then
+                    CachedInventoryFruits = fruits
+                    LastFruitInventoryFetch = tick()
                     for _, Value in pairs(fruits) do
                         if type(Value) == "table" and Value.Name then
                             Value.Type = "Blox Fruit"
@@ -1518,23 +1602,53 @@ ScriptStorage = {
                                 return
                             end
                             
-                            if table.find(ScriptStorage.IgnoreStoreFruits, Child:GetAttribute("OriginalName")) then
+                            local origName = Child:GetAttribute("OriginalName") or Child.Name
+                            if table.find(ScriptStorage.IgnoreStoreFruits, origName) or table.find(ScriptStorage.IgnoreStoreFruits, Child.Name) then
                                 return
                             end
+
+                            -- Kiểm tra nếu trong rương đã có trái này rồi thì ngưng cất
+                            if IsFruitAlreadyInStorage(Child) then
+                                if not table.find(ScriptStorage.IgnoreStoreFruits, origName) then
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, origName)
+                                end
+                                if not table.find(ScriptStorage.IgnoreStoreFruits, Child.Name) then
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, Child.Name)
+                                end
+                                print("[StoreFruit] Trái đã có trong rương -> Dừng cất:", Child.Name)
+                                return
+                            end
+
                             if
                                 Config.Items.AutoEatFruit and
                                     game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
-                                    table.find(Config.Items.Eatlist, Child:GetAttribute("OriginalName"))
+                                    table.find(Config.Items.Eatlist, origName)
                              then
                                 while not LocalPlayer.Character:FindFirstChild(Child.Name) and
                                     game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and
                                     task.wait(3) do
                                     FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(Child.Name)
                                 end
-                                LocalPlayer.Character:FindFirstChild(Child.Name).EatRemote:InvokeServer()
+                                if LocalPlayer.Character:FindFirstChild(Child.Name) and LocalPlayer.Character:FindFirstChild(Child.Name):FindFirstChild("EatRemote") then
+                                    LocalPlayer.Character:FindFirstChild(Child.Name).EatRemote:InvokeServer()
+                                end
                             end
-                            local StoreResult =
-                                Remotes.CommF_:InvokeServer("StoreFruit", Child:GetAttribute("OriginalName"), Child)
+
+                            local StoreResult = nil
+                            pcall(function()
+                                StoreResult = Remotes.CommF_:InvokeServer("StoreFruit", origName, Child)
+                            end)
+
+                            if StoreResult == false or StoreResult == "Unsuccess" then
+                                if not table.find(ScriptStorage.IgnoreStoreFruits, origName) then
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, origName)
+                                end
+                                if not table.find(ScriptStorage.IgnoreStoreFruits, Child.Name) then
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, Child.Name)
+                                end
+                            else
+                                pcall(function() GetStoredFruitsList(true) end)
+                            end
                         end
                     )
                 end
@@ -3015,22 +3129,34 @@ ScriptStorage = {
         end
 
         function QuestManager.GetQuestProgress()
-            local currentKills, totalKills, mobName = nil, nil, nil
+            local currentKills, totalKills = nil, nil
             local hasActive = false
             pcall(function()
                 local playerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
                 local mainGui = playerGui and playerGui:FindFirstChild("Main")
                 local questGui = mainGui and mainGui:FindFirstChild("Quest")
                 if questGui and questGui.Visible then
+                    local container = questGui:FindFirstChild("Container")
+                    if not container or container.Visible then
+                        hasActive = true
+                    end
                     for _, desc in ipairs(questGui:GetDescendants()) do
                         if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" and desc.Visible then
                             local txt = desc.Text
-                            -- Trích xuất chỉ số tiến độ: (3/8), 3/8, ( 3 / 8 ), 3 / 8
+                            -- Trích xuất chỉ số tiến độ: (3/8), 3/8, ( 3 / 8 ), 3 / 8, 3 of 8, 3 trên 8
                             local c, m = string.match(txt, "(%d+)%s*/%s*(%d+)")
+                            if not c or not m then
+                                c, m = string.match(txt, "(%d+)%s*[oO][fF]%s*(%d+)")
+                            end
+                            if not c or not m then
+                                c, m = string.match(txt, "(%d+)%s*trên%s*(%d+)")
+                            end
                             if c and m then
-                                currentKills = tonumber(c)
-                                totalKills = tonumber(m)
-                                if currentKills and totalKills and totalKills > 0 then
+                                local numC = tonumber(c)
+                                local numM = tonumber(m)
+                                if numM and numM > 0 then
+                                    currentKills = numC
+                                    totalKills = numM
                                     hasActive = true
                                     break
                                 end
@@ -3063,7 +3189,6 @@ ScriptStorage = {
                         progActive, qCur, qTot = QuestManager.GetQuestProgress()
                     end
 
-                    -- Chỉ tìm quest khi UI thực sự hiện HOẶC có tiến độ active
                     if not isVisible and not progActive then
                         return
                     end
@@ -3124,28 +3249,37 @@ ScriptStorage = {
                 end
             end)
 
-            if not isVisible or rawText == "" then
+            if not isVisible and not (ScriptStorage.ClaimedQuest and ScriptStorage.ClaimedQuest.Active) then
                 return nil, nil
             end
 
             -- Chặn text template lỗi
             local upperRaw = string.upper(rawText)
             if upperRaw == "DEFEAT 5 BANDITS" or upperRaw == "DEFEAT 5 BANDIT" then
-                return nil, nil
+                rawText = ""
             end
             if SeaIndex and SeaIndex >= 2 and string.find(upperRaw, "BANDIT") and not string.find(upperRaw, "DESERT") and not string.find(upperRaw, "SNOW") then
-                return nil, nil
+                rawText = ""
             end
 
-            if RawResponse then
+            if RawResponse and rawText ~= "" then
                 return isVisible, rawText
             end
 
             local cleanTitle = CleanQuestMobTitle(rawText)
-            if not cleanTitle or cleanTitle == "" then
-                return nil, nil
+            if cleanTitle and cleanTitle ~= "" then
+                return cleanTitle, rawText
             end
-            return cleanTitle, rawText
+
+            -- Fallback thông minh: nếu UI quest đang mở nhưng tên quái không phân tích được từ chuỗi
+            if isVisible then
+                local fallbackMob = (ScriptStorage.ClaimedQuest and ScriptStorage.ClaimedQuest.MonName) or (QuestManager and QuestManager.GetCurrentQuest and QuestManager:GetCurrentQuest())
+                if fallbackMob and fallbackMob ~= "" then
+                    return fallbackMob, rawText
+                end
+            end
+
+            return nil, nil
         end
 
         function QuestManager.StartQuest(QuestId, QuestLevel)
@@ -3467,73 +3601,233 @@ ScriptStorage = {
 
 
         local AttackController = {}
+
+        MeleeTeacherLocations = {
+            ["Fishman Karate"] = {
+                Remote = "BuyFishmanKarate",
+                NPCName = "Water Kung-fu Teacher",
+                Positions = {
+                    [1] = Vector3.new(61122, 18, 1568),
+                    [2] = Vector3.new(-2750, 240, -6870),
+                    [3] = Vector3.new(-5058, 315, -3155)
+                }
+            },
+            ["Water Kung-fu"] = {
+                Remote = "BuyFishmanKarate",
+                NPCName = "Water Kung-fu Teacher",
+                Positions = {
+                    [1] = Vector3.new(61122, 18, 1568),
+                    [2] = Vector3.new(-2750, 240, -6870),
+                    [3] = Vector3.new(-5058, 315, -3155)
+                }
+            },
+            ["FishmanKarate"] = {
+                Remote = "BuyFishmanKarate",
+                NPCName = "Water Kung-fu Teacher",
+                Positions = {
+                    [1] = Vector3.new(61122, 18, 1568),
+                    [2] = Vector3.new(-2750, 240, -6870),
+                    [3] = Vector3.new(-5058, 315, -3155)
+                }
+            },
+            ["Black Leg"] = {
+                Remote = "BuyBlackLeg",
+                NPCName = "Dark Step Teacher",
+                Positions = {
+                    [1] = Vector3.new(-1188, 5, 3830),
+                    [2] = Vector3.new(-2600, 240, -6870),
+                    [3] = Vector3.new(-5058, 315, -3140)
+                }
+            },
+            ["Dark Step"] = {
+                Remote = "BuyBlackLeg",
+                NPCName = "Dark Step Teacher",
+                Positions = {
+                    [1] = Vector3.new(-1188, 5, 3830),
+                    [2] = Vector3.new(-2600, 240, -6870),
+                    [3] = Vector3.new(-5058, 315, -3140)
+                }
+            },
+            ["BlackLeg"] = {
+                Remote = "BuyBlackLeg",
+                NPCName = "Dark Step Teacher",
+                Positions = {
+                    [1] = Vector3.new(-1188, 5, 3830),
+                    [2] = Vector3.new(-2600, 240, -6870),
+                    [3] = Vector3.new(-5058, 315, -3140)
+                }
+            },
+            ["Electro"] = {
+                Remote = "BuyElectro",
+                NPCName = "Mad Scientist",
+                Positions = {
+                    [1] = Vector3.new(-4840, 718, -2620),
+                    [2] = Vector3.new(-2880, 240, -6870),
+                    [3] = Vector3.new(-5058, 315, -3170)
+                }
+            },
+            ["Dragon Claw"] = {
+                Remote = "DragonClaw",
+                NPCName = "Sabi",
+                Positions = {
+                    [2] = Vector3.new(-3290, 75, -570),
+                    [3] = Vector3.new(-4980, 371, -3205)
+                }
+            },
+            ["DragonClaw"] = {
+                Remote = "DragonClaw",
+                NPCName = "Sabi",
+                Positions = {
+                    [2] = Vector3.new(-3290, 75, -570),
+                    [3] = Vector3.new(-4980, 371, -3205)
+                }
+            },
+            ["Superhuman"] = {
+                Remote = "BuySuperhuman",
+                NPCName = "Martial Arts Master",
+                Positions = {
+                    [1] = Vector3.new(-5315, 9, 8515),
+                    [2] = Vector3.new(460, 400, 200),
+                    [3] = Vector3.new(-5030, 315, -3165)
+                }
+            },
+            ["Death Step"] = {
+                Remote = "BuyDeathStep",
+                NPCName = "Phoeyu, the Reformed",
+                Positions = {
+                    [2] = Vector3.new(6340, 298, -6760),
+                    [3] = Vector3.new(-5075, 315, -3145)
+                }
+            },
+            ["DeathStep"] = {
+                Remote = "BuyDeathStep",
+                NPCName = "Phoeyu, the Reformed",
+                Positions = {
+                    [2] = Vector3.new(6340, 298, -6760),
+                    [3] = Vector3.new(-5075, 315, -3145)
+                }
+            },
+            ["Sharkman Karate"] = {
+                Remote = "BuySharkmanKarate",
+                NPCName = "Sharkman Teacher",
+                Positions = {
+                    [2] = Vector3.new(-3827, 77, -11865),
+                    [3] = Vector3.new(-5075, 315, -3165)
+                }
+            },
+            ["SharkmanKarate"] = {
+                Remote = "BuySharkmanKarate",
+                NPCName = "Sharkman Teacher",
+                Positions = {
+                    [2] = Vector3.new(-3827, 77, -11865),
+                    [3] = Vector3.new(-5075, 315, -3165)
+                }
+            },
+            ["Electric Claw"] = {
+                Remote = "BuyElectricClaw",
+                NPCName = "Previous Hero",
+                Positions = {
+                    [3] = Vector3.new(-10371, 332, -10134)
+                }
+            },
+            ["ElectricClaw"] = {
+                Remote = "BuyElectricClaw",
+                NPCName = "Previous Hero",
+                Positions = {
+                    [3] = Vector3.new(-10371, 332, -10134)
+                }
+            },
+            ["Dragon Talon"] = {
+                Remote = "BuyDragonTalon",
+                NPCName = "Uzoth",
+                Positions = {
+                    [3] = Vector3.new(-9515, 142, 5520)
+                }
+            },
+            ["DragonTalon"] = {
+                Remote = "BuyDragonTalon",
+                NPCName = "Uzoth",
+                Positions = {
+                    [3] = Vector3.new(-9515, 142, 5520)
+                }
+            },
+            ["Godhuman"] = {
+                Remote = "BuyGodhuman",
+                NPCName = "Ancient Monk",
+                Positions = {
+                    [3] = Vector3.new(-2864, 44, -14925)
+                }
+            }
+        }
+
+        function GetMeleeTeacherPos(mName)
+            local info = MeleeTeacherLocations[mName]
+            if not info then return nil end
+            local npcName = info.NPCName
+            local sIdx = SeaIndex or 3
+
+            -- 1. Thử tìm NPC trực tiếp trong workspace / replicated storage
+            local repNpcs = game:GetService("ReplicatedStorage"):FindFirstChild("NPCs")
+            local wsNpcs = workspace:FindFirstChild("NPCs")
+            local npc = (wsNpcs and wsNpcs:FindFirstChild(npcName)) or (repNpcs and repNpcs:FindFirstChild(npcName)) or workspace:FindFirstChild(npcName)
+            if npc then
+                local pivot = (npc:IsA("Model") and npc:GetPivot().Position) or (npc:FindFirstChild("HumanoidRootPart") and npc.HumanoidRootPart.Position) or (npc.PrimaryPart and npc.PrimaryPart.Position) or npc.Position
+                if pivot then return pivot end
+            end
+
+            -- 2. Dùng tọa độ chuẩn theo Sea hiện tại
+            if info.Positions and info.Positions[sIdx] then
+                return info.Positions[sIdx]
+            end
+            if info.Positions then
+                return info.Positions[3] or info.Positions[2] or info.Positions[1]
+            end
+            return nil
+        end
+
         function BuyMelee(M1, Check, NPCName)
-            -- Với Dragon Claw, cần tele tới NPC "Sabi" trước khi mua
-            if M1 == "DragonClaw" then
-                if Check then
-                    -- Chỉ check fragments trong PlayerData, không gọi remote để tránh trừ fragments
+            if Check then
+                if M1 == "DragonClaw" then
                     RefreshPlayerData()
                     local PlayerData = ScriptStorage.PlayerData
                     local RequiredFragments = 1500
                     local HasEnoughFragments = PlayerData and PlayerData.Fragments and PlayerData.Fragments >= RequiredFragments
-
                     if HasEnoughFragments and not table.find(MeleeCanBuy, M1) then
-                        warn("Inserted DragonClaw")
                         table.insert(MeleeCanBuy, M1)
                     end
                     return HasEnoughFragments
                 end
-
-                -- Sea 3: dùng tọa độ cố định cho Sabi
-                if SeaIndex == 3 then
-                    local SabiPos = CFrame.new(-4979.9091796875, 371.34295654296875, -3205.458251953125)
-                    SetTask("SubTask", "Đang mua võ - Dragon Claw (Sea 3)")
-                    getgenv().anchored = true
-                    if CaculateDistance(SabiPos) > 10 then
-                        repeat
-                            task.wait()
-                            TweenController.Create(SabiPos)
-                        until CaculateDistance(SabiPos) < 10
-                        task.wait(3)
-                    end
-                    return Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "2")
-                end
-
-                -- Sea 2: dùng logic cũ tìm NPC trong workspace/replicated storage
-                if NPCName and ScriptStorage.NPCs[NPCName] then
-                    local NPC = ScriptStorage.NPCs[NPCName]
-                    if NPC then
-                        local NPCPos = nil
-                        if NPC.WorldPivot then
-                            NPCPos = NPC.WorldPivot
-                        elseif NPC:FindFirstChild("HumanoidRootPart") then
-                            NPCPos = NPC.HumanoidRootPart.CFrame
-                        end
-
-                        if NPCPos then
-                            SetTask("SubTask", "Đang mua võ - Dragon Claw (Sea 2)")
-                            getgenv().anchored = true
-                            local NPCPosition = NPCPos.Position or (NPCPos and NPCPos.Position)
-                            if NPCPosition and CaculateDistance(NPCPosition) > 10 then
-                                repeat
-                                    task.wait()
-                                    TweenController.Create(NPCPosition)
-                                until CaculateDistance(NPCPosition) < 10
-                                task.wait(3)
-                            end
-                        end
-                    end
-                end
-                return Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "2")
-            end 
-            if Check then
                 local Response_ = Remotes.CommF_:InvokeServer("Buy" .. M1, true)
-                print("Response_", Response_ == 1, typeof(Response_))
-                if type(Response_) == "number" and not table.find(MeleeCanBuy,M1) then
-                    table.insert(MeleeCanBuy, M1)
-                    warn("Inserted " .. M1)
+                if (type(Response_) == "number" and Response_ == 1) or Response_ == "You already own this style" or Response_ == true then
+                    if not table.find(MeleeCanBuy, M1) then
+                        table.insert(MeleeCanBuy, M1)
+                    end
+                    return true
                 end
                 return Response_ == 1
+            end
+
+            -- Mua / Đổi võ (Cần lại gần NPC)
+            local teacherPos = GetMeleeTeacherPos(M1) or (NPCName and GetMeleeTeacherPos(NPCName))
+            if not teacherPos and NPCName and ScriptStorage.NPCs and ScriptStorage.NPCs[NPCName] then
+                local NPC = ScriptStorage.NPCs[NPCName]
+                if NPC then
+                    teacherPos = (NPC.WorldPivot and NPC.WorldPivot.Position) or (NPC:FindFirstChild("HumanoidRootPart") and NPC.HumanoidRootPart.Position)
+                end
+            end
+
+            if teacherPos and CaculateDistance(teacherPos) > 15 then
+                SetTask("SubTask", "Đang bay tới mua/đổi võ: " .. tostring(M1))
+                getgenv().anchored = true
+                repeat
+                    task.wait()
+                    TweenController.Create(teacherPos + Vector3.new(0, 4, 2))
+                until CaculateDistance(teacherPos) < 15
+                task.wait(1)
+            end
+
+            if M1 == "DragonClaw" then
+                return Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "2")
             end
             return Remotes.CommF_:InvokeServer("Buy" .. M1)
         end
@@ -4283,72 +4577,21 @@ CombatController = {
                 return ScriptStorage.MobCamps[cleanName]
             end
 
-            local rawPoints = {}
-            -- 1. Tìm trong ScriptStorage.MobRegions
-            for regName, pts in pairs(ScriptStorage.MobRegions or {}) do
-                if IsMobMatch(regName, cleanName) or IsMobMatch(regName, strName) then
-                    for _, p in ipairs(pts) do
-                        table.insert(rawPoints, p)
-                    end
-                end
+            -- 1. Ưu tiên tuyệt đối các bãi quái chuẩn đã cấu hình sẵn (MobPositionsFallbackMulti)
+            if MobPositionsFallbackMulti and MobPositionsFallbackMulti[cleanName] and #MobPositionsFallbackMulti[cleanName] > 0 then
+                ScriptStorage.MobCamps[cleanName] = MobPositionsFallbackMulti[cleanName]
+                return MobPositionsFallbackMulti[cleanName]
             end
 
-            -- 2. Tìm trong MobPositionsFallbackMulti
-            if MobPositionsFallbackMulti then
-                for fbName, camps in pairs(MobPositionsFallbackMulti) do
-                    if IsMobMatch(fbName, cleanName) or IsMobMatch(fbName, strName) then
-                        for _, p in ipairs(camps) do
-                            table.insert(rawPoints, p)
-                        end
-                    end
-                end
+            -- 2. Fallback bãi đơn chuẩn (MobPositionsFallback)
+            local singlePos = GetMobPosition(cleanName) or (MobPositionsFallback and MobPositionsFallback[cleanName])
+            if singlePos then
+                local res = { singlePos }
+                ScriptStorage.MobCamps[cleanName] = res
+                return res
             end
 
-            -- 3. Phân cụm các điểm (Clustering: các điểm cách nhau <= 95 studs gom vào 1 bãi quái)
-            local clusters = {}
-            for _, pt in ipairs(rawPoints) do
-                local pos = (typeof(pt) == "CFrame" and pt.Position) or (typeof(pt) == "Vector3" and pt) or nil
-                if pos then
-                    local matched = false
-                    for _, cl in ipairs(clusters) do
-                        if (cl.Center - pos).Magnitude <= 95 then
-                            cl.Count = cl.Count + 1
-                            cl.Center = (cl.Center * (cl.Count - 1) + pos) / cl.Count
-                            table.insert(cl.Points, pos)
-                            matched = true
-                            break
-                        end
-                    end
-                    if not matched then
-                        table.insert(clusters, {
-                            Center = pos,
-                            Points = {pos},
-                            Count = 1
-                        })
-                    end
-                end
-            end
-
-            -- Fallback đơn điểm nếu không có cụm
-            if #clusters == 0 and MobPositionsFallback then
-                for fbName, fbPos in pairs(MobPositionsFallback) do
-                    if IsMobMatch(fbName, cleanName) or IsMobMatch(fbName, strName) then
-                        local pos = (typeof(fbPos) == "CFrame" and fbPos.Position) or (typeof(fbPos) == "Vector3" and fbPos) or nil
-                        if pos then
-                            table.insert(clusters, { Center = pos, Points = {pos}, Count = 1 })
-                            break
-                        end
-                    end
-                end
-            end
-
-            local resultCamps = {}
-            for _, cl in ipairs(clusters) do
-                table.insert(resultCamps, cl.Center)
-            end
-
-            ScriptStorage.MobCamps[cleanName] = resultCamps
-            return resultCamps
+            return {}
         end
 
         function GetNextMobCampPosition(mobName, forceNext)
@@ -4603,7 +4846,7 @@ CombatController = {
                     LastFound = os.time()
                     local Count, Debounce = 0, os.time()
                     local Count2 = 0
-                    -- Loop đánh quái
+                    -- Loop đánh quái liên tục cho tới khi dọn sạch quái trong bãi
                     while task.wait(0.05) do
                         if _G.Stop then
                             return
@@ -4622,7 +4865,16 @@ CombatController = {
                             if MonResult.Name == "Don Swan" then
                                 Storage:Set("SwanDefeated", true)
                             end
-                            break
+                            -- Tìm ngay con quái tiếp theo của mục tiêu trong tầm
+                            local nextMon = CombatController.Search({ChildName})
+                            if nextMon and nextMon ~= MonResult then
+                                MonResult = nextMon
+                                Count, Count2 = 0, 0
+                                MobHumanoid = MonResult:FindFirstChild("Humanoid") or MonResult:FindFirstChildOfClass("Humanoid")
+                                MobHumanoidRootPart = MonResult:FindFirstChild("HumanoidRootPart") or MonResult.PrimaryPart
+                            else
+                                break
+                            end
                         end
 
                         if MobHumanoidRootPart then
@@ -4728,21 +4980,32 @@ CombatController = {
                     if targetPos then
                         LastFound = os.time()
                         local distToCamp = CaculateDistance(targetPos)
-                        -- Nếu đã tới gần bãi hiện tại (<= 95 studs) mà không thấy quái nào (bãi đã bị dọn sạch):
-                        if distToCamp <= 95 and totalCamps and totalCamps > 1 and GetNextMobCampPosition then
-                            local nextPos, nextIdx = GetNextMobCampPosition(ChildName, true)
-                            if nextPos then
-                                SetTask("SubTask", "Bãi " .. tostring(campIdx or 1) .. " hết quái! Đang bay sang bãi " .. tostring(nextIdx) .. "/" .. tostring(totalCamps) .. " để tìm quái tiếp...")
-                                TweenController.Create(nextPos + Vector3.new(0, 20, 0))
-                                return
-                            end
-                        end
+                        -- Nếu đã tới bãi (<= 80 studs): Đứng trên cao bãi quái (20 studs) chờ quái hồi sinh
+                        if distToCamp <= 80 then
+                            SetTask("SubTask", "Đang chờ quái " .. tostring(ChildName) .. " hồi sinh tại bãi...")
+                            TweenController.Create(targetPos + Vector3.new(0, 20, 0))
 
-                        if totalCamps and totalCamps > 1 then
-                            SetTask("SubTask", "Đang bay tới bãi " .. tostring(campIdx or 1) .. "/" .. tostring(totalCamps) .. " của " .. tostring(ChildName) .. "...")
+                            -- Chỉ chuyển bãi nếu đã chờ tại bãi này quá 15 giây mà không có quái (cho các đảo có 2 bãi tách biệt)
+                            ScriptStorage.CampWaitTimes = ScriptStorage.CampWaitTimes or {}
+                            if not ScriptStorage.CampWaitTimes[ChildName] then
+                                ScriptStorage.CampWaitTimes[ChildName] = os.time()
+                            end
+                            if (os.time() - ScriptStorage.CampWaitTimes[ChildName]) > 15 and totalCamps and totalCamps > 1 and GetNextMobCampPosition then
+                                ScriptStorage.CampWaitTimes[ChildName] = os.time()
+                                local nextPos, nextIdx = GetNextMobCampPosition(ChildName, true)
+                                if nextPos then
+                                    TweenController.Create(nextPos + Vector3.new(0, 20, 0))
+                                end
+                            end
+                            return
+                        else
+                            -- Đang bay tới bãi quái
+                            ScriptStorage.CampWaitTimes = ScriptStorage.CampWaitTimes or {}
+                            ScriptStorage.CampWaitTimes[ChildName] = os.time()
+                            SetTask("SubTask", "Đang bay tới bãi quái " .. tostring(ChildName) .. "...")
+                            TweenController.Create(targetPos + Vector3.new(0, 20, 0))
+                            return
                         end
-                        TweenController.Create(targetPos + Vector3.new(0, 20, 0))
-                        return
                     end
                 end
             end
@@ -5226,25 +5489,17 @@ FunctionsHandler = {
                     end
                 end)
 
-                if qProgActive then
-                    if qCurrent and qTotal then
-                        if qCurrent < qTotal then
-                            hasActiveQuest = true
-                        else
-                            -- Nhiệm vụ đã hoàn thành đủ số lượng quái
-                            hasActiveQuest = false
-                            ScriptStorage.ClaimedQuest = nil
-                        end
-                    else
-                        hasActiveQuest = true
-                    end
-                end
-
                 pcall(function()
                     local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
-                    if questGui and questGui.Visible and (not questGui:FindFirstChild("Container") or questGui.Container.Visible) then
-                        if qProgActive then
-                            hasActiveQuest = true
+                    if questGui and questGui.Visible then
+                        local container = questGui:FindFirstChild("Container")
+                        if not container or container.Visible then
+                            if qProgActive and qCurrent and qTotal and qCurrent >= qTotal then
+                                hasActiveQuest = false
+                                ScriptStorage.ClaimedQuest = nil
+                            else
+                                hasActiveQuest = true
+                            end
                         end
                     end
                 end)
@@ -5273,27 +5528,21 @@ FunctionsHandler = {
                     end
                 end
 
-                -- XỬ LÝ NHIỆM VỤ ĐÁNH BOSS SAI / LỆCH CẤP KHI CÀY LEVEL:
-                local isBossQuest = false
-                if activeMobName and activeMobName ~= "" then
-                    local lAct = string.lower(tostring(activeMobName))
-                    if lAct == "urban" or lAct == "diablo" or lAct == "deandre" or string.find(lAct, "elite", 1, true) or string.find(lAct, "boss", 1, true) or string.find(lAct, "trùm", 1, true) then
-                        isBossQuest = true
-                    end
-                end
-
+                -- CHỈ XỬ LÝ HỦY QUEST KHI BỊ DÍNH ELITE HUNTER BOSS Ở SEA 3 MÀ CẤP DƯỚI 1750
                 local myLevel = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
-                -- Nếu cấp < 1750 mà bị vướng quest Elite Boss (chưa đủ cấp để đánh):
-                if isBossQuest and myLevel < 1750 then
-                    SetTask("MainTask", "Cày Cấp - Sửa lỗi nhiệm vụ")
-                    SetTask("SubTask", "Tự động hủy nhiệm vụ Boss sai cấp để nhận đúng nhiệm vụ cày cấp...")
-                    pcall(function()
-                        QuestManager.AbandonQuest()
-                    end)
-                    hasActiveQuest = false
-                    activeMobName = nil
-                    LevelFarmTTL = 0
-                    task.wait(0.5)
+                if activeMobName and activeMobName ~= "" and myLevel < 1750 and SeaIndex == 3 then
+                    local lAct = string.lower(tostring(activeMobName))
+                    if lAct == "urban" or lAct == "diablo" or lAct == "deandre" or string.find(lAct, "elite", 1, true) then
+                        SetTask("MainTask", "Cày Cấp - Sửa lỗi nhiệm vụ")
+                        SetTask("SubTask", "Tự động hủy nhiệm vụ Elite Boss sai cấp để nhận đúng nhiệm vụ cày cấp...")
+                        pcall(function()
+                            QuestManager.AbandonQuest()
+                        end)
+                        hasActiveQuest = false
+                        activeMobName = nil
+                        LevelFarmTTL = 0
+                        task.wait(0.5)
+                    end
                 end
 
                 if hasActiveQuest then
@@ -5351,7 +5600,18 @@ FunctionsHandler = {
                 -- Check if tool is already equipped
                 local heldTool = char:FindFirstChildOfClass("Tool")
                 if heldTool then
-                    if Tool == "Melee" or Tool == "Sword" or Tool == "Blox Fruit" or Tool == "Gun" then
+                    if Tool == "Melee" then
+                        if _G.TargetFarmingMelee then
+                            local targetAlias = _G.MeleeToolAliases and _G.MeleeToolAliases[_G.TargetFarmingMelee]
+                            if heldTool.Name == _G.TargetFarmingMelee or (targetAlias and heldTool.Name == targetAlias) then
+                                return true
+                            end
+                        else
+                            if heldTool.ToolTip == Tool or heldTool:GetAttribute("WeaponType") == Tool or (MeleesTable and table.find(MeleesTable, heldTool.Name)) then
+                                return true
+                            end
+                        end
+                    elseif Tool == "Sword" or Tool == "Blox Fruit" or Tool == "Gun" then
                         if heldTool.ToolTip == Tool or heldTool:GetAttribute("WeaponType") == Tool then
                             return true
                         end
@@ -5362,6 +5622,17 @@ FunctionsHandler = {
 
                 local backpack = game.Players.LocalPlayer:FindFirstChild("Backpack")
                 if not backpack then return end
+
+                -- Prioritize specific target farming melee if set
+                if Tool == "Melee" and _G.TargetFarmingMelee then
+                    local targetAlias = _G.MeleeToolAliases and _G.MeleeToolAliases[_G.TargetFarmingMelee]
+                    for _, Item in ipairs(backpack:GetChildren()) do
+                        if Item:IsA("Tool") and (Item.Name == _G.TargetFarmingMelee or (targetAlias and Item.Name == targetAlias)) then
+                            hum:EquipTool(Item)
+                            return true
+                        end
+                    end
+                end
 
                 for _, Item in ipairs(backpack:GetChildren()) do
                     if Item:IsA("Tool") and Item.Name ~= "Tool" then
@@ -5658,29 +5929,169 @@ FunctionsHandler = {
         _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex or 1
         _G.MeleesMasteryCompleted = _G.MeleesMasteryCompleted or {}
         _G.LastMeleeCheckTime = _G.LastMeleeCheckTime or 0
+        _G.LastMeleeSwitchTime = _G.LastMeleeSwitchTime or 0
         _G.MeleeProgressionFinished = _G.MeleeProgressionFinished or false
+        _G.TargetFarmingMelee = _G.TargetFarmingMelee or nil
+
         _G.MeleeToolAliases = {
             ["Black Leg"] = "Dark Step",
             ["Dark Step"] = "Black Leg",
             ["Fishman Karate"] = "Water Kung-fu",
-            ["Water Kung-fu"] = "Fishman Karate"
+            ["Water Kung-fu"] = "Fishman Karate",
+            ["FishmanKarate"] = "Water Kung-fu",
+            ["Dragon Claw"] = "Dragon Claw",
+            ["DragonClaw"] = "Dragon Claw",
+            ["Superhuman"] = "Superhuman",
+            ["Death Step"] = "Death Step",
+            ["DeathStep"] = "Death Step",
+            ["Sharkman Karate"] = "Sharkman Karate",
+            ["SharkmanKarate"] = "Sharkman Karate",
+            ["Electric Claw"] = "Electric Claw",
+            ["ElectricClaw"] = "Electric Claw",
+            ["Dragon Talon"] = "Dragon Talon",
+            ["DragonTalon"] = "Dragon Talon",
+            ["Godhuman"] = "Godhuman"
         }
 
-        local function CheckStyleOwned(buyRemoteName)
-            local ok, res = pcall(function()
-                return Remotes.CommF_:InvokeServer(buyRemoteName, true)
-            end)
-            if ok and (res == 1 or res == 2 or res == "You already own this style" or res == true) then
-                return true
+        local function GetCurrentHeldMelee()
+            local char = LocalPlayer.Character
+            if char then
+                for _, item in ipairs(char:GetChildren()) do
+                    if item:IsA("Tool") and (item.ToolTip == "Melee" or item:GetAttribute("WeaponType") == "Melee" or item.Name == "Combat" or (MeleesTable and table.find(MeleesTable, item.Name)) or item.Name == "Water Kung-fu" or item.Name == "Dark Step") then
+                        local lvl = (item:FindFirstChild("Level") and tonumber(item.Level.Value)) or 0
+                        return item.Name, lvl, item
+                    end
+                end
+            end
+            local bp = LocalPlayer:FindFirstChild("Backpack")
+            if bp then
+                for _, item in ipairs(bp:GetChildren()) do
+                    if item:IsA("Tool") and (item.ToolTip == "Melee" or item:GetAttribute("WeaponType") == "Melee" or item.Name == "Combat" or (MeleesTable and table.find(MeleesTable, item.Name)) or item.Name == "Water Kung-fu" or item.Name == "Dark Step") then
+                        local lvl = (item:FindFirstChild("Level") and tonumber(item.Level.Value)) or 0
+                        return item.Name, lvl, item
+                    end
+                end
+            end
+            return nil, 0, nil
+        end
+
+        local function PlayerHasItem(itemName)
+            if not itemName then return false end
+            local lowerItem = string.lower(itemName)
+            local char = LocalPlayer.Character
+            if char then
+                for _, item in ipairs(char:GetChildren()) do
+                    if item:IsA("Tool") and string.find(string.lower(item.Name), lowerItem, 1, true) then
+                        return true
+                    end
+                end
+            end
+            local bp = LocalPlayer:FindFirstChild("Backpack")
+            if bp then
+                for _, item in ipairs(bp:GetChildren()) do
+                    if item:IsA("Tool") and string.find(string.lower(item.Name), lowerItem, 1, true) then
+                        return true
+                    end
+                end
+            end
+            if ScriptStorage and ScriptStorage.Tools then
+                for name, _ in pairs(ScriptStorage.Tools) do
+                    if string.find(string.lower(tostring(name)), lowerItem, 1, true) then
+                        return true
+                    end
+                end
+            end
+            if ScriptStorage and ScriptStorage.Backpack then
+                for name, _ in pairs(ScriptStorage.Backpack) do
+                    if string.find(string.lower(tostring(name)), lowerItem, 1, true) then
+                        return true
+                    end
+                end
             end
             return false
+        end
+
+        local function EquipItemByName(itemName)
+            if not itemName then return false end
+            local lowerItem = string.lower(itemName)
+            local char = LocalPlayer.Character
+            local hum = char and (char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("Humanoid"))
+            local bp = LocalPlayer:FindFirstChild("Backpack")
+            if char then
+                for _, item in ipairs(char:GetChildren()) do
+                    if item:IsA("Tool") and string.find(string.lower(item.Name), lowerItem, 1, true) then
+                        return true
+                    end
+                end
+            end
+            if bp and hum then
+                for _, item in ipairs(bp:GetChildren()) do
+                    if item:IsA("Tool") and string.find(string.lower(item.Name), lowerItem, 1, true) then
+                        hum:EquipTool(item)
+                        return true
+                    end
+                end
+            end
+            if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                pcall(function()
+                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(itemName)
+                end)
+            end
+            return false
+        end
+
+        local function FindLiveBoss(bossName)
+            if not bossName then return nil, nil end
+            local lowerName = string.lower(bossName)
+            
+            -- 1. Tìm trong workspace.Enemies
+            local enemies = workspace:FindFirstChild("Enemies")
+            if enemies then
+                for _, mon in ipairs(enemies:GetChildren()) do
+                    if mon:IsA("Model") and string.find(string.lower(mon.Name), lowerName, 1, true) then
+                        local hum = mon:FindFirstChildOfClass("Humanoid")
+                        local hrp = mon:FindFirstChild("HumanoidRootPart") or mon.PrimaryPart or mon:FindFirstChild("Torso")
+                        if hum and hum.Health > 0 and hrp then
+                            return mon, hrp.Position
+                        end
+                    end
+                end
+            end
+            
+            -- 2. Tìm trong workspace.Characters
+            local characters = workspace:FindFirstChild("Characters")
+            if characters then
+                for _, mon in ipairs(characters:GetChildren()) do
+                    if mon:IsA("Model") and not game.Players:GetPlayerFromCharacter(mon) and string.find(string.lower(mon.Name), lowerName, 1, true) then
+                        local hum = mon:FindFirstChildOfClass("Humanoid")
+                        local hrp = mon:FindFirstChild("HumanoidRootPart") or mon.PrimaryPart or mon:FindFirstChild("Torso")
+                        if hum and hum.Health > 0 and hrp then
+                            return mon, hrp.Position
+                        end
+                    end
+                end
+            end
+            
+            -- 3. Fallback qua ScriptStorage.Enemies
+            if ScriptStorage and ScriptStorage.Enemies then
+                local ok, e = pcall(function() return ScriptStorage.Enemies[bossName] end)
+                if ok and e and typeof(e) == "Instance" and e:IsA("Model") then
+                    local hum = e:FindFirstChildOfClass("Humanoid")
+                    local hrp = e:FindFirstChild("HumanoidRootPart") or e.PrimaryPart or e:FindFirstChild("Torso")
+                    if hum and hum.Health > 0 and hrp then
+                        return e, hrp.Position
+                    end
+                end
+            end
+
+            return nil, nil
         end
 
         local function CheckMeleeToolLevel(mName)
             local char = LocalPlayer.Character
             local bp = LocalPlayer:FindFirstChild("Backpack")
             local alias = _G.MeleeToolAliases[mName]
-            local tool = (char and (char:FindFirstChild(mName) or (alias and char:FindFirstChild(alias)))) or
+            local tool = (char and (char:FindFirstChild(mName) or (alias and char:FindFirstChild(alias)))) or 
                          (bp and (bp:FindFirstChild(mName) or (alias and bp:FindFirstChild(alias))))
             if tool and tool:FindFirstChild("Level") and tonumber(tool.Level.Value) then
                 local lvl = tonumber(tool.Level.Value)
@@ -5697,148 +6108,190 @@ FunctionsHandler = {
             return 0
         end
 
-        local function EquipMeleeByName(mName)
-            local alias = _G.MeleeToolAliases[mName]
-            local held = LocalPlayer.Character and (LocalPlayer.Character:FindFirstChild(mName) or (alias and LocalPlayer.Character:FindFirstChild(alias)))
-            if held and held:IsA("Tool") then
+        local function CheckStyleOwned(buyRemoteName, meleeName)
+            if not buyRemoteName then return false end
+            if meleeName and CheckMeleeToolLevel(meleeName) > 0 then
                 return true
             end
-            if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
-                pcall(function()
-                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(mName)
+            if buyRemoteName == "DragonClaw" then
+                local ok, res = pcall(function()
+                    return Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "1")
                 end)
-                if alias then
-                    pcall(function()
-                        FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(alias)
-                    end)
+                if ok and (res == 1 or res == 2 or res == 3 or res == true or tostring(res) == "1" or tostring(res) == "2" or tostring(res) == "3") then
+                    return true
+                end
+                return false
+            end
+            local ok, res = pcall(function()
+                return Remotes.CommF_:InvokeServer(buyRemoteName, true)
+            end)
+            if ok and (res == 1 or res == 2 or res == 3 or res == "You already own this style" or res == "Equipped" or res == true or tostring(res) == "1" or tostring(res) == "2" or tostring(res) == "3") then
+                return true
+            end
+            return false
+        end
+
+        local function EquipMeleeToolDirectly(mName, alias)
+            local char = LocalPlayer.Character
+            local hum = char and (char:FindFirstChildOfClass("Humanoid") or char:FindFirstChild("Humanoid"))
+            local bp = LocalPlayer:FindFirstChild("Backpack")
+            if char then
+                local held = char:FindFirstChild(mName) or (alias and char:FindFirstChild(alias))
+                if held and held:IsA("Tool") then
+                    return true
                 end
             end
-            held = LocalPlayer.Character and (LocalPlayer.Character:FindFirstChild(mName) or (alias and LocalPlayer.Character:FindFirstChild(alias)))
-            if held and held:IsA("Tool") then
+            if bp and hum then
+                local inBp = bp:FindFirstChild(mName) or (alias and bp:FindFirstChild(alias))
+                if inBp and inBp:IsA("Tool") then
+                    hum:EquipTool(inBp)
+                    return true
+                end
+                for _, t in ipairs(bp:GetChildren()) do
+                    if t:IsA("Tool") and (t.Name == mName or (alias and t.Name == alias)) then
+                        hum:EquipTool(t)
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+
+        local function SwitchToMelee(mName, alias, remoteName)
+            if EquipMeleeToolDirectly(mName, alias) then
                 return true
             end
-            local data = MeleePrices[mName]
-            if data and type(data.Buy) == "function" then
-                pcall(function() data.Buy() end)
-            end
-            if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+            if remoteName then
                 pcall(function()
-                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                    if remoteName == "DragonClaw" then
+                        Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "2")
+                    else
+                        Remotes.CommF_:InvokeServer(remoteName)
+                    end
                 end)
+                task.wait(0.15)
+                if EquipMeleeToolDirectly(mName, alias) then
+                    return true
+                end
             end
-            held = LocalPlayer.Character and (LocalPlayer.Character:FindFirstChild(mName) or (alias and LocalPlayer.Character:FindFirstChild(alias)))
-            return held ~= nil
+            return false
         end
 
         FunctionsHandler.MeleesController:RegisterMethod(
             "Start",
             function()
                 ScriptStorage.IsGettingMelee = false
-
                 if not Config.Items.AutoFullyMelees then
                     return
                 end
 
-                local MeleeList = {
-                    "Black Leg",
-                    "Electro",
-                    "Fishman Karate",
-                    "Dragon Claw",
-                    "Superhuman",
-                    "Death Step",
-                    "Sharkman Karate",
-                    "Electric Claw",
-                    "Dragon Talon",
-                    "Godhuman"
+                -- DANH SÁCH TOÀN BỘ VÕ VÀ ĐIỀU KIỆN THEO THỨ TỰ CHUẨN
+                local MeleeProgression = {
+                    { Name = "Black Leg", Alias = "Dark Step", Remote = "BuyBlackLeg", Teacher = "Dark Step Teacher", Target = 400, Beli = 150000, Frags = 0 },
+                    { Name = "Electro", Alias = "Electro", Remote = "BuyElectro", Teacher = "Mad Scientist", Target = 400, Beli = 500000, Frags = 0 },
+                    { Name = "Fishman Karate", Alias = "Water Kung-fu", Remote = "BuyFishmanKarate", Teacher = "Water Kung-fu Teacher", Target = 400, Beli = 750000, Frags = 0 },
+                    { Name = "Dragon Claw", Alias = "Dragon Claw", Remote = "DragonClaw", Teacher = "Sabi", Target = 400, Beli = 0, Frags = 1500 },
+                    { Name = "Superhuman", Alias = "Superhuman", Remote = "BuySuperhuman", Teacher = "Martial Arts Master", Target = 400, Beli = 3000000, Frags = 0, Prereqs = {"Black Leg", "Electro", "Fishman Karate", "Dragon Claw"}, PrereqMastery = 300 },
+                    { Name = "Death Step", Alias = "Death Step", Remote = "BuyDeathStep", Teacher = "Phoeyu, the Reformed", Target = 400, Beli = 2500000, Frags = 5000, Prereqs = {"Black Leg"}, PrereqMastery = 400 },
+                    { Name = "Sharkman Karate", Alias = "Sharkman Karate", Remote = "BuySharkmanKarate", Teacher = "Sharkman Teacher", Target = 400, Beli = 2500000, Frags = 5000, Prereqs = {"Fishman Karate"}, PrereqMastery = 400 },
+                    { Name = "Electric Claw", Alias = "Electric Claw", Remote = "BuyElectricClaw", Teacher = "Previous Hero", Target = 400, Beli = 2500000, Frags = 5000, Prereqs = {"Electro"}, PrereqMastery = 400 },
+                    { Name = "Dragon Talon", Alias = "Dragon Talon", Remote = "BuyDragonTalon", Teacher = "Uzoth", Target = 400, Beli = 2500000, Frags = 5000, Prereqs = {"Dragon Claw"}, PrereqMastery = 400 },
+                    { Name = "Godhuman", Alias = "Godhuman", Remote = "BuyGodhuman", Teacher = "Ancient Monk", Target = 350, Beli = 5000000, Frags = 5000, Prereqs = {"Superhuman", "Death Step", "Sharkman Karate", "Electric Claw", "Dragon Talon"}, PrereqMastery = 400 }
                 }
 
-                -- NẾU ĐÃ HOÀN TẤT TOÀN BỘ VÕ BAO GỒM GODHUMAN:
-                if _G.MeleeProgressionFinished and _G.MeleesMasteryCompleted["Godhuman"] then
-                    SetTask("SubTask", "Đã có Godhuman và hoàn tất võ -> Tiếp tục Farm Level!")
-                    return
+                -- CẬP NHẬT MASTERY TỪ VÕ ĐANG CẦM TRÊN TAY HOẶC TRONG BALO
+                local curHeldMeleeName, curHeldMeleeLvl = GetCurrentHeldMelee()
+                if curHeldMeleeName and curHeldMeleeLvl and curHeldMeleeLvl > 0 then
+                    ScriptStorage.Melees[curHeldMeleeName] = curHeldMeleeLvl
+                    local alias = _G.MeleeToolAliases[curHeldMeleeName]
+                    if alias then ScriptStorage.Melees[alias] = curHeldMeleeLvl end
+                    if curHeldMeleeLvl >= 400 then
+                        _G.MeleesMasteryCompleted[curHeldMeleeName] = true
+                        if alias then _G.MeleesMasteryCompleted[alias] = true end
+                    end
                 end
 
-                -- 1. SUY LUẬN THÔNG MINH TỪ CÁC VÕ ĐÃ SỞ HỮU TRÊN TAY HOẶC TRONG BALO HOẶC TRUY VẤN SERVER:
-                local hasGodhuman = CheckMeleeToolLevel("Godhuman") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Godhuman"]) or CheckStyleOwned("BuyGodhuman")
-
-                if hasGodhuman then
-                    -- Nếu người chơi đã có Godhuman -> Tất cả võ trước đều đã đạt 400!
-                    for _, m in ipairs(MeleeList) do
-                        _G.MeleesMasteryCompleted[m] = true
+                -- KẾ THỪA THÔNG MINH TỪ CÁC VÕ ĐÃ MUA / ĐÃ SỞ HỮU:
+                if CheckMeleeToolLevel("Godhuman") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Godhuman"]) or CheckStyleOwned("BuyGodhuman", "Godhuman") then
+                    for _, m in ipairs(MeleeProgression) do
+                        _G.MeleesMasteryCompleted[m.Name] = true
                     end
                     local curGhm = CheckMeleeToolLevel("Godhuman")
-                    if curGhm < 350 then
-                        SetTask("MainTask", "Godhuman | Cày Mastery (" .. curGhm .. "/350)")
-                        SetTask("SubTask", "Trang bị Godhuman và cày Mastery lên 350...")
-                        EquipMeleeByName("Godhuman")
-                        return
-                    else
+                    if curGhm >= 350 then
                         _G.MeleesMasteryCompleted["Godhuman"] = true
                         _G.MeleeProgressionFinished = true
-                        _G.CurrentMeleeOrderIndex = #MeleeList + 1
+                        _G.TargetFarmingMelee = nil
                         SetTask("SubTask", "Đã có Godhuman 350+ Mastery! Toàn bộ võ hoàn tất -> Tiếp tục Farm Level!")
                         return
                     end
                 end
 
-                -- Kế thừa các võ cấp 2 (Nếu đã sở hữu hoặc học được võ cấp 2 -> Võ cấp 1 chắc chắn đã đạt 400):
-                if CheckMeleeToolLevel("Death Step") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Death Step"]) or CheckStyleOwned("BuyDeathStep") then
+                if CheckMeleeToolLevel("Death Step") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Death Step"]) or CheckStyleOwned("BuyDeathStep", "Death Step") then
                     _G.MeleesMasteryCompleted["Black Leg"] = true
                     _G.MeleesMasteryCompleted["Dark Step"] = true
                 end
-                if CheckMeleeToolLevel("Sharkman Karate") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Sharkman Karate"]) or CheckStyleOwned("BuySharkmanKarate") then
+                if CheckMeleeToolLevel("Sharkman Karate") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Sharkman Karate"]) or CheckStyleOwned("BuySharkmanKarate", "Sharkman Karate") then
                     _G.MeleesMasteryCompleted["Fishman Karate"] = true
                     _G.MeleesMasteryCompleted["Water Kung-fu"] = true
                 end
-                if CheckMeleeToolLevel("Electric Claw") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Electric Claw"]) or CheckStyleOwned("BuyElectricClaw") then
+                if CheckMeleeToolLevel("Electric Claw") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Electric Claw"]) or CheckStyleOwned("BuyElectricClaw", "Electric Claw") then
                     _G.MeleesMasteryCompleted["Electro"] = true
                 end
-                if CheckMeleeToolLevel("Dragon Talon") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Dragon Talon"]) or CheckStyleOwned("BuyDragonTalon") then
+                if CheckMeleeToolLevel("Dragon Talon") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Dragon Talon"]) or CheckStyleOwned("BuyDragonTalon", "Dragon Talon") then
                     _G.MeleesMasteryCompleted["Dragon Claw"] = true
                 end
-                if CheckMeleeToolLevel("Superhuman") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Superhuman"]) or CheckStyleOwned("BuySuperhuman") then
-                    -- Superhuman yêu cầu 300+ ở cả 4 võ cơ bản
+                if CheckMeleeToolLevel("Superhuman") > 0 or (ScriptStorage.Melees and ScriptStorage.Melees["Superhuman"]) or CheckStyleOwned("BuySuperhuman", "Superhuman") then
                     if not _G.MeleesMasteryCompleted["Black Leg"] and CheckMeleeToolLevel("Black Leg") < 300 then ScriptStorage.Melees["Black Leg"] = 300 end
                     if not _G.MeleesMasteryCompleted["Electro"] and CheckMeleeToolLevel("Electro") < 300 then ScriptStorage.Melees["Electro"] = 300 end
                     if not _G.MeleesMasteryCompleted["Fishman Karate"] and CheckMeleeToolLevel("Fishman Karate") < 300 then ScriptStorage.Melees["Fishman Karate"] = 300 end
                     if not _G.MeleesMasteryCompleted["Dragon Claw"] and CheckMeleeToolLevel("Dragon Claw") < 300 then ScriptStorage.Melees["Dragon Claw"] = 300 end
                 end
 
-                _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex or 1
+                -- =========================================================================
+                -- DUYỆT TÌM VÕ THIẾU ĐẦU TIÊN VÀ XỬ LÝ NGAY LẬP TỨC (KHÔNG DUYỆT TIẾP!)
+                -- =========================================================================
+                for _, meleeInfo in ipairs(MeleeProgression) do
+                    local mName = meleeInfo.Name
+                    local mAlias = meleeInfo.Alias
+                    local targetMastery = meleeInfo.Target or 400
+                    local curLvl = CheckMeleeToolLevel(mName)
 
-                -- 2. DUYỆT KIỂM TRA THEO THỨ TỰ TỪNG VÕ:
-                while _G.CurrentMeleeOrderIndex <= #MeleeList do
-                    local Melee = MeleeList[_G.CurrentMeleeOrderIndex]
-                    local Data = MeleePrices[Melee]
-                    local TargetMastery = (Data and Data.NextLevelRequirement) or 400
-                    if Melee == "Godhuman" then
-                        TargetMastery = 350
+                    -- Thử trang bị trực tiếp hoặc đổi qua remote để đọc Level chính xác
+                    if curLvl == 0 and not _G.MeleesMasteryCompleted[mName] then
+                        local switched = SwitchToMelee(mName, mAlias, meleeInfo.Remote)
+                        if switched then
+                            curLvl = CheckMeleeToolLevel(mName)
+                        end
                     end
 
-                    -- A. Nếu võ này đã được xác nhận hoàn thành 400 mastery trước đó:
-                    if _G.MeleesMasteryCompleted[Melee] then
-                        _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex + 1
+                    -- Nếu võ này đã đạt đủ target mastery (>= 400): Đánh dấu xong và bỏ qua sang võ tiếp theo
+                    if curLvl >= targetMastery or _G.MeleesMasteryCompleted[mName] then
+                        _G.MeleesMasteryCompleted[mName] = true
+                        if mAlias then _G.MeleesMasteryCompleted[mAlias] = true end
+                        -- Tiếp tục vòng lặp kiểm tra võ tiếp theo
                     else
-                        -- B. XỬ LÝ VÕ CUỐI CÙNG: GODHUMAN
-                        if Melee == "Godhuman" then
+                        -- ĐÂY CHÍNH LÀ VÕ ĐANG THIẾU CẦN CÀY HOẶC CẦN MUA/NHẬN!
+                        -- DỪNG LẠI TẠI VÕ NÀY NGAY LẬP TỨC!
+                        _G.TargetFarmingMelee = mName
+
+                        -- 1. TRƯỜNG HỢP VÕ GODHUMAN (CUỐI CÙNG):
+                        if mName == "Godhuman" then
                             pcall(RefreshInventory)
                             local ftCount = (ScriptStorage.Backpack["Fish Tail"] or {Count = 0}).Count
                             local moCount = (ScriptStorage.Backpack["Magma Ore"] or {Count = 0}).Count
                             local dsCount = (ScriptStorage.Backpack["Dragon Scale"] or {Count = 0}).Count
                             local mdCount = (ScriptStorage.Backpack["Mystic Droplet"] or {Count = 0}).Count
+                            RefreshPlayerData()
                             local pData = ScriptStorage.PlayerData or {}
                             local beli = pData.Beli or 0
                             local frags = pData.Fragments or 0
-
                             local hasAllMats = (ftCount >= 20 and moCount >= 20 and dsCount >= 10 and mdCount >= 10)
                             local hasAllCurrency = (beli >= 5000000 and frags >= 5000)
-
                             local monkPos = Vector3.new(-2864, 44, -14925)
                             local monkNpc = workspace.NPCs:FindFirstChild("Ancient Monk") or (game.ReplicatedStorage:FindFirstChild("NPCs") and game.ReplicatedStorage.NPCs:FindFirstChild("Ancient Monk"))
                             if monkNpc then
                                 monkPos = (monkNpc:IsA("Model") and monkNpc:GetPivot().Position) or monkNpc.Position
                             end
-
                             local matSubStatus = string.format("FT: %d/20 | MO: %d/20 | DS: %d/10 | MD: %d/10 | B: %s/5M | F: %s/5K",
                                 ftCount, moCount, dsCount, mdCount,
                                 (beli >= 1000000 and string.format("%.1fM", beli/1000000) or string.format("%.0fK", beli/1000)),
@@ -5852,7 +6305,6 @@ FunctionsHandler = {
                                     Remotes.CommF_:InvokeServer("TravelZou")
                                     return
                                 end
-
                                 SetTask("MainTask", "Godhuman | Nhận võ tại Ancient Monk")
                                 SetTask("SubTask", "Đang bay tới Ancient Monk để nhận võ Godhuman! " .. matSubStatus)
                                 TweenController.Create(monkPos + Vector3.new(0, 5, 3))
@@ -5863,36 +6315,15 @@ FunctionsHandler = {
                                     end)
                                     task.wait(1)
                                     pcall(RefreshInventory)
-                                    pcall(function()
-                                        EquipMeleeByName("Godhuman")
-                                    end)
-                                    if CheckMeleeToolLevel("Godhuman") > 0 then
-                                        SetTask("SubTask", "Đã nhận thành công võ Godhuman!")
-                                    end
+                                    EquipMeleeToolDirectly("Godhuman", "Godhuman")
                                 end
                                 return
                             else
-                                -- Nếu chưa từng tương tác với Ancient Monk ở Sea 3, bay qua kiểm tra trước
-                                if SeaIndex == 3 and not _G.AncientMonkVisited then
-                                    SetTask("MainTask", "Godhuman | Kiểm tra tại Ancient Monk")
-                                    SetTask("SubTask", "Đang tới gặp Ancient Monk kiểm tra nguyên liệu...")
-                                    TweenController.Create(monkPos + Vector3.new(0, 5, 3))
-                                    if CaculateDistance(monkPos) < 25 then
-                                        task.wait(0.5)
-                                        pcall(function()
-                                            Remotes.CommF_:InvokeServer("BuyGodhuman", true)
-                                        end)
-                                        _G.AncientMonkVisited = true
-                                        task.wait(0.5)
-                                    end
-                                    return
-                                end
-
-                                -- Tự động farm nguyên liệu còn thiếu cho Godhuman:
+                                -- Đi farm nguyên liệu Godhuman
                                 if SeaIndex == 3 then
                                     if ftCount < 20 then
                                         SetTask("MainTask", "Godhuman Material | Fish Tail (" .. ftCount .. "/20)")
-                                        SetTask("SubTask", "Farm Fishman Raider/Captain tại Đảo Rùa | " .. matSubStatus)
+                                        SetTask("SubTask", "Farm Fishman tại Đảo Rùa | " .. matSubStatus)
                                         local hasQ = false
                                         pcall(function()
                                             local qGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
@@ -5964,154 +6395,515 @@ FunctionsHandler = {
                                         return
                                     end
                                 end
-
-                                -- Nếu thiếu Beli hoặc Frags: Farm tiếp để tích lũy
                                 SetTask("SubTask", "Đang tích lũy Beli / Frags cho Godhuman | " .. matSubStatus)
                                 return
                             end
                         end
 
-                        -- C. XỬ LÝ CÁC VÕ TỪ 1 ĐẾN 9:
-                        local currentMastery = CheckMeleeToolLevel(Melee)
-
-                        -- Thử trang bị võ để cập nhật mastery chính xác
-                        if currentMastery == 0 then
-                            local now = tick()
-                            if now - (_G.LastMeleeCheckTime or 0) > 2 then
-                                _G.LastMeleeCheckTime = now
-                                pcall(function()
-                                    EquipMeleeByName(Melee)
-                                end)
-                                currentMastery = CheckMeleeToolLevel(Melee)
+                        -- 2. TRƯỜNG HỢP CÁC VÕ TỪ 1 ĐẾN 9:
+                        local isOwned = (curLvl > 0) or CheckStyleOwned(meleeInfo.Remote, mName)
+                        if not isOwned and (mName == "Dragon Claw") then
+                            local ok, res = pcall(function()
+                                return Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "1")
+                            end)
+                            if ok and (res == 1 or res == 2 or res == true or tostring(res) == "2") then
+                                isOwned = true
                             end
                         end
 
-                        -- Nếu đã đạt đủ TargetMastery (400):
-                        if currentMastery >= TargetMastery then
-                            _G.MeleesMasteryCompleted[Melee] = true
-                            print("[MeleeController] Hoàn thành võ " .. Melee .. " (" .. currentMastery .. "/" .. TargetMastery .. ")")
-                            _G.CurrentMeleeOrderIndex = _G.CurrentMeleeOrderIndex + 1
-                            -- Tiếp tục kiểm tra võ kế tiếp trong danh sách
-                        else
-                            -- VÕ NÀY CHƯA XONG (< 400):
-                            -- YÊU CẦU CỦA BẠN: "nếu võ nào chưa xong thì đi fam"!
-                            -- Trang bị võ này, nhận nhiệm vụ và đánh quái cày Mastery (KHÔNG ĐỨNG IM!):
-                            ScriptStorage.IsGettingMelee = false
-                            EquipMeleeByName(Melee)
-                            local dispLevel = CheckMeleeToolLevel(Melee)
+                        -- XỬ LÝ RIÊNG BIỆT TỪNG VÕ V2 / ĐẶC BIỆT KHI CHƯA SỞ HỮU HOẶC THIẾU ĐIỀU KIỆN MỞ KHÓA:
+                        if not isOwned then
+                            RefreshPlayerData()
+                            local pData = ScriptStorage.PlayerData or {}
+                            local currentBeli = pData.Beli or 0
+                            local currentFrags = pData.Fragments or 0
 
-                            SetTask("SubTask", "Đang cày thông thạo: " .. Melee .. " (" .. dispLevel .. "/" .. TargetMastery .. ")")
-
-                            -- Thực hiện đi farm quái nhận EXP cho võ:
-                            local qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
-                            local hasActiveQuest = false
-                            local qProgActive, qCurrent, qTotal = nil, nil, nil
-                            pcall(function()
-                                if QuestManager and QuestManager.GetQuestProgress then
-                                    qProgActive, qCurrent, qTotal = QuestManager.GetQuestProgress()
-                                end
-                            end)
-
-                            if qProgActive then
-                                if qCurrent and qTotal then
-                                    if qCurrent < qTotal then
-                                        hasActiveQuest = true
-                                    else
-                                        hasActiveQuest = false
-                                        ScriptStorage.ClaimedQuest = nil
-                                    end
-                                else
-                                    hasActiveQuest = true
-                                end
-                            end
-
-                            pcall(function()
-                                local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
-                                if questGui and questGui.Visible and (not questGui:FindFirstChild("Container") or questGui.Container.Visible) then
-                                    if qProgActive then
-                                        hasActiveQuest = true
-                                    end
-                                end
-                            end)
-
-                            local activeMobName = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
-                            if activeMobName and activeMobName ~= "" then
-                                -- Bỏ qua quest ảo Bandit nếu ở Sea 2 hoặc Sea 3
-                                if SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(activeMobName)), "bandit") and not string.find(string.lower(tostring(activeMobName)), "desert") and not string.find(string.lower(tostring(activeMobName)), "snow") then
-                                    activeMobName = nil
-                                else
-                                    hasActiveQuest = true
-                                    qMonName = activeMobName
-                                end
-                            end
-
-                            if not hasActiveQuest and ScriptStorage.ClaimedQuest and ScriptStorage.ClaimedQuest.Active then
-                                local elapsed = os.time() - (ScriptStorage.ClaimedQuest.StartTime or os.time())
-                                if elapsed < 600 then
-                                    local cName = activeMobName or ScriptStorage.ClaimedQuest.MonName or qMonName
-                                    if not (SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(cName or "")), "bandit")) then
-                                        hasActiveQuest = true
-                                        qMonName = cName
-                                    end
-                                else
-                                    ScriptStorage.ClaimedQuest = nil
-                                end
-                            end
-
-                            if not qMonName or (SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(qMonName)), "bandit") and not string.find(string.lower(tostring(qMonName)), "desert") and not string.find(string.lower(tostring(qMonName)), "snow")) then
-                                QuestManager:RefreshQuest()
-                                qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
-                            end
-
-                            if hasActiveQuest and qMonName then
-                                SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Đang tiêu diệt " .. tostring(qMonName))
-                                CombatController.Attack(qMonName)
-                            else
-                                if not qNpcPos then
-                                    QuestManager:RefreshQuest()
-                                    qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
-                                    if not qNpcPos and qQuestId and BuiltInNpcPositions and BuiltInNpcPositions[qQuestId] then
-                                        qNpcPos = BuiltInNpcPositions[qQuestId]
-                                    end
+                            -- =========================================================================
+                            -- [A] SHARKMAN KARATE (Cần Water Key từ Tide Keeper tại Sea 2)
+                            -- =========================================================================
+                            if mName == "Sharkman Karate" then
+                                -- 1. Kiểm tra xem đã sở hữu Sharkman Karate chưa
+                                local isOwned = CheckStyleOwned("BuySharkmanKarate", "Sharkman Karate")
+                                if isOwned then
+                                    SwitchToMelee("Sharkman Karate", "Sharkman Karate", "BuySharkmanKarate")
+                                    return
                                 end
 
-                                if qNpcPos then
-                                    local targetNpcVec = (typeof(qNpcPos) == "CFrame" and qNpcPos.Position) or (typeof(qNpcPos) == "Vector3" and qNpcPos) or Vector3.new(0, 0, 0)
-                                    SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Nhận nhiệm vụ")
-                                    SetTask("SubTask", "Bay tới NPC nhận nhiệm vụ cày thông thạo võ " .. Melee .. "...")
-                                    TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
-                                    if CaculateDistance(targetNpcVec) <= 30 then
-                                        task.wait(0.2)
-                                        QuestManager.StartQuest(qQuestId, qQuestIndex)
-                                        task.wait(0.2)
-                                        -- Sau khi nhận nhiệm vụ, lập tức bay đi đánh quái luôn không cần chờ loop kế tiếp:
-                                        local afterMob = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or qMonName
-                                        if afterMob and afterMob ~= "" then
-                                            CombatController.Attack(afterMob)
+                                -- 2. Kiểm tra xem người chơi đã có Water Key chưa
+                                local hasWaterKey = PlayerHasItem("Water Key")
+                                if hasWaterKey then
+                                    local teacherPos = GetMeleeTeacherPos("Sharkman Karate") or (SeaIndex == 2 and Vector3.new(-3827, 77, -11865)) or Vector3.new(-5075, 315, -3165)
+                                    if teacherPos then
+                                        SetTask("MainTask", "Mở Khóa | Sharkman Karate")
+                                        SetTask("SubTask", "Đã có Water Key -> Bay tới Sharkman Teacher giao chìa khóa và mở khóa võ...")
+                                        TweenController.Create(teacherPos + Vector3.new(0, 4, 2))
+                                        if CaculateDistance(teacherPos) <= 25 then
+                                            task.wait(0.3)
+                                            EquipItemByName("Water Key")
+                                            task.wait(0.2)
+                                            Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)
+                                            task.wait(0.3)
+                                            Remotes.CommF_:InvokeServer("BuySharkmanKarate")
+                                            task.wait(0.5)
+                                            EquipMeleeToolDirectly("Sharkman Karate", "Sharkman Karate")
                                         end
                                     end
+                                    return
                                 else
-                                    SetTask("MainTask", "Cày Thông Thạo | " .. Melee .. " | Đang gom quái đánh")
-                                    SetTask("SubTask", "Gom quái đánh cày thông thạo võ " .. Melee .. "...")
-                                    if SeaIndex == 3 then
-                                        CombatController.Attack({"Sun-kissed Warrior", "Isle Outlaw", "Island Boy", "Sun-kissed Champion", "Chocolate Bar Battler", "Cocoa Warrior", "Cookie Crafter", "Cake Guard", "Demonic Soul", "Posessed Mummy", "Reborn Skeleton", "Living Zombie"})
-                                    elseif SeaIndex == 2 then
-                                        CombatController.Attack({"Water Fighter", "Sea Soldier", "Snow Lurker", "Arctic Warrior", "Forgotten Quest Giver"})
+                                    -- Chưa có Water Key: Thử kiểm tra xem trước đó đã giao chìa khóa chưa (nếu đã giao thì mua trực tiếp)
+                                    local canBuyDirect = false
+                                    local okCheck, resCheck = pcall(function()
+                                        return Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)
+                                    end)
+                                    if okCheck and (resCheck == 1 or resCheck == 2 or resCheck == 3 or resCheck == true or tostring(resCheck) == "1" or tostring(resCheck) == "2" or tostring(resCheck) == "3" or resCheck == "You already own this style") then
+                                        canBuyDirect = true
+                                    end
+
+                                    if canBuyDirect and currentBeli >= 2500000 and currentFrags >= 5000 then
+                                        local teacherPos = GetMeleeTeacherPos("Sharkman Karate") or (SeaIndex == 2 and Vector3.new(-3827, 77, -11865)) or Vector3.new(-5075, 315, -3165)
+                                        if teacherPos then
+                                            SetTask("MainTask", "Mua Võ | Sharkman Karate")
+                                            SetTask("SubTask", "Đã mở khóa -> Bay tới Sharkman Teacher nhận võ...")
+                                            TweenController.Create(teacherPos + Vector3.new(0, 4, 2))
+                                            if CaculateDistance(teacherPos) <= 25 then
+                                                task.wait(0.3)
+                                                Remotes.CommF_:InvokeServer("BuySharkmanKarate")
+                                                task.wait(0.5)
+                                                EquipMeleeToolDirectly("Sharkman Karate", "Sharkman Karate")
+                                            end
+                                        end
+                                        return
                                     else
-                                        CombatController.Attack({"Galley Captain", "Galley Pirate", "Royal Soldier", "Royal Squad"})
+                                        -- CHƯA MỞ KHÓA VÀ CHƯA CÓ WATER KEY: BẮT BUỘC ĐI SĂN BOSS TIDE KEEPER Ở SEA 2!
+                                        if SeaIndex ~= 2 then
+                                            SetTask("MainTask", "Sharkman Karate | Thiếu Water Key")
+                                            SetTask("SubTask", "Chuyển sang Sea 2 để săn Boss Tide Keeper lấy Water Key...")
+                                            Remotes.CommF_:InvokeServer("TravelDressrosa")
+                                            return
+                                        else
+                                            -- Đang ở Sea 2: Kiểm tra Tide Keeper
+                                            local liveTide, tidePos = FindLiveBoss("Tide Keeper")
+                                            if liveTide then
+                                                SetTask("MainTask", "Săn Boss Tide Keeper | Lấy Water Key")
+                                                SetTask("SubTask", "Đang tiêu diệt Tide Keeper tại Forgotten Island để nhặt Water Key...")
+                                                CombatController.Attack("Tide Keeper")
+                                                return
+                                            else
+                                                -- Boss chưa xuất hiện: Đánh quái Forgotten Island hoặc chờ boss tại bãi
+                                                SetTask("MainTask", "Săn Water Key | Chờ Boss Tide Keeper")
+                                                SetTask("SubTask", "Đang tại Forgotten Island đánh quái / chờ Boss Tide Keeper hồi sinh...")
+                                                local seaSoldier = ScriptStorage.Enemies["Sea Soldier"] or ScriptStorage.Enemies["Water Fighter"]
+                                                if seaSoldier then
+                                                    CombatController.Attack({"Sea Soldier", "Water Fighter"})
+                                                else
+                                                    local bossSpawnPos = Vector3.new(-3800, 60, -11500)
+                                                    TweenController.Create(bossSpawnPos)
+                                                end
+                                                return
+                                            end
+                                        end
+                                    end
+                                end
+
+                            -- =========================================================================
+                            -- [B] DEATH STEP (Cần Library Key từ Awakened Ice Admiral tại Sea 2)
+                            -- =========================================================================
+                            elseif mName == "Death Step" then
+                                local isOwned = CheckStyleOwned("BuyDeathStep", "Death Step")
+                                if isOwned then
+                                    SwitchToMelee("Death Step", "Death Step", "BuyDeathStep")
+                                    return
+                                end
+
+                                local hasLibKey = PlayerHasItem("Library Key")
+                                if hasLibKey then
+                                    if SeaIndex ~= 2 then
+                                        SetTask("MainTask", "Death Step | Sang Sea 2")
+                                        SetTask("SubTask", "Chuyển sang Sea 2 mở cửa Thư Viện Ice Castle...")
+                                        Remotes.CommF_:InvokeServer("TravelDressrosa")
+                                        return
+                                    end
+                                    SetTask("MainTask", "Mở Khóa | Death Step")
+                                    SetTask("SubTask", "Đã có Library Key -> Mở cửa thư viện và gặp Phoeyu...")
+                                    local doorPos = Vector3.new(6340, 298, -6760)
+                                    TweenController.Create(doorPos + Vector3.new(0, 4, 2))
+                                    if CaculateDistance(doorPos) <= 25 then
+                                        task.wait(0.3)
+                                        Remotes.CommF_:InvokeServer("OpenLibrary")
+                                        task.wait(0.3)
+                                        Remotes.CommF_:InvokeServer("BuyDeathStep", true)
+                                        task.wait(0.2)
+                                        Remotes.CommF_:InvokeServer("BuyDeathStep")
+                                        task.wait(0.5)
+                                        EquipMeleeToolDirectly("Death Step", "Death Step")
+                                    end
+                                    return
+                                else
+                                    local canBuyDirect = false
+                                    local okCheck, resCheck = pcall(function()
+                                        return Remotes.CommF_:InvokeServer("BuyDeathStep", true)
+                                    end)
+                                    if okCheck and (resCheck == 1 or resCheck == 2 or resCheck == 3 or resCheck == true or tostring(resCheck) == "1" or tostring(resCheck) == "2" or tostring(resCheck) == "3" or resCheck == "You already own this style") then
+                                        canBuyDirect = true
+                                    end
+
+                                    if canBuyDirect and currentBeli >= 2500000 and currentFrags >= 5000 then
+                                        local teacherPos = GetMeleeTeacherPos("Death Step")
+                                        if teacherPos then
+                                            SetTask("MainTask", "Mua Võ | Death Step")
+                                            SetTask("SubTask", "Đã mở khóa -> Bay tới Phoeyu nhận võ...")
+                                            TweenController.Create(teacherPos + Vector3.new(0, 4, 2))
+                                            if CaculateDistance(teacherPos) <= 25 then
+                                                task.wait(0.3)
+                                                Remotes.CommF_:InvokeServer("BuyDeathStep")
+                                                task.wait(0.5)
+                                                EquipMeleeToolDirectly("Death Step", "Death Step")
+                                            end
+                                        end
+                                        return
+                                    else
+                                        -- Đi săn Awakened Ice Admiral ở Sea 2 lấy Library Key
+                                        if SeaIndex ~= 2 then
+                                            SetTask("MainTask", "Death Step | Thiếu Library Key")
+                                            SetTask("SubTask", "Chuyển sang Sea 2 để săn Awakened Ice Admiral lấy Library Key...")
+                                            Remotes.CommF_:InvokeServer("TravelDressrosa")
+                                            return
+                                        else
+                                            local liveIce, icePos = FindLiveBoss("Awakened Ice Admiral")
+                                            if liveIce then
+                                                SetTask("MainTask", "Săn Awakened Ice Admiral | Lấy Library Key")
+                                                SetTask("SubTask", "Đang tiêu diệt Awakened Ice Admiral tại Ice Castle...")
+                                                CombatController.Attack("Awakened Ice Admiral")
+                                                return
+                                            else
+                                                SetTask("MainTask", "Chờ Awakened Ice Admiral | Ice Castle")
+                                                SetTask("SubTask", "Đang bay trên cao Ice Castle chờ Boss hồi sinh để lấy Library Key...")
+                                                local iceSpawnPos = Vector3.new(5650, 60, -6800)
+                                                TweenController.Create(iceSpawnPos)
+                                                return
+                                            end
+                                        end
+                                    end
+                                end
+
+                            -- =========================================================================
+                            -- [C] ELECTRIC CLAW (Nhiệm vụ Previous Hero tại Sea 3)
+                            -- =========================================================================
+                            elseif mName == "Electric Claw" then
+                                if SeaIndex ~= 3 then
+                                    SetTask("MainTask", "Electric Claw | Sang Sea 3")
+                                    SetTask("SubTask", "Chuyển sang Sea 3 làm nhiệm vụ Previous Hero...")
+                                    Remotes.CommF_:InvokeServer("TravelZou")
+                                    return
+                                end
+
+                                local heroPos = Vector3.new(-10371, 332, -10134)
+                                local mansionPos = Vector3.new(-12548, 332, -7617)
+                                SetTask("MainTask", "Nhiệm Vụ | Electric Claw")
+                                SetTask("SubTask", "Đến Previous Hero tại Đảo Rùa nhận nhiệm vụ chạy về Mansion trong 30s...")
+                                TweenController.Create(heroPos + Vector3.new(0, 4, 2))
+                                if CaculateDistance(heroPos) <= 25 then
+                                    task.wait(0.3)
+                                    Remotes.CommF_:InvokeServer("BuyElectricClaw", "Start")
+                                    task.wait(0.5)
+                                    local startRun = tick()
+                                    repeat
+                                        TweenController.Create(mansionPos + Vector3.new(0, 5, 2))
+                                        task.wait(0.1)
+                                    until CaculateDistance(mansionPos) <= 30 or (tick() - startRun > 25)
+                                    task.wait(0.5)
+                                    repeat
+                                        TweenController.Create(heroPos + Vector3.new(0, 4, 2))
+                                        task.wait(0.1)
+                                    until CaculateDistance(heroPos) <= 25 or (tick() - startRun > 35)
+                                    task.wait(0.5)
+                                    Remotes.CommF_:InvokeServer("BuyElectricClaw")
+                                    task.wait(0.5)
+                                    EquipMeleeToolDirectly("Electric Claw", "Electric Claw")
+                                end
+                                return
+
+                            -- =========================================================================
+                            -- [D] DRAGON TALON (Cần Fire Essence từ Death King tại Sea 3)
+                            -- =========================================================================
+                            elseif mName == "Dragon Talon" then
+                                local hasFireEssence = PlayerHasItem("Fire Essence")
+                                if hasFireEssence then
+                                    if SeaIndex ~= 3 then
+                                        SetTask("MainTask", "Dragon Talon | Sang Sea 3")
+                                        SetTask("SubTask", "Chuyển sang Sea 3 giao Fire Essence cho Uzoth...")
+                                        Remotes.CommF_:InvokeServer("TravelZou")
+                                        return
+                                    end
+                                    local uzothPos = Vector3.new(-9515, 142, 5520)
+                                    SetTask("MainTask", "Mở Khóa | Dragon Talon")
+                                    SetTask("SubTask", "Đã có Fire Essence -> Bay tới Uzoth tại Haunted Castle để nhận võ...")
+                                    TweenController.Create(uzothPos + Vector3.new(0, 4, 2))
+                                    if CaculateDistance(uzothPos) <= 25 then
+                                        task.wait(0.3)
+                                        EquipItemByName("Fire Essence")
+                                        task.wait(0.2)
+                                        Remotes.CommF_:InvokeServer("BuyDragonTalon", true)
+                                        task.wait(0.2)
+                                        Remotes.CommF_:InvokeServer("BuyDragonTalon")
+                                        task.wait(0.5)
+                                        EquipMeleeToolDirectly("Dragon Talon", "Dragon Talon")
+                                    end
+                                    return
+                                else
+                                    local canBuyDirect = false
+                                    local okCheck, resCheck = pcall(function()
+                                        return Remotes.CommF_:InvokeServer("BuyDragonTalon", true)
+                                    end)
+                                    if okCheck and (resCheck == 1 or resCheck == 2 or resCheck == true) then
+                                        canBuyDirect = true
+                                    end
+
+                                    if canBuyDirect and currentBeli >= 2500000 and currentFrags >= 5000 then
+                                        local uzothPos = Vector3.new(-9515, 142, 5520)
+                                        SetTask("MainTask", "Mua Võ | Dragon Talon")
+                                        SetTask("SubTask", "Đã mở khóa -> Bay tới Uzoth nhận võ...")
+                                        TweenController.Create(uzothPos + Vector3.new(0, 4, 2))
+                                        if CaculateDistance(uzothPos) <= 25 then
+                                            task.wait(0.3)
+                                            Remotes.CommF_:InvokeServer("BuyDragonTalon")
+                                            task.wait(0.5)
+                                            EquipMeleeToolDirectly("Dragon Talon", "Dragon Talon")
+                                        end
+                                        return
+                                    else
+                                        -- Farm Xương tại Haunted Castle ở Sea 3 để quay Random Surprise lấy Fire Essence
+                                        if SeaIndex ~= 3 then
+                                            SetTask("MainTask", "Dragon Talon | Thiếu Fire Essence")
+                                            SetTask("SubTask", "Chuyển sang Sea 3 farm Xương quay Fire Essence...")
+                                            Remotes.CommF_:InvokeServer("TravelZou")
+                                            return
+                                        else
+                                            pcall(RefreshInventory)
+                                            local bonesCount = (ScriptStorage.Backpack and ScriptStorage.Backpack["Bones"] and (ScriptStorage.Backpack["Bones"].Count or ScriptStorage.Backpack["Bones"].Value)) or 0
+                                            if bonesCount >= 50 then
+                                                SetTask("MainTask", "Dragon Talon | Quay Fire Essence")
+                                                SetTask("SubTask", "Đến Death King tại Haunted Castle quay Random Surprise (Xương: " .. bonesCount .. ")...")
+                                                local deathKingPos = Vector3.new(-9515, 142, 5520)
+                                                TweenController.Create(deathKingPos + Vector3.new(0, 4, 2))
+                                                if CaculateDistance(deathKingPos) <= 25 then
+                                                    task.wait(0.3)
+                                                    Remotes.CommF_:InvokeServer("Bones", "Buy", 1, 1)
+                                                    task.wait(0.5)
+                                                    pcall(RefreshInventory)
+                                                end
+                                                return
+                                            else
+                                                SetTask("MainTask", "Dragon Talon | Farm Xương (Bones)")
+                                                SetTask("SubTask", "Farm quái tại Haunted Castle tích lũy Xương quay Fire Essence (" .. bonesCount .. "/50)...")
+                                                local hasQ = false
+                                                pcall(function()
+                                                    local qGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                                                    hasQ = qGui and qGui.Visible
+                                                end)
+                                                if not hasQ then
+                                                    pcall(function() QuestManager.StartQuest("HauntedQuest2", 1) end)
+                                                end
+                                                CombatController.Attack({"Demonic Soul", "Posessed Mummy", "Reborn Skeleton", "Living Zombie"})
+                                                return
+                                            end
+                                        end
+                                    end
+                                end
+
+                            -- =========================================================================
+                            -- [E] CÁC VÕ THƯỜNG KHÁC (Black Leg, Electro, Fishman Karate, Dragon Claw, Superhuman)
+                            -- =========================================================================
+                            else
+                                -- Kiểm tra võ tiền đề (Prereqs):
+                                local prereqsMet = true
+                                if meleeInfo.Prereqs then
+                                    for _, reqName in ipairs(meleeInfo.Prereqs) do
+                                        local reqLvl = CheckMeleeToolLevel(reqName)
+                                        if reqLvl < (meleeInfo.PrereqMastery or 300) then
+                                            prereqsMet = false
+                                            break
+                                        end
+                                    end
+                                end
+
+                                local hasEnoughMoney = (currentBeli >= (meleeInfo.Beli or 0)) and (currentFrags >= (meleeInfo.Frags or 0))
+                                local teacherPos = GetMeleeTeacherPos(mName) or GetMeleeTeacherPos(meleeInfo.Teacher)
+
+                                if prereqsMet and hasEnoughMoney and teacherPos then
+                                    SetTask("MainTask", "Mua Võ | " .. mName)
+                                    SetTask("SubTask", "Đủ điều kiện -> Bay tới " .. meleeInfo.Teacher .. " để nhận/mua võ " .. mName .. "...")
+                                    TweenController.Create(teacherPos + Vector3.new(0, 4, 2))
+                                    if CaculateDistance(teacherPos) <= 25 then
+                                        task.wait(0.3)
+                                        if meleeInfo.Remote == "DragonClaw" then
+                                            Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "1")
+                                            task.wait(0.2)
+                                            Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "2")
+                                        else
+                                            Remotes.CommF_:InvokeServer(meleeInfo.Remote, true)
+                                            task.wait(0.2)
+                                            Remotes.CommF_:InvokeServer(meleeInfo.Remote)
+                                        end
+                                        task.wait(0.5)
+                                        EquipMeleeToolDirectly(mName, mAlias)
+                                        _G.LastMeleeSwitchTime = tick()
+                                    end
+                                    return
+                                elseif not hasEnoughMoney then
+                                    SetTask("MainTask", "Tích Lũy Beli/Frags | " .. mName)
+                                    SetTask("SubTask", string.format("Cần: %s Beli, %d Frags để mua %s", 
+                                        (meleeInfo.Beli >= 1000000 and string.format("%.1fM", meleeInfo.Beli/1000000) or string.format("%dK", meleeInfo.Beli/1000)),
+                                        meleeInfo.Frags or 0,
+                                        mName
+                                    ))
+                                end
+                            end
+                        end
+
+                        -- B) NẾU ĐÃ SỞ HỮU VÕ NHƯNG CHƯA ĐẠT TARGET MASTERY (< 400):
+                        -- KIỂM TRA XEM NHÂN VẬT ĐANG CẦM ĐÚNG VÕ NÀY TRÊN TAY CHƯA!
+                        local heldMeleeName, heldMastery = GetCurrentHeldMelee()
+                        local isHoldingCorrectMelee = (heldMeleeName == mName) or (mAlias and heldMeleeName == mAlias)
+
+                        -- NẾU ĐANG CẦM VÕ KHÁC:
+                        if not isHoldingCorrectMelee then
+                            local switched = SwitchToMelee(mName, mAlias, meleeInfo.Remote)
+                            if switched then
+                                local newLvl = CheckMeleeToolLevel(mName)
+                                if newLvl >= targetMastery then
+                                    _G.MeleesMasteryCompleted[mName] = true
+                                    if mAlias then _G.MeleesMasteryCompleted[mAlias] = true end
+                                    _G.LastMeleeSwitchTime = tick()
+                                    return
+                                end
+                                _G.LastMeleeSwitchTime = tick()
+                            else
+                                -- Chưa có trên tay / balo và remote không đổi được -> Bay tới NPC đổi sang võ này
+                                local teacherPos = GetMeleeTeacherPos(mName) or GetMeleeTeacherPos(meleeInfo.Teacher)
+                                if teacherPos then
+                                    SetTask("MainTask", "Đổi Võ | Chuyển sang " .. mName)
+                                    SetTask("SubTask", "Đang bay tới " .. meleeInfo.Teacher .. " để đổi sang " .. mName .. "...")
+                                    TweenController.Create(teacherPos + Vector3.new(0, 4, 2))
+                                    if CaculateDistance(teacherPos) <= 25 then
+                                        task.wait(0.3)
+                                        if meleeInfo.Remote == "DragonClaw" then
+                                            Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "1")
+                                            task.wait(0.2)
+                                            Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "2")
+                                        else
+                                            Remotes.CommF_:InvokeServer(meleeInfo.Remote, true)
+                                            task.wait(0.2)
+                                            Remotes.CommF_:InvokeServer(meleeInfo.Remote)
+                                        end
+                                        task.wait(0.5)
+                                        EquipMeleeToolDirectly(mName, mAlias)
+                                        _G.LastMeleeSwitchTime = tick()
+                                    end
+                                    return
+                                end
+                            end
+                        end
+
+                        -- C) KHI ĐÃ CẦM ĐÚNG VÕ TRÊN TAY: TIẾN HÀNH NHẬN NHIỆM VỤ VÀ FARM QUÁI CÀY MASTERY LÊN 400!
+                        EquipMeleeToolDirectly(mName, mAlias)
+                        local currentDispLvl = CheckMeleeToolLevel(mName)
+                        SetTask("SubTask", "Đang cày thông thạo: " .. mName .. " (" .. currentDispLvl .. "/" .. targetMastery .. ")")
+
+                        local qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
+                        local hasActiveQuest = false
+                        local qProgActive, qCurrent, qTotal = nil, nil, nil
+                        pcall(function()
+                            if QuestManager and QuestManager.GetQuestProgress then
+                                qProgActive, qCurrent, qTotal = QuestManager.GetQuestProgress()
+                            end
+                        end)
+
+                        pcall(function()
+                            local questGui = game.Players.LocalPlayer.PlayerGui.Main.Quest
+                            if questGui and questGui.Visible then
+                                local container = questGui:FindFirstChild("Container")
+                                if not container or container.Visible then
+                                    if qProgActive and qCurrent and qTotal and qCurrent >= qTotal then
+                                        hasActiveQuest = false
+                                        ScriptStorage.ClaimedQuest = nil
+                                    else
+                                        hasActiveQuest = true
                                     end
                                 end
                             end
+                        end)
 
-                            -- Dừng lại tại võ này để farm đến 400, không nhảy võ!
-                            return
+                        local activeMobName = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or (GetCurrentClaimQuest and GetCurrentClaimQuest())
+                        if activeMobName and activeMobName ~= "" then
+                            if SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(activeMobName)), "bandit") and not string.find(string.lower(tostring(activeMobName)), "desert") and not string.find(string.lower(tostring(activeMobName)), "snow") then
+                                activeMobName = nil
+                            else
+                                hasActiveQuest = true
+                                qMonName = activeMobName
+                            end
                         end
+
+                        if not hasActiveQuest and ScriptStorage.ClaimedQuest and ScriptStorage.ClaimedQuest.Active then
+                            local elapsed = os.time() - (ScriptStorage.ClaimedQuest.StartTime or os.time())
+                            if elapsed < 600 then
+                                local cName = activeMobName or ScriptStorage.ClaimedQuest.MonName or qMonName
+                                if not (SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(cName or "")), "bandit")) then
+                                    hasActiveQuest = true
+                                    qMonName = cName
+                                end
+                            else
+                                ScriptStorage.ClaimedQuest = nil
+                            end
+                        end
+
+                        if not qMonName or (SeaIndex and SeaIndex >= 2 and string.find(string.lower(tostring(qMonName)), "bandit") and not string.find(string.lower(tostring(qMonName)), "desert") and not string.find(string.lower(tostring(qMonName)), "snow")) then
+                            QuestManager:RefreshQuest()
+                            qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
+                        end
+
+                        if hasActiveQuest and qMonName then
+                            SetTask("MainTask", "Cày Thông Thạo | " .. mName .. " | Đang tiêu diệt " .. tostring(qMonName))
+                            CombatController.Attack(qMonName)
+                        else
+                            if not qNpcPos then
+                                QuestManager:RefreshQuest()
+                                qMonName, qNpcPos, qQuestId, qQuestIndex = QuestManager:GetCurrentQuest()
+                                if not qNpcPos and qQuestId and BuiltInNpcPositions and BuiltInNpcPositions[qQuestId] then
+                                    qNpcPos = BuiltInNpcPositions[qQuestId]
+                                end
+                            end
+                            if qNpcPos then
+                                local targetNpcVec = (typeof(qNpcPos) == "CFrame" and qNpcPos.Position) or (typeof(qNpcPos) == "Vector3" and qNpcPos) or Vector3.new(0, 0, 0)
+                                SetTask("MainTask", "Cày Thông Thạo | " .. mName .. " | Nhận nhiệm vụ")
+                                SetTask("SubTask", "Bay tới NPC nhận nhiệm vụ cày thông thạo võ " .. mName .. "...")
+                                TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
+                                if CaculateDistance(targetNpcVec) <= 30 then
+                                    task.wait(0.2)
+                                    QuestManager.StartQuest(qQuestId, qQuestIndex)
+                                    task.wait(0.2)
+                                    local afterMob = (QuestManager and QuestManager.GetCurrentClaimQuest and QuestManager:GetCurrentClaimQuest()) or qMonName
+                                    if afterMob and afterMob ~= "" then
+                                        CombatController.Attack(afterMob)
+                                    end
+                                end
+                            else
+                                SetTask("MainTask", "Cày Thông Thạo | " .. mName .. " | Đang đánh quái")
+                                SetTask("SubTask", "Đánh quái cày thông thạo võ " .. mName .. "...")
+                                local targetMon = qMonName or (SeaIndex == 3 and "Chocolate Bar Battler") or (SeaIndex == 2 and "Water Fighter") or "Galley Pirate"
+                                CombatController.Attack(targetMon)
+                            end
+                        end
+
+                        -- DỪNG LẠI TẠI VÕ NÀY ĐỂ FARM ĐẾN 400, KHÔNG NHẢY VÕ TIẾP THEO!
+                        return
                     end
                 end
 
                 -- Sau khi duyệt xong tất cả các võ:
                 _G.MeleeProgressionFinished = true
                 ScriptStorage.IsGettingMelee = false
+                _G.TargetFarmingMelee = nil
                 SetTask("SubTask", "Toàn bộ võ đã hoàn thành 400 mastery -> Tiếp tục Farm Level!")
             end
         )
@@ -7007,17 +7799,33 @@ FunctionsHandler = {
                 local heldFruit = nil
                 if char then
                     for _, item in pairs(char:GetChildren()) do
-                        if item:IsA("Tool") and string.find(item.Name, "Fruit") and not table.find(ScriptStorage.IgnoreStoreFruits or {}, item:GetAttribute("OriginalName") or item.Name) then
-                            heldFruit = item
-                            break
+                        if item:IsA("Tool") and string.find(item.Name, "Fruit") then
+                            local orig = item:GetAttribute("OriginalName") or item.Name
+                            if not table.find(ScriptStorage.IgnoreStoreFruits or {}, orig) and not table.find(ScriptStorage.IgnoreStoreFruits or {}, item.Name) then
+                                if IsFruitAlreadyInStorage(item) then
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, orig)
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, item.Name)
+                                else
+                                    heldFruit = item
+                                    break
+                                end
+                            end
                         end
                     end
                 end
                 if not heldFruit and bp then
                     for _, item in pairs(bp:GetChildren()) do
-                        if item:IsA("Tool") and string.find(item.Name, "Fruit") and not table.find(ScriptStorage.IgnoreStoreFruits or {}, item:GetAttribute("OriginalName") or item.Name) then
-                            heldFruit = item
-                            break
+                        if item:IsA("Tool") and string.find(item.Name, "Fruit") then
+                            local orig = item:GetAttribute("OriginalName") or item.Name
+                            if not table.find(ScriptStorage.IgnoreStoreFruits or {}, orig) and not table.find(ScriptStorage.IgnoreStoreFruits or {}, item.Name) then
+                                if IsFruitAlreadyInStorage(item) then
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, orig)
+                                    table.insert(ScriptStorage.IgnoreStoreFruits, item.Name)
+                                else
+                                    heldFruit = item
+                                    break
+                                end
+                            end
                         end
                     end
                 end
@@ -7039,14 +7847,28 @@ FunctionsHandler = {
                 FunctionsHandler.CollectDrops:Set("CurrentProgressLevel", nil)
                 FunctionsHandler.CollectDrops:Set("HeldFruit", nil)
 
-                -- A. Xử lý Trái Ác Quỷ đang ở trên người / trong balo -> Cất ngay
+                -- A. Xử lý Trái Ác Quỷ đang ở trên người / trong balo -> Cất ngay (nếu rương chưa có)
                 if heldFruit and heldFruit.Parent then
+                    local origName = heldFruit:GetAttribute("OriginalName") or heldFruit.Name
+                    if IsFruitAlreadyInStorage(heldFruit) then
+                        table.insert(ScriptStorage.IgnoreStoreFruits, origName)
+                        table.insert(ScriptStorage.IgnoreStoreFruits, heldFruit.Name)
+                        getgenv().anchored = false
+                        return
+                    end
+
                     SetTask("MainTask", "Cất Trái Ác Quỷ - " .. tostring(heldFruit.Name))
                     SetTask("SubTask", "Đang lưu trữ " .. tostring(heldFruit.Name) .. " vào Treasure Inventory...")
-                    local origName = heldFruit:GetAttribute("OriginalName") or heldFruit.Name
+                    local storeRes = nil
                     pcall(function()
-                        Remotes.CommF_:InvokeServer("StoreFruit", origName, heldFruit)
+                        storeRes = Remotes.CommF_:InvokeServer("StoreFruit", origName, heldFruit)
                     end)
+                    if storeRes == false or storeRes == "Unsuccess" then
+                        table.insert(ScriptStorage.IgnoreStoreFruits, origName)
+                        table.insert(ScriptStorage.IgnoreStoreFruits, heldFruit.Name)
+                    else
+                        pcall(function() GetStoredFruitsList(true) end)
+                    end
                     task.wait(0.5)
                     getgenv().anchored = false
                     return
@@ -7070,22 +7892,52 @@ FunctionsHandler = {
                             Fruit.Handle.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame
                         end)
                         task.wait(0.3)
-                        -- Cất toàn bộ trái trong balo/người sau khi nhặt
+                        -- Cất toàn bộ trái trong balo/người sau khi nhặt (nếu rương chưa có)
                         if LocalPlayer:FindFirstChild("Backpack") then
                             for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
                                 if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then
-                                    pcall(function()
-                                        Remotes.CommF_:InvokeServer("StoreFruit", tool:GetAttribute("OriginalName") or tool.Name, tool)
-                                    end)
+                                    local tOrig = tool:GetAttribute("OriginalName") or tool.Name
+                                    if not table.find(ScriptStorage.IgnoreStoreFruits or {}, tOrig) and not table.find(ScriptStorage.IgnoreStoreFruits or {}, tool.Name) then
+                                        if not IsFruitAlreadyInStorage(tool) then
+                                            local res = nil
+                                            pcall(function()
+                                                res = Remotes.CommF_:InvokeServer("StoreFruit", tOrig, tool)
+                                            end)
+                                            if res == false or res == "Unsuccess" then
+                                                table.insert(ScriptStorage.IgnoreStoreFruits, tOrig)
+                                                table.insert(ScriptStorage.IgnoreStoreFruits, tool.Name)
+                                            else
+                                                pcall(function() GetStoredFruitsList(true) end)
+                                            end
+                                        else
+                                            table.insert(ScriptStorage.IgnoreStoreFruits, tOrig)
+                                            table.insert(ScriptStorage.IgnoreStoreFruits, tool.Name)
+                                        end
+                                    end
                                 end
                             end
                         end
                         if LocalPlayer.Character then
                             for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
                                 if tool:IsA("Tool") and string.find(tool.Name, "Fruit") then
-                                    pcall(function()
-                                        Remotes.CommF_:InvokeServer("StoreFruit", tool:GetAttribute("OriginalName") or tool.Name, tool)
-                                    end)
+                                    local tOrig = tool:GetAttribute("OriginalName") or tool.Name
+                                    if not table.find(ScriptStorage.IgnoreStoreFruits or {}, tOrig) and not table.find(ScriptStorage.IgnoreStoreFruits or {}, tool.Name) then
+                                        if not IsFruitAlreadyInStorage(tool) then
+                                            local res = nil
+                                            pcall(function()
+                                                res = Remotes.CommF_:InvokeServer("StoreFruit", tOrig, tool)
+                                            end)
+                                            if res == false or res == "Unsuccess" then
+                                                table.insert(ScriptStorage.IgnoreStoreFruits, tOrig)
+                                                table.insert(ScriptStorage.IgnoreStoreFruits, tool.Name)
+                                            else
+                                                pcall(function() GetStoredFruitsList(true) end)
+                                            end
+                                        else
+                                            table.insert(ScriptStorage.IgnoreStoreFruits, tOrig)
+                                            table.insert(ScriptStorage.IgnoreStoreFruits, tool.Name)
+                                        end
+                                    end
                                 end
                             end
                         end
