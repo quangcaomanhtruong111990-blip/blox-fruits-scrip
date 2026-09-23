@@ -41,7 +41,7 @@ print("========================================")
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Bocchi Hub",
-        Text = "Script đang khởi động... Vui lòng đợi!",
+        Text = "đời mà ai cho ko cái gì",
         Duration = 5
     })
 end)
@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v2"
+        NameHub.Text = "sanglove v3"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1942,22 +1942,9 @@ ScriptStorage = {
             return Vector3.new(math.floor(vx / 10) * 10, math.floor(vy / 10) * 10, math.floor(vz / 10) * 10)
         end
 
-        local Angle = 30
-        lastChange = tick()
         CaculateCircreDirection = function(Position)
-            if Angle > 50000 then
-                Angle = 60
-            end
-
-            Angle = Angle + ((tick() - lastChange) > .4 and 80 or 0)
-
-            if tick() - lastChange > .4 then
-                lastChange = tick()
-            end
-
             local posVec = (typeof(Position) == "CFrame" and Position.Position) or (typeof(Position) == "Vector3" and Position) or Vector3.new()
-            local sum = posVec + Vector3.new(math.cos(math.rad(Angle)) * 40, 0, math.sin(math.rad(Angle)) * 40)
-            return CFrame.new(RoundVector3Down(sum))
+            return CFrame.new(posVec + Vector3.new(0, 20, 0))
         end
 
         function GetMonAsSortedRange()
@@ -2752,7 +2739,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 180
+            local Speed = (CurrentDist < 30) and 45 or 280
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -3104,8 +3091,8 @@ ScriptStorage = {
         }
 
 CombatController = {
-            GRAB = true,
-            GRAB_DISTANCE = SeaIndex == 1 and 250 or 350,
+            GRAB = false,
+            GRAB_DISTANCE = 0,
             MAX_ATTACK_DURATION = 3,
             MAX_ATTACK_DURATION_2 = 60,
             LEVITATE_TIME = 1,
@@ -3113,93 +3100,10 @@ CombatController = {
         }
         
         LastFound = os.time()
-        -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
         function CombatController.Grab(MobName)
-            -- [v1.09] Disabled SimulationRadius to prevent crashes in Sea 3
-            -- pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
-            if not CombatController.GRAB or GrabDebounce == os.time() then
-            end
-            GrabDebounce = os.time()
-
-            local MidPoint, Count = Vector3.zero, 0
-            ForcePosition = nil
-            local MobsTable = {}
-
-            local enemies = workspace:FindFirstChild("Enemies")
-            if enemies then
-                for _, Mon in pairs(enemies:GetChildren()) do
-                    if Mon.Name == MobName then
-                        if --not Mon:GetAttribute("IsGrabbedreci") and
-                            Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
-                                Mon.Humanoid.Health > 0 then
-                            local MonPosition = Mon.HumanoidRootPart.Position
-                            local isOwner = true
-                            if typeof(isnetworkowner) == "function" and (Mon.PrimaryPart or Mon:FindFirstChild("HumanoidRootPart")) then
-                                local okOwner, resOwner = pcall(isnetworkowner, Mon.PrimaryPart or Mon.HumanoidRootPart)
-                                if okOwner and resOwner ~= nil then
-                                    isOwner = resOwner
-                                end
-                            end
-                            if MonPosition and isOwner then
-                                if
-                                    not ForcePosition or
-                                        CaculateDistance(MonPosition, ForcePosition) < CombatController.GRAB_DISTANCE
-                                 then
-                                    Count = Count + 1
-                                    Mon:SetAttribute("OldPosition", Mon:GetAttribute("OldPosition") or MonPosition)
-                                    MidPoint = MidPoint + MonPosition
-                                    ForcePosition = ForcePosition or MonPosition
-
-                                    table.insert(MobsTable, Mon)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            MidPoint = CFrame.new(MidPoint / Count)
-
-            table.foreach(
-                MobsTable,
-                function(_, ChildInstance)
-                    (function()
-                        if ChildInstance:GetAttribute("IgnoreGrab") then
-                            return
-                        end
-                        if (ChildInstance:GetAttribute("FailureCount") or 0) > 7 then
-                            return
-                        end
-                        --[[ChildInstance.Humanoid.PlatformStand = true
-                ChildInstance.Humanoid.Sit = true
-                ChildInstance.HumanoidRootPart.CanCollide = false ]]
-                        local RootPart = ChildInstance:FindFirstChild("HumanoidRootPart")
-                        local BodyVelocity = RootPart:FindFirstChild("FarmingVelocity")
-                        if not BodyVelocity then
-                            BodyVelocity = Instance.new("BodyVelocity")
-                            BodyVelocity.Name = "FarmingVelocity"
-                            BodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-                            BodyVelocity.Parent = RootPart
-                        end
-
-                        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
-
-                        local BodyPosition = RootPart:FindFirstChild("FarmingPosition")
-                        if not BodyPosition then
-                            BodyPosition = Instance.new("BodyPosition")
-                            BodyPosition.Name = "FarmingPosition"
-                            BodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-                            BodyPosition.P = 4.12
-                            BodyPosition.D = 1000
-                            BodyPosition.Parent = RootPart
-                        end
-                        ChildInstance:SetAttribute("IsGrabbed", true)
-                        ChildInstance.HumanoidRootPart.CFrame = MidPoint
-
-                        ChildInstance:SetAttribute("MidPoint", MidPoint)
-                    end)()
-                end
-            )
+            -- Đã tắt hoàn toàn gom quái để chống kick và ban acc
+            return
         end
 
 
@@ -3256,11 +3160,6 @@ CombatController = {
                 return
             end
 
-            pcall(function()
-                if typeof(sethiddenproperty) == "function" then
-                    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
-                end
-            end)
             MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
 
             for _, Child in ipairs(MobTable) do
@@ -3315,12 +3214,11 @@ CombatController = {
                         break
                     end
 
-                    TweenController.Create(
-                        CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
-                    )
+                    -- Bay thẳng và đứng yên phía trên đầu quái (không bay vòng tròn)
+                    local TargetHoverPos = MobHumanoidRootPart.Position + Vector3.new(0, 20, 0)
+                    TweenController.Create(TargetHoverPos)
 
-                    if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
-                        CombatController.Grab(MonResult.Name or "")
+                    if CaculateDistance(MobHumanoidRootPart.Position) < 70 then
                         if MonResult.Name ~= "Core" then
                             if
                                 ScriptStorage.PlayerData.Level > 100 and
@@ -3336,32 +3234,6 @@ CombatController = {
                                 _G.Stop = true
                                 SafeRejoinOrHop("Rejoin")
                                 return
-                            end
-
-                            if
-                                Count >= CombatController.MAX_ATTACK_DURATION and
-                                MobHumanoid.Health - MobHumanoid.MaxHealth == 0
-                            then
-                                Count = 0
-                                local OldPosition = MonResult:GetAttribute("OldPosition")
-                                if OldPosition then
-                                    MonResult:SetPrimaryPartCFrame(CFrame.new(OldPosition))
-                                    MonResult:SetAttribute("IgnoreGrab", true)
-                                    MonResult:SetAttribute(
-                                        "FailureCount",
-                                        (MonResult:GetAttribute("FailureCount") or 0) + 1
-                                    )
-                                    alert(
-                                        "Failed to attack",
-                                        "Returning to the old position ( #" ..
-                                            MonResult:GetAttribute("FailureCount") .. " )"
-                                    )
-                                    if MonResult:FindFirstChild("HumanoidRootPart") then
-                                        MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
-                                    end
-                                    task.wait()
-                                    return
-                                end
                             end
                         end
 
@@ -3412,20 +3284,35 @@ CombatController = {
                     end
 
                     if Region and #Region > 0 then
-                        if not Region[CombatController.CurrentIndex] then
-                            CombatController.CurrentIndex = 1
+                        local PrimarySpawn = Region[1]
+                        if typeof(PrimarySpawn) == "CFrame" then
+                            PrimarySpawn = PrimarySpawn.Position
                         end
 
-                        local CurrentPosition = Region[CombatController.CurrentIndex]
-                        if typeof(CurrentPosition) == "CFrame" then
-                            CurrentPosition = CurrentPosition.Position
-                        end
-
-                        if CurrentPosition then
-                            SetTask("SubTask", "Flying to " .. tostring(Child) .. " Area")
-                            TweenController.Create(CurrentPosition + Vector3.new(0, 35, 0))
-                            if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 0)) < 25 then
-                                CombatController.CurrentIndex = CombatController.CurrentIndex + 1
+                        if PrimarySpawn then
+                            local distToSpawn = CaculateDistance(PrimarySpawn)
+                            if distToSpawn > 120 then
+                                -- Chưa tới bãi quái -> Bay đến vị trí bãi quái
+                                SetTask("SubTask", "Flying to " .. tostring(Child) .. " Area")
+                                TweenController.Create(PrimarySpawn + Vector3.new(0, 30, 0))
+                            else
+                                -- Đã ở bãi quái nhưng quái chưa hồi sinh -> ĐỨNG YÊN TẠI CHỖ ĐỢI, KHÔNG BAY LƯỢN
+                                SetTask("SubTask", "Waiting for " .. tostring(Child) .. " to spawn...")
+                                if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
+                                    TweenInstance:Cancel()
+                                end
+                                pcall(function()
+                                    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                                    if hrp then
+                                        hrp.AssemblyLinearVelocity = Vector3.zero
+                                        hrp.AssemblyAngularVelocity = Vector3.zero
+                                        local bv = hrp:FindFirstChild("BocchiBV") or hrp:FindFirstChild("eltrul")
+                                        if bv then
+                                            bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                                            bv.Velocity = Vector3.zero
+                                        end
+                                    end
+                                end)
                             end
                             return
                         end
