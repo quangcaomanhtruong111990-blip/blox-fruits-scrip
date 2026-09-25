@@ -41,7 +41,7 @@ print("========================================")
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Bocchi Hub",
-        Text = "Script đang khởi động... Vui lòng đợi!",
+        Text = "đời mà ai cho ko cái gì",
         Duration = 5
     })
 end)
@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v6
+        NameHub.Text = "sanglove v5"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1247,16 +1247,14 @@ ScriptStorage = {
                 if type(inv) == "table" then
                     for _, Value in pairs(inv) do
                         if type(Value) == "table" and Value.Name then
-                            pcall(function()
-                                if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer:FindFirstChild("Data") and game:GetService("Players").LocalPlayer.Data:FindFirstChild("DevilFruit") and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and Config and Config.Items and type(Config.Items.Eatlist) == "table" and table.find(Config.Items.Eatlist, Value.Name) then
-                                    warn("Load fruit", Value.Name)
-                                    Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
-                                    task.wait(1)
-                                    if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
-                                        pcall(function() FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name)) end)
-                                    end
+                            if Value.Type == 'Blox Fruit' and game:GetService("Players").LocalPlayer:FindFirstChild("Data") and game:GetService("Players").LocalPlayer.Data:FindFirstChild("DevilFruit") and game:GetService("Players").LocalPlayer.Data.DevilFruit.Value == "" and table.find(Config.Items.Eatlist, Value.Name) then
+                                warn("Load fruit", Value.Name)
+                                Remotes.CommF_:InvokeServer("LoadFruit", Value.Name)
+                                task.wait(1)
+                                if FunctionsHandler and FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                    pcall(function() FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(FruitIdToName(Value.Name)) end)
                                 end
-                            end)
+                            end
                             ScriptStorage.Backpack2[Value.Name] = Value
                         end
                     end
@@ -1944,22 +1942,9 @@ ScriptStorage = {
             return Vector3.new(math.floor(vx / 10) * 10, math.floor(vy / 10) * 10, math.floor(vz / 10) * 10)
         end
 
-        local Angle = 30
-        lastChange = tick()
         CaculateCircreDirection = function(Position)
-            if Angle > 50000 then
-                Angle = 60
-            end
-
-            Angle = Angle + ((tick() - lastChange) > .4 and 80 or 0)
-
-            if tick() - lastChange > .4 then
-                lastChange = tick()
-            end
-
             local posVec = (typeof(Position) == "CFrame" and Position.Position) or (typeof(Position) == "Vector3" and Position) or Vector3.new()
-            local sum = posVec + Vector3.new(math.cos(math.rad(Angle)) * 40, 0, math.sin(math.rad(Angle)) * 40)
-            return CFrame.new(RoundVector3Down(sum))
+            return CFrame.new(posVec + Vector3.new(0, 20, 0))
         end
 
         function GetMonAsSortedRange()
@@ -2754,7 +2739,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 160
+            local Speed = (CurrentDist < 30) and 45 or 180
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -2936,17 +2921,9 @@ ScriptStorage = {
             end
         end)
 
-        function Funcs:Attack()
-            pcall(function()
-                local char = game:GetService("Players").LocalPlayer.Character
-                if char and not char:FindFirstChild("HasBuso") then
-                    local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-                    if remotes and remotes:FindFirstChild("CommF_") then
-                        remotes.CommF_:InvokeServer("Buso")
-                    end
-                end
-            end)
+        local VirtualUser = game:GetService("VirtualUser")
 
+        function Funcs:Attack()
             local bladehits = {}
             for r, v in pairs(GetAllBladeHits()) do
                 table.insert(bladehits, v)
@@ -2965,25 +2942,34 @@ ScriptStorage = {
                 end
             end)
 
-            local targetHead = nil
+            local targetPart = nil
             local targetsTable = {}
             for r, v in pairs(bladehits) do
-                if not targetHead and v:FindFirstChild("Head") then
-                    targetHead = v.Head
-                end
-                if v:FindFirstChild("HumanoidRootPart") then
+                local mobRoot = v:FindFirstChild("HumanoidRootPart")
+                local mobHead = v:FindFirstChild("Head") or mobRoot
+                if mobRoot then
+                    if not targetPart then
+                        targetPart = mobRoot
+                    end
                     table.insert(targetsTable, {
                         [1] = v,
-                        [2] = v.HumanoidRootPart
+                        [2] = mobHead
                     })
                 end
             end
 
-            if RegisterHit and targetHead and #targetsTable > 0 then
+            if RegisterHit and targetPart and #targetsTable > 0 then
                 pcall(function()
-                    RegisterHit:FireServer(targetHead, targetsTable)
+                    RegisterHit:FireServer(targetPart, targetsTable)
                 end)
             end
+
+            pcall(function()
+                if VirtualUser then
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton1(Vector2.new(0, 0))
+                end
+            end)
         end
 
         -- Optimized FastAttack loop with Volt Actor support
@@ -3116,8 +3102,8 @@ ScriptStorage = {
         }
 
 CombatController = {
-            GRAB = true,
-            GRAB_DISTANCE = SeaIndex == 1 and 250 or 350,
+            GRAB = false,
+            GRAB_DISTANCE = 0,
             MAX_ATTACK_DURATION = 3,
             MAX_ATTACK_DURATION_2 = 60,
             LEVITATE_TIME = 1,
@@ -3125,93 +3111,10 @@ CombatController = {
         }
         
         LastFound = os.time()
-        -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
         function CombatController.Grab(MobName)
-            -- [v1.09] Disabled SimulationRadius to prevent crashes in Sea 3
-            -- pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
-            if not CombatController.GRAB or GrabDebounce == os.time() then
-            end
-            GrabDebounce = os.time()
-
-            local MidPoint, Count = Vector3.zero, 0
-            ForcePosition = nil
-            local MobsTable = {}
-
-            local enemies = workspace:FindFirstChild("Enemies")
-            if enemies then
-                for _, Mon in pairs(enemies:GetChildren()) do
-                    if Mon.Name == MobName then
-                        if --not Mon:GetAttribute("IsGrabbedreci") and
-                            Mon:FindFirstChild("Humanoid") and Mon:FindFirstChild("HumanoidRootPart") and
-                                Mon.Humanoid.Health > 0 then
-                            local MonPosition = Mon.HumanoidRootPart.Position
-                            local isOwner = true
-                            if typeof(isnetworkowner) == "function" and (Mon.PrimaryPart or Mon:FindFirstChild("HumanoidRootPart")) then
-                                local okOwner, resOwner = pcall(isnetworkowner, Mon.PrimaryPart or Mon.HumanoidRootPart)
-                                if okOwner and resOwner ~= nil then
-                                    isOwner = resOwner
-                                end
-                            end
-                            if MonPosition and isOwner then
-                                if
-                                    not ForcePosition or
-                                        CaculateDistance(MonPosition, ForcePosition) < CombatController.GRAB_DISTANCE
-                                 then
-                                    Count = Count + 1
-                                    Mon:SetAttribute("OldPosition", Mon:GetAttribute("OldPosition") or MonPosition)
-                                    MidPoint = MidPoint + MonPosition
-                                    ForcePosition = ForcePosition or MonPosition
-
-                                    table.insert(MobsTable, Mon)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            MidPoint = CFrame.new(MidPoint / Count)
-
-            table.foreach(
-                MobsTable,
-                function(_, ChildInstance)
-                    (function()
-                        if ChildInstance:GetAttribute("IgnoreGrab") then
-                            return
-                        end
-                        if (ChildInstance:GetAttribute("FailureCount") or 0) > 7 then
-                            return
-                        end
-                        --[[ChildInstance.Humanoid.PlatformStand = true
-                ChildInstance.Humanoid.Sit = true
-                ChildInstance.HumanoidRootPart.CanCollide = false ]]
-                        local RootPart = ChildInstance:FindFirstChild("HumanoidRootPart")
-                        local BodyVelocity = RootPart:FindFirstChild("FarmingVelocity")
-                        if not BodyVelocity then
-                            BodyVelocity = Instance.new("BodyVelocity")
-                            BodyVelocity.Name = "FarmingVelocity"
-                            BodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-                            BodyVelocity.Parent = RootPart
-                        end
-
-                        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
-
-                        local BodyPosition = RootPart:FindFirstChild("FarmingPosition")
-                        if not BodyPosition then
-                            BodyPosition = Instance.new("BodyPosition")
-                            BodyPosition.Name = "FarmingPosition"
-                            BodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-                            BodyPosition.P = 4.12
-                            BodyPosition.D = 1000
-                            BodyPosition.Parent = RootPart
-                        end
-                        ChildInstance:SetAttribute("IsGrabbed", true)
-                        ChildInstance.HumanoidRootPart.CFrame = MidPoint
-
-                        ChildInstance:SetAttribute("MidPoint", MidPoint)
-                    end)()
-                end
-            )
+            -- Đã tắt hoàn toàn gom quái để chống kick và ban acc
+            return
         end
 
 
@@ -3268,11 +3171,6 @@ CombatController = {
                 return
             end
 
-            pcall(function()
-                if typeof(sethiddenproperty) == "function" then
-                    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
-                end
-            end)
             MobTable = type(MobTable) == "string" and {MobTable} or (MobTable or {})
 
             for _, Child in ipairs(MobTable) do
@@ -3327,12 +3225,11 @@ CombatController = {
                         break
                     end
 
-                    TweenController.Create(
-                        CaculateCircreDirection(MobHumanoidRootPart.CFrame) + Vector3.new(0, 35, 0)
-                    )
+                    -- Bay thẳng và đứng yên phía trên đầu quái (không bay vòng tròn)
+                    local TargetHoverPos = MobHumanoidRootPart.Position + Vector3.new(0, 20, 0)
+                    TweenController.Create(TargetHoverPos)
 
-                    if CaculateDistance(MobHumanoidRootPart.Position + Vector3.new(0, 35, 0)) < 150 then
-                        CombatController.Grab(MonResult.Name or "")
+                    if CaculateDistance(MobHumanoidRootPart.Position) < 70 then
                         if MonResult.Name ~= "Core" then
                             if
                                 ScriptStorage.PlayerData.Level > 100 and
@@ -3348,32 +3245,6 @@ CombatController = {
                                 _G.Stop = true
                                 SafeRejoinOrHop("Rejoin")
                                 return
-                            end
-
-                            if
-                                Count >= CombatController.MAX_ATTACK_DURATION and
-                                MobHumanoid.Health - MobHumanoid.MaxHealth == 0
-                            then
-                                Count = 0
-                                local OldPosition = MonResult:GetAttribute("OldPosition")
-                                if OldPosition then
-                                    MonResult:SetPrimaryPartCFrame(CFrame.new(OldPosition))
-                                    MonResult:SetAttribute("IgnoreGrab", true)
-                                    MonResult:SetAttribute(
-                                        "FailureCount",
-                                        (MonResult:GetAttribute("FailureCount") or 0) + 1
-                                    )
-                                    alert(
-                                        "Failed to attack",
-                                        "Returning to the old position ( #" ..
-                                            MonResult:GetAttribute("FailureCount") .. " )"
-                                    )
-                                    if MonResult:FindFirstChild("HumanoidRootPart") then
-                                        MonResult.HumanoidRootPart.CFrame = (CFrame.new(OldPosition))
-                                    end
-                                    task.wait()
-                                    return
-                                end
                             end
                         end
 
@@ -3424,18 +3295,36 @@ CombatController = {
                     end
 
                     if Region and #Region > 0 then
-                        if not Region[CombatController.CurrentIndex] then
-                            CombatController.CurrentIndex = 1
+                        local PrimarySpawn = Region[1]
+                        if typeof(PrimarySpawn) == "CFrame" then
+                            PrimarySpawn = PrimarySpawn.Position
                         end
 
-                        local CurrentPosition = Region[CombatController.CurrentIndex]
-                        if typeof(CurrentPosition) == "CFrame" then
-                            CurrentPosition = CurrentPosition.Position
-                        end
-
-                        if CurrentPosition then
-                            SetTask("SubTask", "Flying to " .. tostring(Child) .. " Spawn Area")
-                            TweenController.Create(CurrentPosition + Vector3.new(0, 35, 0))
+                        if PrimarySpawn then
+                            local distToSpawn = CaculateDistance(PrimarySpawn)
+                            if distToSpawn > 120 then
+                                -- Chưa tới bãi quái -> Bay đến vị trí bãi quái
+                                SetTask("SubTask", "Flying to " .. tostring(Child) .. " Area")
+                                TweenController.Create(PrimarySpawn + Vector3.new(0, 30, 0))
+                            else
+                                -- Đã ở bãi quái nhưng quái chưa hồi sinh -> ĐỨNG YÊN TẠI CHỖ ĐỢI, KHÔNG BAY LƯỢN
+                                SetTask("SubTask", "Waiting for " .. tostring(Child) .. " to spawn...")
+                                if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
+                                    TweenInstance:Cancel()
+                                end
+                                pcall(function()
+                                    local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                                    if hrp then
+                                        hrp.AssemblyLinearVelocity = Vector3.zero
+                                        hrp.AssemblyAngularVelocity = Vector3.zero
+                                        local bv = hrp:FindFirstChild("BocchiBV") or hrp:FindFirstChild("eltrul")
+                                        if bv then
+                                            bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                                            bv.Velocity = Vector3.zero
+                                        end
+                                    end
+                                end)
+                            end
                             return
                         end
                     end
@@ -3800,105 +3689,60 @@ FunctionsHandler = {
                 end
 
                 local PlayerLevel = ScriptStorage.PlayerData.Level
-
-                pcall(RefreshInventory)
-
-                local function GetItemCount(itemName)
-                    if not itemName then return 0 end
-                    local searchName = string.lower(string.gsub(itemName, "^%s*(.-)%s*$", "%1"))
-                    
-                    -- 1. Check inside ScriptStorage.Backpack
-                    if ScriptStorage.Backpack and type(ScriptStorage.Backpack) == "table" then
-                        for k, v in pairs(ScriptStorage.Backpack) do
-                            local nameInStorage = type(k) == "string" and k or (type(v) == "table" and v.Name)
-                            if nameInStorage then
-                                local cleanName = string.lower(string.gsub(nameInStorage, "^%s*(.-)%s*$", "%1"))
-                                if cleanName == searchName or string.find(cleanName, searchName, 1, true) then
-                                    if type(v) == "number" then return v end
-                                    if type(v) == "table" then
-                                        local cnt = tonumber(v.Count or v.Value or v.Amount or v.Quantity or 0) or 0
-                                        if cnt > 0 then return cnt end
-                                    end
-                                end
-                            end
-                        end
-                    end
-
-                    -- 2. Fallback: Direct call getInventory if Backpack count was 0 or not found
-                    local foundCount = 0
-                    pcall(function()
-                        if Remotes and Remotes.CommF_ then
-                            local inv = Remotes.CommF_:InvokeServer("getInventory")
-                            if type(inv) == "table" then
-                                for _, Value in pairs(inv) do
-                                    if type(Value) == "table" and Value.Name then
-                                        local cleanName = string.lower(string.gsub(Value.Name, "^%s*(.-)%s*$", "%1"))
-                                        if cleanName == searchName or string.find(cleanName, searchName, 1, true) then
-                                            foundCount = tonumber(Value.Count or Value.Value or Value.Amount or Value.Quantity or 0) or 0
-                                            if ScriptStorage.Backpack then
-                                                ScriptStorage.Backpack[Value.Name] = Value
-                                            end
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end)
-                    return foundCount
-                end
-
-                -- 1. KIỂM TRA NGUYÊN LIỆU GODHUMAN (Chỉ kích hoạt khi GodHumanFlag == true)
                 if GodHumanFlag then
-                    local needMaterialInCurrentSea = nil
-                    local needMaterialDataInCurrentSea = nil
-                    local needMaterialInOtherSea = nil
-                    local needMaterialDataInOtherSea = nil
-
-                    for matName, matData in pairs(GodhumanMaterials or {}) do
-                        local count = GetItemCount(matName)
-                        if count < matData[1] then
-                            if SeaIndex == matData[2] then
-                                needMaterialInCurrentSea = matName
-                                needMaterialDataInCurrentSea = matData
-                                break
-                            elseif not needMaterialInOtherSea then
-                                needMaterialInOtherSea = matName
-                                needMaterialDataInOtherSea = matData
+                    local Material, MaterialData = (function()
+                        getgenv()["     mphm >< <3"] = {}
+                        for Material, MaterialData in GodhumanMaterials do
+                            if (ScriptStorage.Backpack[Material] or {Count = 0}).Count < MaterialData[1] then
+                                getgenv()["     mphm >< <3"] = {Material, MaterialData}
                             end
                         end
+
+                        return unpack(getgenv()["     mphm >< <3"])
+                    end)()
+
+                    if Material then
+                        if SeaIndex ~= MaterialData[2] then
+                            alert("Material - " .. Material, "Travelling sea " .. MaterialData[2])
+                            SetTask(
+                                "MainTask",
+                                "Sea Travel | Godhuman Materials | Travelling to Sea " .. MaterialData[2]
+                            )
+
+                            Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[MaterialData[2]])
+                            return
+                        end
+
+                        SetTask("MainTask", "Material Farming | Godhuman | " .. Material .. " | In Progress" )
+
+                        if PlayerLevel >= MaterialData[4][3] then
+                            CombatController.Attack(MaterialData[3])
+                        end
+
+                        CombatController.Attack(MaterialData[3])
                     end
 
-                    -- Nếu ở Sea hiện tại đang thiếu nguyên liệu -> Tập trung farm tại chỗ cho đến khi ĐỦ
-                    if needMaterialInCurrentSea and needMaterialDataInCurrentSea then
-                        local curCnt = GetItemCount(needMaterialInCurrentSea)
-                        SetTask("MainTask", "Material Farming | Godhuman | " .. needMaterialInCurrentSea .. " (" .. tostring(curCnt) .. "/" .. tostring(needMaterialDataInCurrentSea[1]) .. ")")
-                        CombatController.Attack(needMaterialDataInCurrentSea[3])
-                        return
-                    end
+                    BuyMelee("Godhuman", true,"Ancient Monk")
 
-                    -- 2. TỰ ĐỘNG CHUYỂN SEA NẾU TẤT CẢ NGUYÊN LIỆU SEA HIỆN TẠI ĐÃ ĐỦ VÀ CẦN DI CHUYỂN SANG SEA KHÁC
-                    if needMaterialInOtherSea and needMaterialDataInOtherSea then
-                        alert("Material - " .. needMaterialInOtherSea, "Travelling to Sea " .. needMaterialDataInOtherSea[2])
-                        SetTask("MainTask", "Sea Travel | Godhuman Materials | Travelling to Sea " .. needMaterialDataInOtherSea[2])
-                        Remotes.CommF_:InvokeServer("Travel" .. SeaIndexes[needMaterialDataInOtherSea[2]])
-                        return
-                    end
+                    GodHumanFlag = false
+                    return true
                 end
 
-                -- 3. CHỈ CHUYỂN SEA THEO LEVEL NẾU KHÔNG CÒN NGUYÊN LIỆU / NHIỆM VỤ DỞ ĐANG Ở SEA HIỆN TẠI
-                LastTravel = os.time()
-                if PlayerLevel >= 1500 and (SeaIndex == 2) then
-                    if not Services.Workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor") then
-                        Remotes.CommF_:InvokeServer("TravelZou")
-                        SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
-                        return
+                    LastTravel = os.time()
+                    if PlayerLevel >= 1500 and (SeaIndex == 2) then
+                        
+                        if not Services.Workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor")  then
+                            
+
+                            Remotes.CommF_:InvokeServer("TravelZou")
+
+                            SetTask("MainTask", "Sea Travel | Teleporting to Third Sea")
+                             
+                        end
+                    elseif PlayerLevel >= 700 and (SeaIndex == 1)  then
+                        SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
+                        Remotes.CommF_:InvokeServer("TravelDressrosa")
                     end
-                elseif PlayerLevel >= 700 and (SeaIndex == 1) then
-                    SetTask("MainTask", "Sea Travel | Teleporting to Second Sea")
-                    Remotes.CommF_:InvokeServer("TravelDressrosa")
-                    return
-                end
                 
 
                 if ScriptStorage.Tools["God's Chalice"] and not ScriptStorage.Tools["Mirror Fractal"] then
@@ -4116,53 +3960,18 @@ FunctionsHandler = {
         FunctionsHandler.LocalPlayerController:RegisterMethod(
             "EquipTool",
             function(Tool)
-                pcall(function()
-                    local char = LocalPlayer.Character
-                    if not char then return end
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if not hum then return end
+                if not Humanoid then
+                    return
+                end
 
-                    -- Check if already equipped
-                    local currentTool = char:FindFirstChildOfClass("Tool")
-                    if currentTool then
-                        if Tool == "Melee" and (currentTool.ToolTip == "Melee" or table.find({"Electro", "Electric", "Godhuman", "Superhuman", "Dark Step", "Death Step", "Sharkman Karate", "Electric Claw", "Dragon Talon", "Sanguine Art", "Black Leg", "Fishman Karate", "Dragon Claw"}, currentTool.Name)) then
-                            return
-                        elseif Tool == "Sword" and (currentTool.ToolTip == "Sword" or currentTool:GetAttribute("IsSword")) then
-                            return
-                        elseif currentTool.Name == tostring(Tool) or currentTool.ToolTip == tostring(Tool) then
-                            return
-                        end
+                for _, Item in LocalPlayer.Backpack:GetChildren() do
+                    if
+                        Item:IsA("Tool") and Item.Name ~= "Tool" and
+                            (Item.Name == tostring(Tool) or Item.ToolTip == Tool)
+                     then
+                        LocalPlayer.Character:WaitForChild "Humanoid":EquipTool(Item)
                     end
-
-                    -- Search in Backpack
-                    local backpack = LocalPlayer:FindFirstChild("Backpack")
-                    if backpack then
-                        for _, Item in pairs(backpack:GetChildren()) do
-                            if Item:IsA("Tool") then
-                                local match = false
-                                if Tool == "Melee" then
-                                    if Item.ToolTip == "Melee" or table.find({"Electro", "Electric", "Godhuman", "Superhuman", "Dark Step", "Death Step", "Sharkman Karate", "Electric Claw", "Dragon Talon", "Sanguine Art", "Black Leg", "Fishman Karate", "Dragon Claw"}, Item.Name) then
-                                        match = true
-                                    end
-                                elseif Tool == "Sword" then
-                                    if Item.ToolTip == "Sword" or Item:GetAttribute("IsSword") then
-                                        match = true
-                                    end
-                                else
-                                    if Item.Name == tostring(Tool) or Item.ToolTip == tostring(Tool) then
-                                        match = true
-                                    end
-                                end
-
-                                if match then
-                                    hum:EquipTool(Item)
-                                    task.wait(0.05)
-                                    return
-                                end
-                            end
-                        end
-                    end
-                end)
+                end
             end
         )
 
