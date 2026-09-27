@@ -88,10 +88,10 @@ Config =
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
-                QuestGracePeriod = 1,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
-                QuestStartTimeout = 1,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
+                QuestGracePeriod = 10,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
+                QuestStartTimeout = 5,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
                 QuestGoneDelay = 60,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
-                MinFarmDuration = 1,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
+                MinFarmDuration = 10,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
             }
 }
 
@@ -304,7 +304,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TNNB"
+        NameHub.Text = "1TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
