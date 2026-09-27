@@ -88,9 +88,9 @@ Config =
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
-                QuestGracePeriod = 50,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
+                QuestGracePeriod = 60,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
                 QuestStartTimeout = 2.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
-                QuestGoneDelay = 28,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
+                QuestGoneDelay = 30,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
                 MinFarmDuration = 2.0,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
             }
 }
@@ -304,7 +304,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "10TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5267,7 +5267,101 @@ FunctionsHandler = {
         FunctionsHandler.MeleesController:RegisterMethod(
             "Refresh",
             function()
-                return Config.Items.AutoFullyMelees
+                if not Config.Items.AutoFullyMelees then
+                    return false
+                end
+
+                local isSaberOngoing = (type(IsSaberQuestActive) == "function" and IsSaberQuestActive()) or (CurrentTask == "Saber")
+                if isSaberOngoing then
+                    return false
+                end
+
+                -- Check current melee mastery
+                local curMelee, curMastery, reqMastery = GetCurrentMeleeMastery()
+                if curMelee and curMastery and reqMastery and curMastery < reqMastery then
+                    return true
+                end
+
+                if LastLockedMelee then
+                    local lastMastery = GetPlayerMeleeMastery(LastLockedMelee)
+                    local req = (MeleePrices and MeleePrices[LastLockedMelee] and MeleePrices[LastLockedMelee].NextLevelRequirement) or 400
+                    if lastMastery < req then
+                        return true
+                    end
+                end
+
+                -- Find first melee needing mastery / purchase
+                local targetMelee = nil
+                for idx, meleeName in ipairs(MeleesTable) do
+                    if meleeName ~= "SanguineArt" then
+                        local mastery = GetPlayerMeleeMastery(meleeName)
+                        local req = (MeleePrices and MeleePrices[meleeName] and MeleePrices[meleeName].NextLevelRequirement) or 400
+                        if mastery < req then
+                            targetMelee = meleeName
+                            break
+                        end
+                    end
+                end
+
+                if not targetMelee then
+                    return false
+                end
+
+                -- If Godhuman
+                if targetMelee == "Godhuman" then
+                    local ghStatus = CheckGodhumanProgress()
+                    if ghStatus.Unlocked then
+                        return false
+                    elseif ghStatus.IsAllReady and SeaIndex == 3 then
+                        return true
+                    end
+                    return false
+                end
+
+                -- Check if we already have the tool
+                local existingTool = GetPlayerMeleeTool(targetMelee)
+                if existingTool then
+                    return true
+                end
+
+                -- Check if we have enough money to buy it
+                local mData = MeleePrices[targetMelee]
+                local PlayerData = ScriptStorage.PlayerData
+                local hasEnoughMoney = true
+                if mData and mData.Price and PlayerData then
+                    for currency, reqAmount in pairs(mData.Price) do
+                        local curAmount = tonumber(PlayerData[currency]) or 0
+                        local reqVal = tonumber(reqAmount) or 0
+                        if curAmount < reqVal then
+                            hasEnoughMoney = false
+                            break
+                        end
+                    end
+                end
+
+                if not hasEnoughMoney then
+                    -- Don't stall/stand still if not enough money! Let LevelFarm run to earn money/levels!
+                    return false
+                end
+
+                -- Check if NPC is in current sea
+                local npcPositions = {
+                    ["Black Leg"] = {Sea = 1},
+                    ["Electro"] = {Sea = 1},
+                    ["Fishman Karate"] = {Sea = 1},
+                    ["Dragon Claw"] = {Sea = 2},
+                    ["Superhuman"] = {Sea = 2},
+                    ["Death Step"] = {Sea = 2},
+                    ["Sharkman Karate"] = {Sea = 2},
+                    ["Electric Claw"] = {Sea = 3},
+                    ["Dragon Talon"] = {Sea = 3}
+                }
+                local tInfo = npcPositions[targetMelee]
+                if tInfo and tInfo.Sea == SeaIndex then
+                    return true
+                end
+
+                return false
             end
         )
 
