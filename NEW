@@ -88,10 +88,10 @@ Config =
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
-                QuestGracePeriod = 10,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
-                QuestStartTimeout = 5,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
-                QuestGoneDelay = 60,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
-                MinFarmDuration = 10,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
+                QuestGracePeriod = 70,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
+                QuestStartTimeout = 2.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
+                QuestGoneDelay = 1.0,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
+                MinFarmDuration = 2.0,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
             }
 }
 
@@ -304,7 +304,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "1TN"
+        NameHub.Text = "1TNNB"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -4634,20 +4634,24 @@ FunctionsHandler = {
                             -- CHỈ xét hoàn thành khi NHÂN VẬT ĐÃ ĐẾN BÃI QUÁI (hasArrivedAtMob) và UI biến mất liên tục trong QuestGoneDelay
                             if not hasArrivedAtMob then
                                 noQuestGoneSince = nil -- Đang trên đường bay tới bãi quái xa, không xác nhận mất quest!
-                            elseif lastCurKills and lastTotalKills and lastTotalKills > 1 and lastCurKills < lastTotalKills then
-                                -- Nếu vừa đánh xong đợt 1 (ví dụ 4/8 quái) và quái đang chờ hồi sinh (respawn), KHÔNG được thoát ra nhận lại quest!
+                            elseif lastCurKills and lastTotalKills and lastCurKills < lastTotalKills then
+                                -- Dù quái ít hay nhiều, nếu chưa đạt đủ số lượng yêu cầu (vd: 3/8) mà UI tạm ẩn, KHÔNG ĐƯỢC PHÉP hoàn thành sớm!
                                 noQuestGoneSince = nil
                             else
                                 local questGoneDelay = (Config and Config.Settings and tonumber(Config.Settings.QuestGoneDelay)) or 1.0
                                 local minFarmDuration = (Config and Config.Settings and tonumber(Config.Settings.MinFarmDuration)) or 2.0
                                 local farmingElapsed = os.time() - (arriveTime or farmMobStart)
 
-                                if not noQuestGoneSince then
-                                    noQuestGoneSince = os.clock()
-                                elseif (os.clock() - noQuestGoneSince >= questGoneDelay) and (farmingElapsed >= minFarmDuration) then
-                                    getgenv().LastQuestClaimTick = nil
-                                    getgenv().DynamicQuestGracePeriod = nil
-                                    break -- Thực sự đã hoàn thành nhiệm vụ!
+                                if lastCurKills and lastTotalKills and lastCurKills < lastTotalKills then
+                                    noQuestGoneSince = nil
+                                else
+                                    if not noQuestGoneSince then
+                                        noQuestGoneSince = os.clock()
+                                    elseif (os.clock() - noQuestGoneSince >= questGoneDelay) and (farmingElapsed >= minFarmDuration) then
+                                        getgenv().LastQuestClaimTick = nil
+                                        getgenv().DynamicQuestGracePeriod = nil
+                                        break -- Thực sự đã hoàn thành nhiệm vụ!
+                                    end
                                 end
                             end
                         end
