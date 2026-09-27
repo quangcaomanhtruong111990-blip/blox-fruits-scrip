@@ -88,7 +88,7 @@ Config =
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
-                QuestGracePeriod = 60,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
+                QuestGracePeriod = 50,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
                 QuestStartTimeout = 2.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
                 QuestGoneDelay = 30,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
                 MinFarmDuration = 2.0,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
@@ -304,7 +304,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "10TN"
+        NameHub.Text = "sanglove v1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1740,6 +1740,7 @@ ScriptStorage = {
 
         TasksOrder = {
             "ExpRedeem",
+            "MeleesController",
             "SoulGuitar",
             "Tushita",
             "SpecialBossesTask",
@@ -1755,7 +1756,6 @@ ScriptStorage = {
             "ThirdSeaPuzzle",
             "CollectDrops",
             "BossesTask",
-            "MeleesController",
             "LevelFarm"
         }
 
@@ -5391,7 +5391,11 @@ FunctionsHandler = {
                 if curMelee then
                     LastLockedMelee = curMelee
                     if curMastery < reqMastery then
+                        SetTask("MainTask", "Checking & Farming Melee Mastery")
                         SetTask("SubTask", "Farming Mastery: " .. tostring(curMelee) .. " (" .. curMastery .. "/" .. reqMastery .. ")")
+                        if FunctionsHandler.LevelFarm and FunctionsHandler.LevelFarm.Methods and FunctionsHandler.LevelFarm.Methods.Start then
+                            pcall(function() FunctionsHandler.LevelFarm.Methods.Start:Call() end)
+                        end
                         return
                     end
                 elseif LastLockedMelee then
@@ -5406,7 +5410,11 @@ FunctionsHandler = {
                                     FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
                                 end)
                             end
+                            SetTask("MainTask", "Checking & Farming Melee Mastery")
                             SetTask("SubTask", "Farming Mastery: " .. tostring(LastLockedMelee) .. " (" .. lastMastery .. "/" .. req .. ")")
+                            if FunctionsHandler.LevelFarm and FunctionsHandler.LevelFarm.Methods and FunctionsHandler.LevelFarm.Methods.Start then
+                                pcall(function() FunctionsHandler.LevelFarm.Methods.Start:Call() end)
+                            end
                             return
                         end
                     end
