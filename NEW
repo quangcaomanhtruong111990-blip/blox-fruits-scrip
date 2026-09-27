@@ -88,9 +88,9 @@ Config =
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
-                QuestGracePeriod = 70,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
+                QuestGracePeriod = 50,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
                 QuestStartTimeout = 2.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
-                QuestGoneDelay = 1.0,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
+                QuestGoneDelay = 28,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
                 MinFarmDuration = 2.0,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
             }
 }
@@ -304,7 +304,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "1TNNB"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1755,6 +1755,7 @@ ScriptStorage = {
             "ThirdSeaPuzzle",
             "CollectDrops",
             "BossesTask",
+            "MeleesController",
             "LevelFarm"
         }
 
