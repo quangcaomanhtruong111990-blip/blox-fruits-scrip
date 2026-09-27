@@ -89,7 +89,7 @@ Config =
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
                 QuestGracePeriod = 1,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
-                QuestStartTimeout = 2,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
+                QuestStartTimeout = 1,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
                 QuestGoneDelay = 28,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
                 MinFarmDuration = 1,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
             }
@@ -304,7 +304,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v2"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1082,29 +1082,6 @@ ScriptStorage = {
                 if Key == "CommF_" then
                     local tbl = {
                         InvokeServer = function(Self, ...)
-                            local RemoteAction, IsValidate = ...
-                            if RemoteAction and type(RemoteAction) == "string" and string.find(RemoteAction, "Buy") == 1 and not IsValidate then
-                                local MeleeName = string.gsub(RemoteAction, "Buy", "")
-                                if BindedMeleeNPCNames and table.find(MeleeCanBuy, MeleeName) then
-                                    local NPC = ScriptStorage.NPCs and ScriptStorage.NPCs[BindedMeleeNPCNames[MeleeName]]
-                                    if NPC then
-                                        local NPCPos = NPC.WorldPivot or (NPC:FindFirstChild("HumanoidRootPart") and NPC.HumanoidRootPart.CFrame)
-                                        SetTask("SubTask", "Buying Melee - " .. MeleeName)
-                                        local targetPos = NPCPos and (NPCPos.Position or NPCPos)
-                                        if targetPos and CaculateDistance(targetPos) > 10 then
-                                            local startBuyWait = os.time()
-                                            repeat
-                                                task.wait()
-                                                TweenController.Create(targetPos)
-                                            until CaculateDistance(targetPos) < 10 or (os.time() - startBuyWait > 8)
-                                            task.wait(1.5)
-                                            if Services.ReplicatedStorage and Services.ReplicatedStorage:FindFirstChild("Remotes") and Services.ReplicatedStorage.Remotes:FindFirstChild("CommF_") then
-                                                return Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
-                                            end
-                                        end
-                                    end
-                                end
-                            end
                             if Services.ReplicatedStorage and Services.ReplicatedStorage:FindFirstChild("Remotes") and Services.ReplicatedStorage.Remotes:FindFirstChild("CommF_") then
                                 return Services.ReplicatedStorage.Remotes.CommF_:InvokeServer(...)
                             end
@@ -2070,6 +2047,7 @@ ScriptStorage = {
                 Trainees = 1,
                 MarineQuest = 1,
                 ImpelQuest = 1,
+                PrisonerQuest = 1, -- Bỏ qua nhiệm vụ đảo nhà tù (tránh trùng tên NPC)
                 SubmergedQuest1 = 1,
                 SubmergedQuest2 = 1
             }
@@ -2205,7 +2183,7 @@ ScriptStorage = {
 
         local Sea1Quests = {
             "BanditQuest1", "JungleQuest", "BuggyQuest1", "DesertQuest", "SnowQuest",
-            "MarineQuest2", "SkyQuest", "PrisonerQuest", "ColosseumQuest", "MagmaQuest",
+            "MarineQuest2", "SkyQuest", "ColosseumQuest", "MagmaQuest",
             "FishmanQuest", "SkyExp1Quest", "SkyExp2Quest", "FountainQuest"
         }
         local Sea2Quests = {
@@ -2270,30 +2248,8 @@ ScriptStorage = {
             local foundPos = nil
             pcall(function()
                 local wsNpcs = workspace:FindFirstChild("NPCs")
-                local candidateList = (QuestId and QuestNpcCandidateNames[QuestId]) or {"Quest Giver"}
-
-                -- 1. Thử tìm NPC có tên định danh chính xác trong workspace.NPCs
-                if wsNpcs then
-                    for _, nameCand in ipairs(candidateList) do
-                        if nameCand ~= "Quest Giver" then
-                            local directNpc = wsNpcs:FindFirstChild(nameCand)
-                            if directNpc and directNpc:IsA("Model") then
-                                local hrp = directNpc:FindFirstChild("HumanoidRootPart") or directNpc:FindFirstChild("Head") or directNpc.PrimaryPart or directNpc:FindFirstChildWhichIsA("BasePart")
-                                if hrp then
-                                    foundPos = hrp.Position
-                                    return
-                                elseif directNpc.GetPivot then
-                                    foundPos = directNpc:GetPivot().Position
-                                    return
-                                end
-                            end
-                        end
-                    end
-                end
-
-                -- 2. Tọa độ tham chiếu của bãi quái hoặc hòn đảo tương ứng
-                local refPos = nil
-                if TargetMobName then
+                local refPos = (QuestId and BuiltInNpcPositions[QuestId]) or nil
+                if not refPos and TargetMobName then
                     if ScriptStorage.MobRegions and ScriptStorage.MobRegions[TargetMobName] and #ScriptStorage.MobRegions[TargetMobName] > 0 then
                         local r = ScriptStorage.MobRegions[TargetMobName][1]
                         refPos = (typeof(r) == "CFrame" and r.Position) or (typeof(r) == "Vector3" and r)
@@ -2302,14 +2258,19 @@ ScriptStorage = {
                         refPos = (typeof(r) == "CFrame" and r.Position) or (typeof(r) == "Vector3" and r)
                     end
                 end
-                if not refPos and QuestId and BuiltInNpcPositions[QuestId] then
-                    refPos = BuiltInNpcPositions[QuestId]
+
+                if not refPos then
+                    return nil
                 end
 
-                -- 3. Quét tất cả model trong workspace.NPCs để chọn đúng NPC Quest Giver đứng trên cùng hòn đảo gần bãi quái nhất
-                if wsNpcs and refPos then
-                    local bestDist = math.huge
+                -- Quét model trong workspace.NPCs để chọn đúng NPC đứng gần refPos trên cùng hòn đảo
+                -- KHÔNG dùng wsNpcs:FindFirstChild vì các NPC đều bị đặt tên trùng nhau ("Quest Giver")
+                -- CHỈ chấp nhận NPC model nằm trong bán kính 300 studs quanh refPos chuẩn!
+                if wsNpcs then
+                    local bestDist = 300
                     local bestNpcPos = nil
+                    local candidateList = (QuestId and QuestNpcCandidateNames[QuestId]) or {"Quest Giver"}
+
                     for _, npcObj in ipairs(wsNpcs:GetChildren()) do
                         if npcObj:IsA("Model") then
                             local nName = npcObj.Name
@@ -2335,11 +2296,14 @@ ScriptStorage = {
                             end
                         end
                     end
-                    if bestNpcPos and bestDist < 1800 then
+                    if bestNpcPos then
                         foundPos = bestNpcPos
                         return
                     end
                 end
+
+                -- Nếu không tìm thấy live model trong 300 studs, sử dụng chính xác refPos (BuiltInNpcPositions)
+                foundPos = refPos
             end)
             return foundPos
         end
@@ -2425,43 +2389,11 @@ ScriptStorage = {
                         end
                     end
 
-                    -- 1. ƯU TIÊN SỐ 1: Quét trực tiếp NPC Model đang spawn trong workspace.NPCs (đứng ngay trước mặt ông NPC)
+                    -- 1. ƯU TIÊN SỐ 1: Quét trực tiếp NPC Model đang spawn trong workspace.NPCs trên cùng hòn đảo
                     local liveNpcPos = QuestManager:FindLiveNpc(Self.CurrentQuestId, targetMobName)
                     if liveNpcPos then
                         Self.CurrentNpc = liveNpcPos
-                    end
-
-                    -- 2. Fallback: NpcList của GuideModule (chỉ nhận nếu là Model có thật trong workspace, không lấy CFrame mép đảo)
-                    if not Self.CurrentNpc and NpcList and #CurrentQuestData > 0 then
-                        local targetReqs = {}
-                        for _, qEntry in ipairs(CurrentQuestData) do
-                            if qEntry.LevelReq then
-                                table.insert(targetReqs, qEntry.LevelReq)
-                            end
-                        end
-
-                        for i, v in pairs(NpcList) do
-                            if v and v.Levels then
-                                for _, v1 in pairs(v.Levels) do
-                                    if table.find(targetReqs, v1) then
-                                        if typeof(i) == "Instance" and i:IsDescendantOf(workspace) then
-                                            Self.CurrentNpc = (i:IsA("Model") and i:GetPivot().Position) or (i:IsA("BasePart") and i.Position)
-                                        elseif typeof(i) == "string" then
-                                            local npcObj = workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild(i)
-                                            if npcObj then
-                                                Self.CurrentNpc = (npcObj:IsA("Model") and npcObj:GetPivot().Position) or (npcObj:IsA("BasePart") and npcObj.Position)
-                                            end
-                                        end
-                                        if Self.CurrentNpc then break end
-                                    end
-                                end
-                            end
-                            if Self.CurrentNpc then break end
-                        end
-                    end
-
-                    -- 3. Fallback: Built-in NPC Coordinates trên cùng đảo (tọa độ thực tế)
-                    if not Self.CurrentNpc and Self.CurrentQuestId and BuiltInNpcPositions[Self.CurrentQuestId] then
+                    elseif Self.CurrentQuestId and BuiltInNpcPositions[Self.CurrentQuestId] then
                         Self.CurrentNpc = BuiltInNpcPositions[Self.CurrentQuestId]
                     end
                 end
@@ -3170,20 +3102,24 @@ ScriptStorage = {
             return status
         end
 
+        function HasSaberItem()
+            local lp = game:GetService("Players").LocalPlayer
+            if not lp then return false end
+            if ScriptStorage and ScriptStorage.Backpack and (ScriptStorage.Backpack.Saber or ScriptStorage.Backpack["saber"]) then return true end
+            if ScriptStorage and ScriptStorage.Tools and (ScriptStorage.Tools.Saber or ScriptStorage.Tools["saber"]) then return true end
+            if lp:FindFirstChild("Backpack") and (lp.Backpack:FindFirstChild("Saber") or lp.Backpack:FindFirstChild("saber")) then return true end
+            if lp.Character and (lp.Character:FindFirstChild("Saber") or lp.Character:FindFirstChild("saber")) then return true end
+            if ScriptStorage and ScriptStorage.Inventory and (ScriptStorage.Inventory.Saber or ScriptStorage.Inventory["saber"]) then return true end
+            return false
+        end
+
         function IsSaberQuestActive()
             if not (Config and Config.Items and Config.Items.Saber) then return false end
             if SeaIndex ~= 1 then return false end
             local level = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) 
                 or (game.Players.LocalPlayer:FindFirstChild("Data") and game.Players.LocalPlayer.Data:FindFirstChild("Level") and game.Players.LocalPlayer.Data.Level.Value) or 0
             if level < 200 then return false end
-            
-            local lp = game:GetService("Players").LocalPlayer
-            local hasSaber = (ScriptStorage.Backpack and (ScriptStorage.Backpack.Saber or ScriptStorage.Backpack["saber"]))
-                or (ScriptStorage.Tools and ScriptStorage.Tools.Saber)
-                or (lp and lp:FindFirstChild("Backpack") and lp.Backpack:FindFirstChild("Saber"))
-                or (lp and lp.Character and lp.Character:FindFirstChild("Saber"))
-            if hasSaber then return false end
-            
+            if HasSaberItem() then return false end
             return true
         end
 
@@ -3597,11 +3533,13 @@ ScriptStorage = {
             ["Royal Squad"] = Vector3.new(-7660, 5607, -1460),
             ["Royal Soldier"] = Vector3.new(-7800, 5607, -1790),
             ["Galley Pirate"] = Vector3.new(5590, 40, 3980),
-            ["Galley Captain"] = Vector3.new(5650, 40, 4920)
+            ["Galley Captain"] = Vector3.new(5650, 40, 4920),
+            ["Mob Leader"] = Vector3.new(-2850.2, 7.4, 5350.5),
+            ["Saber Expert"] = Vector3.new(-1442.2, 29.9, -8.8)
         }
 
 CombatController = {
-            GRAB = true,
+            GRAB = false,
             GRAB_DISTANCE = SeaIndex == 1 and 250 or 350,
             MAX_ATTACK_DURATION = 3,
             MAX_ATTACK_DURATION_2 = 60,
@@ -3613,6 +3551,7 @@ CombatController = {
         -- save center pos vao attribute cua con mob r set de cho do bi move idk
 
         function CombatController.Grab(MobName)
+            if not CombatController.GRAB then return end
             -- [v1.09] Disabled SimulationRadius to prevent crashes in Sea 3
             -- pcall(sethiddenproperty, game.Players.LocalPlayer, "SimulationRadius", 1000)
             if not CombatController.GRAB or GrabDebounce == os.time() then
@@ -4483,10 +4422,14 @@ FunctionsHandler = {
                     return
                 end
             end
-                -- Nếu đang bật AutoFullyMelees và võ hiện tại đã đạt đủ Mastery:
-                -- Lưu ý: Không can thiệp nếu đang làm nhiệm vụ Saber (Saber là ưu tiên số 1)!
+                -- Nếu đang làm nhiệm vụ Saber (hoặc đủ điều kiện làm Saber tại Sea 1): Nhường hoàn toàn cho Saber!
                 local isSaberOngoing = (type(IsSaberQuestActive) == "function" and IsSaberQuestActive()) or (CurrentTask == "Saber")
-                if not isSaberOngoing and Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
+                if isSaberOngoing then
+                    return
+                end
+
+                -- Nếu đang bật AutoFullyMelees và võ hiện tại đã đạt đủ Mastery:
+                if Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
                     local curMelee, curMastery, reqMastery = GetCurrentMeleeMastery()
                     if curMelee and curMastery and curMastery >= reqMastery then
                         -- Kiểm tra xem còn võ nào khác cần cày hoặc mua không
@@ -4575,21 +4518,10 @@ FunctionsHandler = {
                         end
                     end
 
-                    if CaculateDistance(targetNpcVec) > 1000 then
-                        GetPortal(targetNpcVec)
-                    end
-
-                    -- Đứng ngay sát trước mặt NPC (cách 3 stud độ cao và 2 stud ngang, không bay xa ở mép đảo)
-                    TweenController.Create(targetNpcVec + Vector3.new(0, 3, 2))
-                    SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Claiming Quest")
-                    if CaculateDistance(targetNpcVec) > 28 then
-                        return
-                    end
-
-                    task.wait(0.2)
+                    SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Claiming Quest (Instant at Mob Area)")
                     LevelFarmTTL = 0
                     if QuestId and QuestIndex then
-                        -- Tự động tính toán khoảng cách từ NPC đến bãi quái để điều chỉnh thời gian bảo vệ linh hoạt (Dynamic Grace Period)
+                        -- Tự động tính toán khoảng cách để đặt thời gian ân hạn
                         local mobPos = nil
                         pcall(function()
                             if MonName and ScriptStorage.MobRegions and ScriptStorage.MobRegions[MonName] and #ScriptStorage.MobRegions[MonName] > 0 then
@@ -4608,7 +4540,7 @@ FunctionsHandler = {
 
                         getgenv().LastQuestClaimTick = tick()
                         QuestManager.StartQuest(QuestId, QuestIndex)
-                        local startTimeout = (Config and Config.Settings and tonumber(Config.Settings.QuestStartTimeout)) or 3.0
+                        local startTimeout = (Config and Config.Settings and tonumber(Config.Settings.QuestStartTimeout)) or 2.0
                         local waitQuest = tick() + startTimeout
                         repeat
                             task.wait(0.1)
@@ -4824,11 +4756,7 @@ FunctionsHandler = {
                 end
 
                 local lp = game:GetService("Players").LocalPlayer
-                local hasSaber = (ScriptStorage.Backpack and (ScriptStorage.Backpack.Saber or ScriptStorage.Backpack["saber"]))
-                    or (ScriptStorage.Tools and ScriptStorage.Tools.Saber)
-                    or (lp and lp:FindFirstChild("Backpack") and lp.Backpack:FindFirstChild("Saber"))
-                    or (lp and lp.Character and lp.Character:FindFirstChild("Saber"))
-                if hasSaber then
+                if HasSaberItem() then
                     return
                 end
 
@@ -4839,38 +4767,40 @@ FunctionsHandler = {
                     return
                 end
 
-                local Result = nil
+                local Result = 1
                 local Tasks = nil
                 pcall(function()
                     Tasks = Remotes.CommF_:InvokeServer("ProQuestProgress")
                 end)
-                if type(Tasks) ~= "table" then
-                    return
-                end
-
-                if type(Tasks.Plates) == "table" then
-                    for _, Value in pairs(Tasks.Plates) do
-                        if Value == false then
-                            Result = 1
-                            break
+                if type(Tasks) == "table" then
+                    local platesDone = true
+                    if type(Tasks.Plates) == "table" then
+                        for _, Value in pairs(Tasks.Plates) do
+                            if Value == false then
+                                platesDone = false
+                                Result = 1
+                                break
+                            end
                         end
                     end
-                end
 
-                if not Result then
-                    if not Tasks.UsedTorch then
-                        Result = 2
-                    elseif not Tasks.UsedCup then
-                        Result = 3
-                    elseif not Tasks.TalkedSon then
-                        Result = 4
-                    elseif not Tasks.KilledMob then
-                        Result = 5
-                    elseif not Tasks.UsedRelic then
-                        Result = 6
-                    elseif not Tasks.KilledShanks then
-                        Result = 7
+                    if platesDone then
+                        if not Tasks.UsedTorch then
+                            Result = 2
+                        elseif not Tasks.UsedCup then
+                            Result = 3
+                        elseif not Tasks.TalkedSon then
+                            Result = 4
+                        elseif not Tasks.KilledMob then
+                            Result = 5
+                        elseif not Tasks.UsedRelic then
+                            Result = 6
+                        elseif not Tasks.KilledShanks then
+                            Result = 7
+                        end
                     end
+                else
+                    Result = FunctionsHandler.Saber:Get("CurrentProgressLevel") or 1
                 end
 
                 FunctionsHandler.Saber:Set("CurrentProgressLevel", Result)
@@ -4884,24 +4814,56 @@ FunctionsHandler = {
             "GetQuestplates",
             function()
                 local CachedData = FunctionsHandler.Saber:Get("QuestplatesCache")
-
                 if CachedData and #CachedData > 0 then
                     return CachedData
                 end
 
-                local Jungle = Services.Workspace and Services.Workspace:FindFirstChild("Map") and Services.Workspace.Map:FindFirstChild("Jungle")
+                local JungleCenter = Vector3.new(-1600, 37, 153)
+                if CaculateDistance(JungleCenter) > 200 then
+                    SetTask("MainTask", "Saber Quest | Traveling to Jungle Island...")
+                    local t0 = os.time()
+                    repeat
+                        task.wait(0.2)
+                        TweenController.Create(JungleCenter)
+                    until CaculateDistance(JungleCenter) < 150 or (os.time() - t0 > 25)
+                    task.wait(1)
+                end
+
+                local Jungle = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Jungle")
                 local Result = {}
 
                 if Jungle and Jungle:FindFirstChild("QuestPlates") then
                     for _, Inst in ipairs(Jungle.QuestPlates:GetChildren()) do
-                        if Inst:FindFirstChild("Button") then
-                            table.insert(Result, Inst)
+                        local btn = Inst:FindFirstChild("Button") or Inst
+                        if btn then
+                            table.insert(Result, btn)
                         end
                     end
                 end
 
-                FunctionsHandler.Saber:Set("QuestplatesCache", Result)
+                if #Result == 0 then
+                    -- Fallback: scan workspace near Jungle
+                    for _, obj in ipairs(workspace:GetDescendants()) do
+                        if obj:IsA("BasePart") and (string.find(obj.Name, "Plate") or string.find(obj.Name, "Button")) then
+                            if (obj.Position - JungleCenter).Magnitude < 400 then
+                                table.insert(Result, obj)
+                            end
+                        end
+                    end
+                end
 
+                if #Result == 0 then
+                    -- Hardcoded fallback CFrames for the 5 Jungle plates
+                    Result = {
+                        CFrame.new(-1605.5, 11.8, 156.2),
+                        CFrame.new(-1490.2, 11.8, 120.5),
+                        CFrame.new(-1615.1, 12.0, 75.4),
+                        CFrame.new(-1240.2, 7.2, -490.1),
+                        CFrame.new(-1150.5, 6.8, -520.3)
+                    }
+                end
+
+                FunctionsHandler.Saber:Set("QuestplatesCache", Result)
                 return Result
             end
         )
@@ -4926,17 +4888,26 @@ FunctionsHandler = {
 
                     for Index, Questplate in ipairs(Questplates) do
                         SetTask("MainTask", "Saber Quest | Quest Plates | Touching " .. Index .. "/5")
-                        if Questplate and Questplate:FindFirstChild("Button") then
+                        local targetPos = (typeof(Questplate) == "CFrame" and Questplate) or (Questplate:IsA("BasePart") and Questplate.CFrame) or (Questplate:FindFirstChild("Button") and Questplate.Button.CFrame) or (Questplate.PrimaryPart and Questplate.PrimaryPart.CFrame)
+                        if targetPos then
                             local LoopStartTime = os.time()
-                            local MaxLoopDuration = 25
-                            while Questplate and Questplate:FindFirstChild("Button") and CaculateDistance(Questplate.Button.CFrame.Position) > 3 do
+                            local MaxLoopDuration = 20
+                            while CaculateDistance(targetPos.Position) > 3 do
                                 if os.time() - LoopStartTime > MaxLoopDuration then
                                     break
                                 end
                                 task.wait(0.2)
-                                TweenController.Create(Questplate.Button.CFrame)
+                                TweenController.Create(targetPos)
                             end
-                            task.wait(0.8)
+                            pcall(function()
+                                local part = (typeof(Questplate) == "Instance" and (Questplate:FindFirstChild("Button") or Questplate)) or nil
+                                if part and part:IsA("BasePart") and firetouchinterest then
+                                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, part, 0)
+                                    task.wait(0.05)
+                                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, part, 1)
+                                end
+                            end)
+                            task.wait(0.5)
                         end
                     end
                     pcall(function() FunctionsHandler.Saber.Methods.Refresh:Call() end)
@@ -5012,7 +4983,13 @@ FunctionsHandler = {
                     pcall(function() FunctionsHandler.Saber.Methods.Refresh:Call() end)
                 elseif Progress == 5 then
                     SetTask("MainTask", "Saber Quest | Mob Leader | Defeating Boss")
-                    CombatController.Attack("Mob Leader")
+                    local mobLeaderPos = CFrame.new(-2850.2, 7.4, 5350.5)
+                    local mob = ScriptStorage.Enemies["Mob Leader"] or (workspace.Enemies and workspace.Enemies:FindFirstChild("Mob Leader"))
+                    if not mob and CaculateDistance(mobLeaderPos.Position) > 40 then
+                        TweenController.Create(mobLeaderPos)
+                    else
+                        CombatController.Attack("Mob Leader")
+                    end
                 elseif Progress == 6 then
                     SetTask("MainTask", "Saber Quest | Relic | Placing at Location")
                     local richSonPos = CFrame.new(-1399.7, 30.2, 400.1)
@@ -5141,6 +5118,8 @@ FunctionsHandler = {
         function GetPlayerMeleeMastery(meleeName)
             local canon = ToCanonicalMeleeName(meleeName)
             local aliases = MeleeToolAliases[canon] or {meleeName}
+
+            -- 1. Nếu tool đang có sẵn trong người (Character/Backpack), cập nhật mastery mới nhất
             for _, alias in ipairs(aliases) do
                 local t = GetPlayerMeleeTool(alias)
                 if t and t:FindFirstChild("Level") then
@@ -5151,13 +5130,22 @@ FunctionsHandler = {
                     end
                     return lvl
                 end
-                if ScriptStorage and ScriptStorage.Melees and tonumber(ScriptStorage.Melees[alias]) then
-                    return tonumber(ScriptStorage.Melees[alias])
+            end
+
+            -- 2. Đọc từ bộ nhớ ScriptStorage.Melees (đảm bảo không bị quên mastery khi đã cất võ)
+            if ScriptStorage and ScriptStorage.Melees then
+                for _, alias in ipairs(aliases) do
+                    local cached = tonumber(ScriptStorage.Melees[alias])
+                    if cached and cached > 0 then
+                        return cached
+                    end
                 end
-                if ScriptStorage and ScriptStorage.Melees and tonumber(ScriptStorage.Melees[canon]) then
-                    return tonumber(ScriptStorage.Melees[canon])
+                local cachedCanon = tonumber(ScriptStorage.Melees[canon])
+                if cachedCanon and cachedCanon > 0 then
+                    return cachedCanon
                 end
             end
+
             return 0
         end
 
@@ -5301,9 +5289,28 @@ FunctionsHandler = {
                 
                 -- Nếu đang cầm một võ và võ đó CHƯA ĐẠT Mastery yêu cầu (thường là 400)
                 -- TIẾP TỤC DÙNG VÕ NÀY để cày, KHÔNG nhảy lung tung sang võ khác!
-                if curMelee and curMastery and curMastery < reqMastery then
-                    SetTask("SubTask", "Farming Mastery: " .. tostring(curMelee) .. " (" .. curMastery .. "/" .. reqMastery .. ")")
-                    return
+                if curMelee then
+                    LastLockedMelee = curMelee
+                    if curMastery < reqMastery then
+                        SetTask("SubTask", "Farming Mastery: " .. tostring(curMelee) .. " (" .. curMastery .. "/" .. reqMastery .. ")")
+                        return
+                    end
+                elseif LastLockedMelee then
+                    local lastTool = GetPlayerMeleeTool(LastLockedMelee)
+                    if lastTool then
+                        local lastMastery = GetPlayerMeleeMastery(LastLockedMelee)
+                        local req = (MeleePrices and MeleePrices[LastLockedMelee] and MeleePrices[LastLockedMelee].NextLevelRequirement) or 400
+                        if lastMastery < req then
+                            if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                pcall(function()
+                                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(lastTool.Name)
+                                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                                end)
+                            end
+                            SetTask("SubTask", "Farming Mastery: " .. tostring(LastLockedMelee) .. " (" .. lastMastery .. "/" .. req .. ")")
+                            return
+                        end
+                    end
                 end
 
                 -- 2. Nếu không cầm võ hoặc võ hiện tại đã đạt đủ Mastery:
@@ -5346,6 +5353,7 @@ FunctionsHandler = {
                 -- 3. Kiểm tra xem người chơi đã có sẵn công cụ võ targetMelee chưa
                 local existingTool = GetPlayerMeleeTool(targetMelee)
                 if existingTool then
+                    LastLockedMelee = targetMelee
                     -- Đã có võ trong Character hoặc Backpack, trang bị ngay!
                     if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
                         pcall(function()
@@ -5370,6 +5378,7 @@ FunctionsHandler = {
                 task.wait(0.3)
                 existingTool = GetPlayerMeleeTool(targetMelee)
                 if existingTool then
+                    LastLockedMelee = targetMelee
                     if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
                         pcall(function()
                             FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(existingTool.Name)
@@ -5423,6 +5432,7 @@ FunctionsHandler = {
                             pcall(RefreshInventory)
                             existingTool = GetPlayerMeleeTool(targetMelee)
                             if existingTool then
+                                LastLockedMelee = targetMelee
                                 if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
                                     pcall(function()
                                         FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(existingTool.Name)
@@ -5976,6 +5986,9 @@ FunctionsHandler = {
             -- Điều kiện cơ bản: Raid mở từ Sea 2 (Lv 1100+) hoặc Sea 3
             if Level < 1100 or SeaIndex == 1 then return end
             if ScriptStorage.IsGettingMelee then return end
+
+            local isSaberOngoing = (type(IsSaberQuestActive) == "function" and IsSaberQuestActive()) or (CurrentTask == "Saber")
+            if isSaberOngoing then return end
         
             -- 1. Check Melee: Chỉ chặn Raid nếu thực sự có thể mua NGAY LẬP TỨC
             if Config.Items.AutoFullyMelees then
