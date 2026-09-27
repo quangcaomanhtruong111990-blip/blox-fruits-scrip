@@ -304,7 +304,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove v2"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3170,6 +3170,23 @@ ScriptStorage = {
             return status
         end
 
+        function IsSaberQuestActive()
+            if not (Config and Config.Items and Config.Items.Saber) then return false end
+            if SeaIndex ~= 1 then return false end
+            local level = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) 
+                or (game.Players.LocalPlayer:FindFirstChild("Data") and game.Players.LocalPlayer.Data:FindFirstChild("Level") and game.Players.LocalPlayer.Data.Level.Value) or 0
+            if level < 200 then return false end
+            
+            local lp = game:GetService("Players").LocalPlayer
+            local hasSaber = (ScriptStorage.Backpack and (ScriptStorage.Backpack.Saber or ScriptStorage.Backpack["saber"]))
+                or (ScriptStorage.Tools and ScriptStorage.Tools.Saber)
+                or (lp and lp:FindFirstChild("Backpack") and lp.Backpack:FindFirstChild("Saber"))
+                or (lp and lp.Character and lp.Character:FindFirstChild("Saber"))
+            if hasSaber then return false end
+            
+            return true
+        end
+
         function BuyMelee(M1, Check, NPCName)
             -- Với Godhuman, CHỈ bay đến NPC Ancient Monk khi đã gom ĐỦ 100% nguyên liệu và điều kiện
             if M1 == "Godhuman" then
@@ -4467,7 +4484,9 @@ FunctionsHandler = {
                 end
             end
                 -- Nếu đang bật AutoFullyMelees và võ hiện tại đã đạt đủ Mastery:
-                if Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
+                -- Lưu ý: Không can thiệp nếu đang làm nhiệm vụ Saber (Saber là ưu tiên số 1)!
+                local isSaberOngoing = (type(IsSaberQuestActive) == "function" and IsSaberQuestActive()) or (CurrentTask == "Saber")
+                if not isSaberOngoing and Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
                     local curMelee, curMastery, reqMastery = GetCurrentMeleeMastery()
                     if curMelee and curMastery and curMastery >= reqMastery then
                         -- Kiểm tra xem còn võ nào khác cần cày hoặc mua không
@@ -4476,8 +4495,8 @@ FunctionsHandler = {
                             if mName ~= "SanguineArt" and mName ~= curMelee then
                                 local mData = MeleePrices and MeleePrices[mName]
                                 local mReq = (mData and mData.NextLevelRequirement) or 400
-                                local knownMastery = ScriptStorage.Melees and ScriptStorage.Melees[mName]
-                                if not knownMastery or knownMastery < mReq then
+                                local knownMastery = (type(GetPlayerMeleeMastery) == "function" and GetPlayerMeleeMastery(mName)) or (ScriptStorage.Melees and ScriptStorage.Melees[mName]) or 0
+                                if knownMastery < mReq then
                                     hasOtherMelee = true
                                     break
                                 end
@@ -4651,7 +4670,8 @@ FunctionsHandler = {
 
                         -- KIỂM TRA MASTERY VÕ: Nếu AutoFullyMelees bật và võ hiện tại đã đủ Mastery (>= 400 hoặc req)
                         -- Dừng farm ngay lập tức, hủy quest và thoát khỏi loop farm để đổi/nhận võ mới không tốn thời gian!
-                        if Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
+                        -- Không áp dụng nếu đang làm nhiệm vụ Saber
+                        if not isSaberOngoing and Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
                             local curMelee, curMastery, reqMastery = GetCurrentMeleeMastery()
                             if curMelee and curMastery and curMastery >= reqMastery then
                                 print("[Mastery Complete] Võ " .. tostring(curMelee) .. " đã đủ Mastery (" .. tostring(curMastery) .. "/" .. tostring(reqMastery) .. ") -> Dừng farm ngay để nhận võ tiếp theo!")
@@ -4796,30 +4816,44 @@ FunctionsHandler = {
         FunctionsHandler.Saber:RegisterMethod(
             "Refresh",
             function()
-                if not Config.Items.Saber then
-                    return
-                end
-
-                if not Config.Items.Saber then
+                if not (Config and Config.Items and Config.Items.Saber) then
                     return
                 end
                 if SeaIndex ~= 1 then
                     return
                 end
 
-                local Result
-                if ScriptStorage.Backpack.Saber then
+                local lp = game:GetService("Players").LocalPlayer
+                local hasSaber = (ScriptStorage.Backpack and (ScriptStorage.Backpack.Saber or ScriptStorage.Backpack["saber"]))
+                    or (ScriptStorage.Tools and ScriptStorage.Tools.Saber)
+                    or (lp and lp:FindFirstChild("Backpack") and lp.Backpack:FindFirstChild("Saber"))
+                    or (lp and lp.Character and lp.Character:FindFirstChild("Saber"))
+                if hasSaber then
                     return
                 end
 
-                if ScriptStorage.PlayerData.Level < 200 then
+                local level = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level)
+                    or (lp and lp:FindFirstChild("Data") and lp.Data:FindFirstChild("Level") and lp.Data.Level.Value)
+                    or 0
+                if level < 200 then
                     return
                 end
 
-                local Tasks = Remotes.CommF_:InvokeServer("ProQuestProgress")
-                for _, Value in Tasks.Plates do
-                    if Value == false then
-                        Result = 1
+                local Result = nil
+                local Tasks = nil
+                pcall(function()
+                    Tasks = Remotes.CommF_:InvokeServer("ProQuestProgress")
+                end)
+                if type(Tasks) ~= "table" then
+                    return
+                end
+
+                if type(Tasks.Plates) == "table" then
+                    for _, Value in pairs(Tasks.Plates) do
+                        if Value == false then
+                            Result = 1
+                            break
+                        end
                     end
                 end
 
@@ -4834,7 +4868,7 @@ FunctionsHandler = {
                         Result = 5
                     elseif not Tasks.UsedRelic then
                         Result = 6
-                    elseif not Tasks.KilledShanks and ScriptStorage.Enemies["Saber Expert"] then
+                    elseif not Tasks.KilledShanks then
                         Result = 7
                     end
                 end
@@ -4851,21 +4885,22 @@ FunctionsHandler = {
             function()
                 local CachedData = FunctionsHandler.Saber:Get("QuestplatesCache")
 
-                if CachedData then
+                if CachedData and #CachedData > 0 then
                     return CachedData
                 end
 
-                local Jungle = Services.Workspace.Map.Jungle
+                local Jungle = Services.Workspace and Services.Workspace:FindFirstChild("Map") and Services.Workspace.Map:FindFirstChild("Jungle")
                 local Result = {}
 
-                table.foreach(
-                    Jungle.QuestPlates:GetChildren(),
-                    function(_, Inst)
-                        _ = Inst:FindFirstChild("Button") and table.insert(Result, Inst)
+                if Jungle and Jungle:FindFirstChild("QuestPlates") then
+                    for _, Inst in ipairs(Jungle.QuestPlates:GetChildren()) do
+                        if Inst:FindFirstChild("Button") then
+                            table.insert(Result, Inst)
+                        end
                     end
-                )
+                end
 
-                FunctionsHandler.Saber:Get("QuestplatesCache", Result)
+                FunctionsHandler.Saber:Set("QuestplatesCache", Result)
 
                 return Result
             end
@@ -4874,78 +4909,149 @@ FunctionsHandler = {
         FunctionsHandler.Saber:RegisterMethod(
             "Start",
             function()
-                local Progress, LastestRefreshSenque =
-                    FunctionsHandler.Saber:Get("CurrentProgressLevel"),
-                    FunctionsHandler.Saber:Get("LastestRefreshSenque")
+                local Progress = FunctionsHandler.Saber:Get("CurrentProgressLevel")
+                local LastestRefreshSenque = FunctionsHandler.Saber:Get("LastestRefreshSenque") or 0
 
                 print("[ Debug ] Saber quest indexes", Progress)
-                if not Progress then
-                    FunctionsHandler.Saber.Methods.Refresh:Call()
-                    return FunctionsHandler.Saber.Methods.Start:Call()
-                elseif Progress == 0 then
-                elseif os.time() - LastestRefreshSenque > 60 then
-                    FunctionsHandler.Saber.Methods.Refresh:Call()
+                if not Progress or (os.time() - LastestRefreshSenque > 30) then
+                    Progress = FunctionsHandler.Saber.Methods.Refresh:Call()
+                end
 
-                    return FunctionsHandler.Saber.Methods.Start:Call()
-                else
-                    if Progress == 1 then
-                        local Questplates = FunctionsHandler.Saber.Methods.GetQuestplates:Call()
+                if not Progress or Progress == 0 then
+                    return
+                end
 
-                        for Index, Questplate in Questplates do
-                            SetTask("MainTask", "Saber Quest | Quest Plates | Touching " .. Index .. "/5")
-                            -- Safety check: Ensure Questplate and Button exist before loop
-                            if Questplate and Questplate:FindFirstChild("Button") then
-                                local LoopStartTime = os.time()
-                                local MaxLoopDuration = 60  -- 1 minute max
-                                while CaculateDistance(Questplate.Button.CFrame) > 20 do
-                                    -- Timeout check to prevent infinite loop
-                                    if os.time() - LoopStartTime > MaxLoopDuration then
-                                        print("[Saber Quest] Loop timeout, breaking")
-                                        break
-                                    end
-                                    
-                                    -- Re-check Questplate exists
-                                    if not Questplate or not Questplate:FindFirstChild("Button") then
-                                        break
-                                    end
-                                    
-                                    task.wait(0.5)  -- Added delay to reduce FPS impact
-                                    TweenController.Create(Questplate.Button.CFrame)
+                if Progress == 1 then
+                    local Questplates = FunctionsHandler.Saber.Methods.GetQuestplates:Call()
+
+                    for Index, Questplate in ipairs(Questplates) do
+                        SetTask("MainTask", "Saber Quest | Quest Plates | Touching " .. Index .. "/5")
+                        if Questplate and Questplate:FindFirstChild("Button") then
+                            local LoopStartTime = os.time()
+                            local MaxLoopDuration = 25
+                            while Questplate and Questplate:FindFirstChild("Button") and CaculateDistance(Questplate.Button.CFrame.Position) > 3 do
+                                if os.time() - LoopStartTime > MaxLoopDuration then
+                                    break
                                 end
-                            else
-                                print("[Saber Quest] Questplate.Button not found")
+                                task.wait(0.2)
+                                TweenController.Create(Questplate.Button.CFrame)
                             end
-                            task.wait(1)
+                            task.wait(0.8)
                         end
-                    elseif Progress == 2 then
-                        SetTask("MainTask", "Saber Quest | Torch Puzzle | Using Torch")
-                        Remotes.CommF_:InvokeServer("ProQuestProgress", "GetTorch")
+                    end
+                    pcall(function() FunctionsHandler.Saber.Methods.Refresh:Call() end)
+                elseif Progress == 2 then
+                    SetTask("MainTask", "Saber Quest | Torch Puzzle | Using Torch")
+                    -- Lấy đuốc tại hầm Jungle
+                    local torchHole = CFrame.new(-1610.9, 12.3, 163.5)
+                    if CaculateDistance(torchHole.Position) > 10 then
+                        local t0 = os.time()
+                        repeat
+                            task.wait(0.2)
+                            TweenController.Create(torchHole)
+                        until CaculateDistance(torchHole.Position) < 10 or (os.time() - t0 > 25)
+                        task.wait(0.5)
+                    end
+                    pcall(function() Remotes.CommF_:InvokeServer("ProQuestProgress", "GetTorch") end)
+                    task.wait(1)
+
+                    -- Đến sa mạc đốt cửa nhà
+                    local desertHouse = CFrame.new(1113.8, 5.4, 4350.5)
+                    if CaculateDistance(desertHouse.Position) > 10 then
+                        local t0 = os.time()
+                        repeat
+                            task.wait(0.2)
+                            TweenController.Create(desertHouse)
+                        until CaculateDistance(desertHouse.Position) < 10 or (os.time() - t0 > 35)
+                        task.wait(0.5)
+                    end
+                    pcall(function() Remotes.CommF_:InvokeServer("ProQuestProgress", "DestroyTorch") end)
+                    task.wait(1)
+                    pcall(function() FunctionsHandler.Saber.Methods.Refresh:Call() end)
+                elseif Progress == 3 then
+                    SetTask("MainTask", "Saber Quest | Sick Man | Helping with Cup")
+                    pcall(function() Remotes.CommF_:InvokeServer("ProQuestProgress", "GetCup") end)
+                    task.wait(1)
+
+                    local cupTool = (ScriptStorage.Tools and ScriptStorage.Tools.Cup) or (game.Players.LocalPlayer:FindFirstChild("Backpack") and game.Players.LocalPlayer.Backpack:FindFirstChild("Cup"))
+                    if cupTool then
+                        pcall(function() FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Cup") end)
+                        task.wait(0.5)
+                        local iceCave = CFrame.new(1398.2, 37.4, -1320.1)
+                        if CaculateDistance(iceCave.Position) > 10 then
+                            local t0 = os.time()
+                            repeat
+                                task.wait(0.2)
+                                TweenController.Create(iceCave)
+                            until CaculateDistance(iceCave.Position) < 10 or (os.time() - t0 > 30)
+                            task.wait(0.5)
+                        end
+                        local char = game.Players.LocalPlayer.Character
+                        local cup = (char and char:FindFirstChild("Cup")) or cupTool
+                        pcall(function() Remotes.CommF_:InvokeServer("ProQuestProgress", "FillCup", cup) end)
                         task.wait(1)
-                        Remotes.CommF_:InvokeServer("ProQuestProgress", "DestroyTorch")
-                    elseif Progress == 3 then
-                        SetTask("MainTask", "Saber Quest | Sick Man | Helping with Cup")
-                        Remotes.CommF_:InvokeServer("ProQuestProgress", "GetCup")
+                    end
 
-                        if ScriptStorage.Tools.Cup then
-                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Cup")
-                            task.wait(1)
-                            Remotes.CommF_:InvokeServer("ProQuestProgress", "FillCup", LocalPlayer.Character.Cup)
-                        end
+                    local sickManPos = CFrame.new(1392.8, 37.4, -1300)
+                    if CaculateDistance(sickManPos.Position) > 15 then
+                        TweenController.Create(sickManPos)
+                        task.wait(1)
+                    end
+                    pcall(function() Remotes.CommF_:InvokeServer("ProQuestProgress", "SickMan") end)
+                    task.wait(1)
+                    pcall(function() FunctionsHandler.Saber.Methods.Refresh:Call() end)
+                elseif Progress == 4 then
+                    SetTask("MainTask", "Saber Quest | Rich Son | Getting Information")
+                    local richSonPos = CFrame.new(-1399.7, 30.2, 400.1)
+                    if CaculateDistance(richSonPos.Position) > 15 then
+                        TweenController.Create(richSonPos)
+                        task.wait(1)
+                    end
+                    pcall(function() Remotes.CommF_:InvokeServer("ProQuestProgress", "RichSon") end)
+                    task.wait(1)
+                    pcall(function() FunctionsHandler.Saber.Methods.Refresh:Call() end)
+                elseif Progress == 5 then
+                    SetTask("MainTask", "Saber Quest | Mob Leader | Defeating Boss")
+                    CombatController.Attack("Mob Leader")
+                elseif Progress == 6 then
+                    SetTask("MainTask", "Saber Quest | Relic | Placing at Location")
+                    local richSonPos = CFrame.new(-1399.7, 30.2, 400.1)
+                    if CaculateDistance(richSonPos.Position) > 15 then
+                        TweenController.Create(richSonPos)
+                        task.wait(1)
+                    end
+                    pcall(function() Remotes.CommF_:InvokeServer("ProQuestProgress", "RichSon") end)
+                    task.wait(1)
 
-                        Remotes.CommF_:InvokeServer("ProQuestProgress", "SickMan")
-                    elseif Progress == 4 then
-                        SetTask("MainTask", "Saber Quest | Rich Son | Getting Information")
-                        Remotes.CommF_:InvokeServer("ProQuestProgress", "RichSon")
-                    elseif Progress == 5 then
-                        SetTask("MainTask", "Saber Quest | Mob Leader | Defeating Boss")
-                        CombatController.Attack("Mob Leader")
-                    elseif Progress == 6 then
-                        SetTask("MainTask", "Saber Quest | Relic | Placing at Location")
-                        Remotes.CommF_:InvokeServer("ProQuestProgress", "RichSon")
-                        Remotes.CommF_:InvokeServer("ProQuestProgress", "PlaceRelic")
-                    elseif Progress == 7 then
-                        SetTask("MainTask", "Saber Quest | Saber Expert | Final Battle")
+                    local RelicDoor = CFrame.new(-1406.87, 29.85, 3.84)
+                    if CaculateDistance(RelicDoor.Position) > 8 then
+                        local t0 = os.time()
+                        repeat
+                            task.wait(0.2)
+                            TweenController.Create(RelicDoor)
+                        until CaculateDistance(RelicDoor.Position) < 8 or (os.time() - t0 > 30)
+                        task.wait(0.5)
+                    end
+                    local relicTool = (ScriptStorage.Tools and ScriptStorage.Tools.Relic) or (game.Players.LocalPlayer:FindFirstChild("Backpack") and game.Players.LocalPlayer.Backpack:FindFirstChild("Relic"))
+                    if relicTool then
+                        pcall(function() FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Relic") end)
+                        task.wait(0.5)
+                    end
+                    pcall(function() Remotes.CommF_:InvokeServer("ProQuestProgress", "PlaceRelic") end)
+                    task.wait(1)
+                    pcall(function() FunctionsHandler.Saber.Methods.Refresh:Call() end)
+                elseif Progress == 7 then
+                    SetTask("MainTask", "Saber Quest | Saber Expert | Final Battle")
+                    local saberExpert = ScriptStorage.Enemies["Saber Expert"]
+                    if saberExpert and saberExpert:FindFirstChild("HumanoidRootPart") and saberExpert:FindFirstChild("Humanoid") and saberExpert.Humanoid.Health > 0 then
                         CombatController.Attack("Saber Expert")
+                    else
+                        local shanksRoom = CFrame.new(-1442.16, 29.87, -8.76)
+                        if CaculateDistance(shanksRoom.Position) > 15 then
+                            TweenController.Create(shanksRoom)
+                        end
+                        SetTask("SubTask", "Waiting for Saber Expert to spawn...")
+                        task.wait(1)
                     end
                 end
             end
@@ -4972,6 +5078,89 @@ FunctionsHandler = {
         FirstCall = true
         CanPurchase = {}
         FruitDataCache = {}
+
+        local MeleeCanonicalNames = {
+            ["Dark Step"] = "Black Leg",
+            ["Black Leg"] = "Black Leg",
+            ["BlackLeg"] = "Black Leg",
+            ["Electro"] = "Electro",
+            ["Electric"] = "Electro",
+            ["Water Kung-fu"] = "Fishman Karate",
+            ["Water Kung Fu"] = "Fishman Karate",
+            ["Fishman Karate"] = "Fishman Karate",
+            ["FishmanKarate"] = "Fishman Karate",
+            ["Dragon Claw"] = "Dragon Claw",
+            ["DragonClaw"] = "Dragon Claw",
+            ["Superhuman"] = "Superhuman",
+            ["Death Step"] = "Death Step",
+            ["DeathStep"] = "Death Step",
+            ["Sharkman Karate"] = "Sharkman Karate",
+            ["SharkmanKarate"] = "Sharkman Karate",
+            ["Electric Claw"] = "Electric Claw",
+            ["ElectricClaw"] = "Electric Claw",
+            ["Dragon Talon"] = "Dragon Talon",
+            ["DragonTalon"] = "Dragon Talon",
+            ["Godhuman"] = "Godhuman",
+            ["Sanguine Art"] = "SanguineArt",
+            ["SanguineArt"] = "SanguineArt"
+        }
+
+        local MeleeToolAliases = {
+            ["Black Leg"] = {"Dark Step", "Black Leg", "BlackLeg"},
+            ["Electro"] = {"Electro", "Electric"},
+            ["Fishman Karate"] = {"Water Kung-fu", "Water Kung Fu", "Fishman Karate", "FishmanKarate"},
+            ["Dragon Claw"] = {"Dragon Claw", "DragonClaw"},
+            ["Superhuman"] = {"Superhuman"},
+            ["Death Step"] = {"Death Step", "DeathStep"},
+            ["Sharkman Karate"] = {"Sharkman Karate", "SharkmanKarate"},
+            ["Electric Claw"] = {"Electric Claw", "ElectricClaw"},
+            ["Dragon Talon"] = {"Dragon Talon", "DragonTalon"},
+            ["Godhuman"] = {"Godhuman"},
+            ["SanguineArt"] = {"Sanguine Art", "SanguineArt"}
+        }
+
+        function ToCanonicalMeleeName(name)
+            if not name then return nil end
+            return MeleeCanonicalNames[name] or name
+        end
+
+        function GetPlayerMeleeTool(meleeName)
+            local canon = ToCanonicalMeleeName(meleeName)
+            local aliases = MeleeToolAliases[canon] or {meleeName}
+            local char = game.Players.LocalPlayer.Character
+            local bp = game.Players.LocalPlayer:FindFirstChild("Backpack")
+            for _, alias in ipairs(aliases) do
+                local t = (char and char:FindFirstChild(alias)) or (bp and bp:FindFirstChild(alias))
+                if t and t:IsA("Tool") then
+                    return t
+                end
+            end
+            return nil
+        end
+
+        function GetPlayerMeleeMastery(meleeName)
+            local canon = ToCanonicalMeleeName(meleeName)
+            local aliases = MeleeToolAliases[canon] or {meleeName}
+            for _, alias in ipairs(aliases) do
+                local t = GetPlayerMeleeTool(alias)
+                if t and t:FindFirstChild("Level") then
+                    local lvl = tonumber(t.Level.Value) or 0
+                    if ScriptStorage and ScriptStorage.Melees then
+                        ScriptStorage.Melees[alias] = lvl
+                        ScriptStorage.Melees[canon] = lvl
+                    end
+                    return lvl
+                end
+                if ScriptStorage and ScriptStorage.Melees and tonumber(ScriptStorage.Melees[alias]) then
+                    return tonumber(ScriptStorage.Melees[alias])
+                end
+                if ScriptStorage and ScriptStorage.Melees and tonumber(ScriptStorage.Melees[canon]) then
+                    return tonumber(ScriptStorage.Melees[canon])
+                end
+            end
+            return 0
+        end
+
         function GetCurrentMeleeMastery()
             local success, mName, mLvl, maxReq = pcall(function()
                 local CurrentPlayer = game.Players.LocalPlayer
@@ -4980,24 +5169,34 @@ FunctionsHandler = {
                 -- Check character equipped tool first
                 local char = CurrentPlayer.Character
                 local equippedTool = char and char:FindFirstChildOfClass("Tool")
-                if equippedTool and equippedTool.ToolTip == "Melee" then
+                if equippedTool and (equippedTool.ToolTip == "Melee" or MeleeCanonicalNames[equippedTool.Name]) then
                     local lvlVal = equippedTool:FindFirstChild("Level") and equippedTool.Level.Value
-                    local name = equippedTool.Name
-                    local curLvl = lvlVal or (ScriptStorage.Melees and ScriptStorage.Melees[name]) or 0
-                    local req = (MeleePrices and MeleePrices[name] and MeleePrices[name].NextLevelRequirement) or 400
-                    return name, curLvl, req
+                    local rawName = equippedTool.Name
+                    local canonName = ToCanonicalMeleeName(rawName)
+                    local curLvl = lvlVal or GetPlayerMeleeMastery(canonName) or 0
+                    if ScriptStorage and ScriptStorage.Melees then
+                        ScriptStorage.Melees[rawName] = curLvl
+                        ScriptStorage.Melees[canonName] = curLvl
+                    end
+                    local req = (MeleePrices and MeleePrices[canonName] and MeleePrices[canonName].NextLevelRequirement) or 400
+                    return canonName, curLvl, req
                 end
 
                 -- Check backpack
                 local bp = CurrentPlayer:FindFirstChild("Backpack")
                 if bp then
                     for _, tool in ipairs(bp:GetChildren()) do
-                        if tool:IsA("Tool") and tool.ToolTip == "Melee" then
+                        if tool:IsA("Tool") and (tool.ToolTip == "Melee" or MeleeCanonicalNames[tool.Name]) then
                             local lvlVal = tool:FindFirstChild("Level") and tool.Level.Value
-                            local name = tool.Name
-                            local curLvl = lvlVal or (ScriptStorage.Melees and ScriptStorage.Melees[name]) or 0
-                            local req = (MeleePrices and MeleePrices[name] and MeleePrices[name].NextLevelRequirement) or 400
-                            return name, curLvl, req
+                            local rawName = tool.Name
+                            local canonName = ToCanonicalMeleeName(rawName)
+                            local curLvl = lvlVal or GetPlayerMeleeMastery(canonName) or 0
+                            if ScriptStorage and ScriptStorage.Melees then
+                                ScriptStorage.Melees[rawName] = curLvl
+                                ScriptStorage.Melees[canonName] = curLvl
+                            end
+                            local req = (MeleePrices and MeleePrices[canonName] and MeleePrices[canonName].NextLevelRequirement) or 400
+                            return canonName, curLvl, req
                         end
                     end
                 end
@@ -5082,172 +5281,160 @@ FunctionsHandler = {
         FunctionsHandler.MeleesController:RegisterMethod(
             "Start",
             function()
-                ScriptStorage.IsGettingMelee = false  -- luôn reset flag trước khi bắt đầu
+                ScriptStorage.IsGettingMelee = false
 
-                for Cursor, Melee in MeleesTable do
-                    if Melee ~= "SanguineArt" then
-                        if not Config.Items.AutoFullyMelees then
-                            break
-                        end
-
-                        if Melee == "Godhuman" then
-                            local ghStatus = CheckGodhumanProgress()
-                            if ghStatus.Unlocked then
-                                ScriptStorage.Melees["Godhuman"] = 1
-                            elseif ghStatus.IsAllReady and SeaIndex == 3 then
-                                if not AncientMonkCooldown or os.time() > AncientMonkCooldown then
-                                    ScriptStorage.IsGettingMelee = true
-                                    BuyMelee("Godhuman", false, "Ancient Monk")
-                                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
-                                    ScriptStorage.IsGettingMelee = false
-                                end
-                            end
-                            continue
-                        end
-
-                        Data = MeleePrices[Melee]
-                        local CanMeleePurchaseable = CanPurchase[Melee]
-                        if not CanMeleePurchaseable then
-                            CanPurchase[Melee] = Data.Buy(1)
-                            print("CanBuy", Melee, Data.Buy(1))
-                        end
-                        local CanMeleePurchaseable = CanPurchase[Melee]
-
-                        if not Data then
-                            print("no m1 data")
-                            pcall(function() Data.Buy() end)
-                            continue
-                        end
-
-                        if Melee == "Dragon Talon" then
-                            IsFireEssenceGave = (function()
-                                if IsFireEssenceGave ~= nil then
-                                    return IsFireEssenceGave
-                                end
-
-                                local PurchaseTestResult = Remotes.CommF_:InvokeServer("BuyDragonTalon", true)
-                                alert("Dragon Talon Purchased", tostring(typeof(PurchaseTestResult) ~= "string"))
-                                return typeof(PurchaseTestResult) ~= "string" and true or false
-                            end)()
-
-                            print("IsFireEssenceGave", IsFireEssenceGave)
-
-                            if not IsFireEssenceGave then
-                                print("no fire essence provided")
-                                ScriptStorage.IsGettingMelee = false
-                                continue
-                            end
-                        end
-
-                        local curMeleeMastery = tonumber(ScriptStorage.Melees and ScriptStorage.Melees[Melee]) or 0
-                        local nextReq = tonumber(Data.NextLevelRequirement) or 400
-
-                        if not ScriptStorage.Melees or not ScriptStorage.Melees[Melee] or curMeleeMastery < nextReq then
-                            local MeleeId = GetMeleeIdByName(Melee)
-                            local PlayerData = ScriptStorage.PlayerData
-                            local ValuementPassed = true
-
-                            if not MeleeId then
-                                ScriptStorage.IsGettingMelee = false
-                                return print("[ Debug ] Failed to get melee id of", Melee)
-                            end
-
-                            MSet = false
-                            if not CanMeleePurchaseable then
-                                for Index, Value in pairs(Data.Price or {}) do
-                                    local curVal = (PlayerData and tonumber(PlayerData[Index])) or 0
-                                    local reqVal = tonumber(Value) or 0
-                                    if curVal < reqVal and not FirstCall then
-                                        ValuementPassed = false
-
-                                        if not ScriptStorage.Melees or not ScriptStorage.Melees[Melee] then
-                                            MSet = true
-                                            SetTask(
-                                                "SubTask",
-                                                "Farming Until Enough " .. tostring(Index) .. " ( " .. reqVal .. " ) For " .. tostring(Melee)
-                                            )
-                                        end
-                                        ScriptStorage.IsGettingMelee = false
-                                        return
-                                    end
-                                end
-                            end
-
-                            if not MSet and ScriptStorage.Melees and ScriptStorage.Melees[Melee] and curMeleeMastery < nextReq then
-                                SetTask(
-                                    "SubTask",
-                                    "Farming Mastery: " ..
-                                        tostring(Melee) ..
-                                            " ( " ..
-                                                curMeleeMastery ..
-                                                    " / " .. nextReq .. " )"
-                                )
-                                -- Trang bị võ cần cày Mastery
-                                if not ScriptStorage.Tools[Melee] then
-                                    ScriptStorage.IsGettingMelee = true
-                                    pcall(function() Data.Buy() end)
-                                    ScriptStorage.IsGettingMelee = false
-                                end
-                                if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
-                                    pcall(function()
-                                        FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(Melee)
-                                        FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
-                                    end)
-                                end
-                                -- Để LevelFarm tự động farm quái quest bằng võ đang cầm!
-                                return
-                            end
-
-                            if not FirstCall then
-                                local reqMet = false
-                                pcall(function() reqMet = Data.Requirements and Data.Requirements() end)
-                                if ValuementPassed and reqMet and not ScriptStorage.Tools[Melee] then
-                                    if Melee == "Dragon Talon" and not IsFireEssenceGave then
-                                        alert("IsFireEssenceGave", tostring(IsFireEssenceGave))
-                                        ScriptStorage.IsGettingMelee = false
-                                        return SetTask("SubTask", "Waiting until have fire essence for dragon talon.")
-                                    end
-
-                                    ScriptStorage.IsGettingMelee = true  -- Set flag to block raid
-                                    Data.Buy()
-                                    FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
-                                    if not ScriptStorage.Tools[Melee] then
-                                        task.wait()
-                                        if not ScriptStorage.Tools[Melee] then
-                                            if ((Melee == "Death Step" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyDeathStep", true) ==  3)  or
-                                            (Melee == "Sharkman Karate" and
-                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "string" or (
-                                            type(game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)) == "number" and game.ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true) == 3 ))) and SeaIndex ~= 2 then
-                                                alert("Go Back To Second Sea", "Water Key / Library Key")
-
-                                                Remotes.CommF_:InvokeServer("TravelDressrosa")
-                                            end
-                                            ScriptStorage.IsGettingMelee = false  -- Clear flag if failed
-                                        else
-                                            MeleeLastCursor = Cursor + 1
-                                            ScriptStorage.IsGettingMelee = false  -- Clear flag on success
-                                            return
-                                        end
-                                    else
-                                        MeleeLastCursor = Cursor + 1
-                                        ScriptStorage.IsGettingMelee = false  -- Clear flag on success
-                                        return
-                                    end
-                                end
-                            end
-                        elseif not FirstCall then
-                            MeleeLastCursor = Cursor + 1
-                        end
-                    end
-                end
-                if FirstCall then
-                    FirstCall = false
+                if not Config.Items.AutoFullyMelees then
                     return
                 end
 
-                checkdone = true
-                ScriptStorage.IsGettingMelee = false  -- reset khi loop xong
+                -- [ƯU TIÊN TUYỆT ĐỐI CHO SABER]
+                -- Nếu đang làm nhiệm vụ Saber hoặc đến cấp làm Saber (>= 200 tại Sea 1 mà chưa có Saber)
+                -- TẠM DỪNG HOÀN TOÀN việc đổi/mua/cày võ để người chơi làm xong nhiệm vụ Saber!
+                local isSaberOngoing = (type(IsSaberQuestActive) == "function" and IsSaberQuestActive()) or (CurrentTask == "Saber")
+                if isSaberOngoing then
+                    ScriptStorage.IsGettingMelee = false
+                    return
+                end
 
+                -- 1. Kiểm tra võ đang cầm hiện tại
+                local curMelee, curMastery, reqMastery = GetCurrentMeleeMastery()
+                
+                -- Nếu đang cầm một võ và võ đó CHƯA ĐẠT Mastery yêu cầu (thường là 400)
+                -- TIẾP TỤC DÙNG VÕ NÀY để cày, KHÔNG nhảy lung tung sang võ khác!
+                if curMelee and curMastery and curMastery < reqMastery then
+                    SetTask("SubTask", "Farming Mastery: " .. tostring(curMelee) .. " (" .. curMastery .. "/" .. reqMastery .. ")")
+                    return
+                end
+
+                -- 2. Nếu không cầm võ hoặc võ hiện tại đã đạt đủ Mastery:
+                -- Tìm duy nhất MỘT võ đầu tiên trong danh sách MeleesTable mà chưa đạt Mastery
+                local targetMelee = nil
+                local targetIndex = nil
+                for idx, meleeName in ipairs(MeleesTable) do
+                    if meleeName ~= "SanguineArt" then
+                        local mastery = GetPlayerMeleeMastery(meleeName)
+                        local req = (MeleePrices and MeleePrices[meleeName] and MeleePrices[meleeName].NextLevelRequirement) or 400
+                        if mastery < req then
+                            targetMelee = meleeName
+                            targetIndex = idx
+                            break -- QUAN TRỌNG: Dừng ngay tại võ đầu tiên cần cày! Tuyệt đối không duyệt tiếp để tránh nhảy qua nhảy lại!
+                        end
+                    end
+                end
+
+                if not targetMelee then
+                    -- Tất cả võ đã đạt Mastery yêu cầu!
+                    return
+                end
+
+                -- Xử lý Godhuman riêng
+                if targetMelee == "Godhuman" then
+                    local ghStatus = CheckGodhumanProgress()
+                    if ghStatus.Unlocked then
+                        ScriptStorage.Melees["Godhuman"] = 1
+                    elseif ghStatus.IsAllReady and SeaIndex == 3 then
+                        if not AncientMonkCooldown or os.time() > AncientMonkCooldown then
+                            ScriptStorage.IsGettingMelee = true
+                            BuyMelee("Godhuman", false, "Ancient Monk")
+                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                            ScriptStorage.IsGettingMelee = false
+                        end
+                    end
+                    return
+                end
+
+                -- 3. Kiểm tra xem người chơi đã có sẵn công cụ võ targetMelee chưa
+                local existingTool = GetPlayerMeleeTool(targetMelee)
+                if existingTool then
+                    -- Đã có võ trong Character hoặc Backpack, trang bị ngay!
+                    if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                        pcall(function()
+                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(existingTool.Name)
+                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                        end)
+                    end
+                    return
+                end
+
+                -- 4. Nếu chưa có tool võ trên người:
+                -- Kiểm tra xem đã từng mua võ này chưa (có thể chuyển miễn phí qua remote)
+                local mId = GetMeleeIdByName(targetMelee) or string.gsub(targetMelee, "%s+", "")
+                local mData = MeleePrices[targetMelee]
+
+                -- Thử đổi võ qua Remote trước (nếu đã từng mua trước đó)
+                pcall(function()
+                    Remotes.CommF_:InvokeServer("Buy" .. mId)
+                end)
+                
+                -- Check lại xem đã nhận được tool võ chưa
+                task.wait(0.3)
+                existingTool = GetPlayerMeleeTool(targetMelee)
+                if existingTool then
+                    if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                        pcall(function()
+                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(existingTool.Name)
+                            FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                        end)
+                    end
+                    return
+                end
+
+                -- 5. Nếu chưa từng mua võ này:
+                -- Kiểm tra điều kiện tiền/vật phẩm để mua
+                local PlayerData = ScriptStorage.PlayerData
+                if mData and mData.Price then
+                    for currency, reqAmount in pairs(mData.Price) do
+                        local curAmount = (PlayerData and tonumber(PlayerData[currency])) or 0
+                        local reqVal = tonumber(reqAmount) or 0
+                        if curAmount < reqVal then
+                            SetTask("SubTask", "Farming " .. tostring(currency) .. " (" .. curAmount .. "/" .. reqVal .. ") for " .. targetMelee)
+                            return -- Chưa đủ tiền thì tiếp tục farm bằng võ cũ, không làm gì thêm!
+                        end
+                    end
+                end
+
+                -- 6. Nếu đã đủ tiền mua võ mới:
+                -- Bay đến NPC tương ứng tại Sea hiện tại để mua võ
+                local npcPositions = {
+                    ["Black Leg"] = {Sea = 1, CFrame = CFrame.new(-1436.5, 29.8, 298.5), Npc = "Dark Step Teacher"},
+                    ["Electro"] = {Sea = 1, CFrame = CFrame.new(-4722.5, 717.8, -842.2), Npc = "Mad Scientist"},
+                    ["Fishman Karate"] = {Sea = 1, CFrame = CFrame.new(61163.8, 18.5, 1569.4), Npc = "Water Kung-fu Teacher"},
+                    ["Dragon Claw"] = {Sea = 2, CFrame = CFrame.new(-4979.9, 371.3, -3205.5), Npc = "Sabi"},
+                    ["Superhuman"] = {Sea = 2, CFrame = CFrame.new(-3800, 332, -2900), Npc = "Martial Arts Master"},
+                    ["Death Step"] = {Sea = 2, CFrame = CFrame.new(6353, 298, -6378), Npc = "Phoeyu, the Reformed"},
+                    ["Sharkman Karate"] = {Sea = 2, CFrame = CFrame.new(-5084, 38, -3159), Npc = "Sharkman Teacher"},
+                    ["Electric Claw"] = {Sea = 3, CFrame = CFrame.new(-245, 331, -3300), Npc = "Previous Hero"},
+                    ["Dragon Talon"] = {Sea = 3, CFrame = CFrame.new(-5410, 314, -2600), Npc = "Uzoth"}
+                }
+
+                local targetInfo = npcPositions[targetMelee]
+                if targetInfo then
+                    if SeaIndex == targetInfo.Sea then
+                        SetTask("MainTask", "Buying Melee | " .. targetMelee)
+                        SetTask("SubTask", "Moving to " .. targetInfo.Npc .. " to purchase...")
+                        ScriptStorage.IsGettingMelee = true
+
+                        local npcTargetPos = targetInfo.CFrame.Position
+                        if CaculateDistance(npcTargetPos) > 12 then
+                            TweenController.Create(targetInfo.CFrame)
+                        else
+                            pcall(function() Remotes.CommF_:InvokeServer("Buy" .. mId) end)
+                            task.wait(1)
+                            pcall(RefreshInventory)
+                            existingTool = GetPlayerMeleeTool(targetMelee)
+                            if existingTool then
+                                if FunctionsHandler.LocalPlayerController and FunctionsHandler.LocalPlayerController.Methods and FunctionsHandler.LocalPlayerController.Methods.EquipTool then
+                                    pcall(function()
+                                        FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(existingTool.Name)
+                                        FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Melee")
+                                    end)
+                                end
+                            end
+                        end
+                        ScriptStorage.IsGettingMelee = false
+                    end
+                end
+                return
             end
         )
         -- Second Sea
@@ -7531,9 +7718,10 @@ FunctionsHandler = {
                 pcall(SendData)
             end ]]
             local success, response = pcall(RefreshTasksData)
-            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid
+            -- Chỉ chạy MeleesController khi KHÔNG đang trong raid và KHÔNG đang làm Saber
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
-            if not IsInRaid then
+            local isSaberOngoing = (type(IsSaberQuestActive) == "function" and IsSaberQuestActive()) or (CurrentTask == "Saber")
+            if not IsInRaid and not isSaberOngoing then
                 pcall(function()
                     if FunctionsHandler.MeleesController and FunctionsHandler.MeleesController.Methods and FunctionsHandler.MeleesController.Methods.Start then
                         FunctionsHandler.MeleesController.Methods.Start:Call()
