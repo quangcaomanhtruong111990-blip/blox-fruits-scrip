@@ -46,15 +46,7 @@ pcall(function()
     })
 end)
 
--- LogService Message Logger for debugging
-pcall(function()
-    local LogService = game:GetService("LogService")
-    LogService.MessageOut:Connect(function(message, messageType)
-        if messageType == Enum.MessageType.MessageWarning or messageType == Enum.MessageType.MessageError then
-            print("[BloxLogger]", messageType.Name, message)
-        end
-    end)
-end)
+-- LogService Message Logger disabled to prevent log spam
 
 Config =
         Config or
@@ -88,10 +80,10 @@ Config =
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
-                QuestGracePeriod = 50,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
-                QuestStartTimeout = 2.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
-                QuestGoneDelay = 30,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
-                MinFarmDuration = 2.0,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
+                QuestGracePeriod = 25,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
+                QuestStartTimeout = 1.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
+                QuestGoneDelay = 20,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
+                MinFarmDuration = 2.5,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
             }
 }
 
@@ -304,7 +296,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "sanglove v1.19 (SEA 3 ANTI-KICK & NO-HOP)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1145,7 +1137,14 @@ ScriptStorage = {
                     Result = "Sword"
                 end
                 if Remotes and Remotes.CommF_ then
-                    Remotes.CommF_:InvokeServer("AddPoint", Result, 999)
+                    local AvailPoints = 0
+                    local PointsInst = LocalPlayer.Data:FindFirstChild("Points")
+                    if PointsInst then
+                        AvailPoints = tonumber(PointsInst.Value) or 0
+                    end
+                    if AvailPoints > 0 then
+                        Remotes.CommF_:InvokeServer("AddPoint", Result, AvailPoints)
+                    end
                 end
             end)
         end
@@ -1738,26 +1737,23 @@ ScriptStorage = {
 
         SeaIndexes = {"Main", "Dressrosa", "Zou"}
 
-        TasksOrder = {
-            "ExpRedeem",
-            "MeleesController",
-            "SoulGuitar",
-            "Tushita",
-            "SpecialBossesTask",
-            "RaidController",
-            "Trevor",
-            "UtillyItemsActivitation",
-            "ColosseumPuzzle",
-            "ThirdSeaPuzzle",
-            "Yama",
-            "Saber",
-            "PirateRaid",
-            "SecondSeaPuzzle",
-            "ThirdSeaPuzzle",
-            "CollectDrops",
-            "BossesTask",
-            "LevelFarm"
+        -- Nhóm ưu tiên task: duyệt từ nhóm đầu xuống cuối; trong mỗi nhóm theo thứ tự liệt kê.
+        -- Mỗi tick, task ĐẦU TIÊN có Refresh trả về true sẽ được chạy (chỉ 1 task/tick).
+        TaskGroups = {
+            Rewards  = { "ExpRedeem" },
+            Melee    = { "MeleesController" },
+            Quests   = { "SoulGuitar", "Tushita", "ColosseumPuzzle", "SecondSeaPuzzle", "ThirdSeaPuzzle", "Yama", "Saber" },
+            Combat   = { "RaidController", "SpecialBossesTask", "PirateRaid", "BossesTask" },
+            Utility  = { "Trevor", "UtillyItemsActivitation" },
+            Fallback = { "CollectDrops", "LevelFarm" },
         }
+
+        TasksOrder = {}
+        for _, GroupName in ipairs({ "Rewards", "Melee", "Quests", "Combat", "Utility", "Fallback" }) do
+            for _, TaskName in ipairs(TaskGroups[GroupName] or {}) do
+                table.insert(TasksOrder, TaskName)
+            end
+        end
 
         MaxLevel = 2800
 
@@ -2922,11 +2918,36 @@ ScriptStorage = {
             "Dragon Talon"
         }
 
+        local InvDeepDumped = false
         function GetItemCount(itemName)
             if not itemName then return 0 end
             local searchName = string.lower(string.gsub(tostring(itemName), "^%s*(.-)%s*$", "%1"))
             local searchCompact = string.gsub(searchName, "%s+", "")
-            
+
+            -- Deep discovery (chay 1 lan khi Data da san sang): tim noi game giu so luong material
+            if not InvDeepDumped then
+                local ok, lp = pcall(function() return game:GetService("Players").LocalPlayer end)
+                local data = ok and lp and lp:FindFirstChild("Data")
+                if data then
+                    InvDeepDumped = true
+                    local kids = {}
+                    for _, c in ipairs(data:GetChildren()) do
+                        table.insert(kids, c.Name .. "[" .. typeof(c) .. "]=" .. tostring((c:FindFirstChild("Value") and c.Value.Value) or c.Value))
+                    end
+                    print("[InvDebug] Data children: " .. table.concat(kids, ", "))
+                    local lpk = {}
+                    for _, c in ipairs(lp:GetChildren()) do
+                        table.insert(lpk, c.Name .. "[" .. typeof(c) .. "]")
+                    end
+                    print("[InvDebug] LocalPlayer children: " .. table.concat(lpk, ", "))
+                    for _, d in ipairs(lp:GetDescendants()) do
+                        if d.Name and string.find(string.lower(d.Name), "fish", 1, true) then
+                            print("[InvDebug] MATCH-fish: " .. d:GetFullName() .. " = " .. tostring((d:FindFirstChild("Value") and d.Value.Value) or d.Value))
+                        end
+                    end
+                end
+            end
+
             -- 1. Check inside ScriptStorage.Backpack
             if ScriptStorage and ScriptStorage.Backpack and type(ScriptStorage.Backpack) == "table" then
                 if ScriptStorage.Backpack[itemName] then
@@ -2968,23 +2989,32 @@ ScriptStorage = {
             if now - LastDirectInventoryCall > 10 then
                 LastDirectInventoryCall = now
                 pcall(function()
-                    if Remotes and Remotes.CommF_ then
-                        local inv = Remotes.CommF_:InvokeServer("getInventory")
-                        if type(inv) == "table" then
-                            for _, Value in pairs(inv) do
-                                if type(Value) == "table" and Value.Name then
-                                    local cleanName = string.lower(string.gsub(tostring(Value.Name), "^%s*(.-)%s*$", "%1"))
-                                    local cleanCompact = string.gsub(cleanName, "%s+", "")
-                                    if cleanName == searchName or cleanCompact == searchCompact or string.find(cleanName, searchName, 1, true) or string.find(cleanCompact, searchCompact, 1, true) then
-                                        foundCount = tonumber(Value.Count or Value.Value or Value.Amount or Value.Quantity or 0) or 0
-                                    end
-                                    if ScriptStorage and ScriptStorage.Backpack then
-                                        ScriptStorage.Backpack[Value.Name] = Value
-                                        ScriptStorage.Backpack[cleanName] = Value
-                                    end
+                    local realRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
+                    if not realRemote then return end
+                    -- Ban game nay dung "getInventoryWeapons" (getInventory tra ve nil)
+                    local inv = realRemote:InvokeServer("getInventoryWeapons")
+                    if type(inv) ~= "table" then
+                        inv = realRemote:InvokeServer("getInventory")
+                    end
+                    if type(inv) == "table" then
+                        local dump = {}
+                        for _, Value in pairs(inv) do
+                            if type(Value) == "table" and Value.Name then
+                                local cleanName = string.lower(string.gsub(tostring(Value.Name), "^%s*(.-)%s*$", "%1"))
+                                local cleanCompact = string.gsub(cleanName, "%s+", "")
+                                if cleanName == searchName or cleanCompact == searchCompact or string.find(cleanName, searchName, 1, true) or string.find(cleanCompact, searchCompact, 1, true) then
+                                    foundCount = tonumber(Value.Count or Value.Value or Value.Amount or Value.Quantity or 0) or 0
                                 end
+                                if ScriptStorage and ScriptStorage.Backpack then
+                                    ScriptStorage.Backpack[Value.Name] = Value
+                                    ScriptStorage.Backpack[cleanName] = Value
+                                end
+                                table.insert(dump, tostring(Value.Name) .. "=" .. tostring(Value.Count or Value.Value or "?"))
                             end
                         end
+                        print("[InvDebug] inventory (" .. #dump .. " items): " .. table.concat(dump, ", "))
+                    else
+                        print("[InvDebug] inventory van nil:", tostring(inv))
                     end
                 end)
             end
@@ -3410,7 +3440,7 @@ ScriptStorage = {
 
         -- Optimized FastAttack loop with Volt Actor support
         local FastAttackLoop = function()
-            while task.wait(.06) do
+            while task.wait(.1) do
                 if _G.FastAttack == os.time() then
                     pcall(
                         function()
@@ -3759,7 +3789,8 @@ CombatController = {
 
                     if distToMob <= 25 then
                         if myHrp then
-                            myHrp.CFrame = CFrame.new(targetAttackPos)
+                            -- Giữ nguyên vị trí hoặc lerp mượt mà tránh giạt hình
+                            myHrp.CFrame = myHrp.CFrame:Lerp(CFrame.new(targetAttackPos), 0.3)
                         end
                     else
                         TweenController.Create(targetAttackPos)
@@ -4365,7 +4396,7 @@ FunctionsHandler = {
                         local IsAvailabe, CurrentClaimQuest2 = GetCurrentClaimQuest()
 
                         if IsAvailabe then
-                            if not string.find(CurrentClaimQuest2, "Cookie") then
+                            if not string.find(tostring(CurrentClaimQuest2), "Cookie") then
                                 QuestManager.AbandonQuest()
                             else
                                 Remotes.CommF_:InvokeServer("CakePrinceSpawner")
@@ -5606,7 +5637,7 @@ FunctionsHandler = {
                     local CurrentQuest, RawText = QuestManager:GetCurrentClaimQuest()
 
                     if CurrentQuest then
-                        if not string.find(RawText, "50") then
+                        if not string.find(tostring(RawText), "50") then
                             QuestManager.AbandonQuest()
                         else
                             CombatController.Attack("Swan Pirate")
