@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 print("========================================")
-print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km33 | RANDOM TRAI: StoreFruit co KIEM TRA (tool mat hay con), blacklist trai cat khong duoc 10 phut | false/nil = TU CHOI, nghi 15 phut sau 3 lan | in Beli/Fragments khi tu choi]")
+print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
 print("[Bocchi Hub] Initializing modules...")
 print("========================================")
 
@@ -60,11 +60,14 @@ Config =
                 AutoHop = false,
                 AutoHopDelay = 60 * 60,
                 FpsBoost = false,
+                RemoteSpy = false, -- [km40] true = in moi lenh game goi ([SPY]) de tim lenh moi
                 ["IdleCheck"] = 0, -- Tắt tự động Hop để tránh out game
             },
             Items = {
                 -- Melees
                 AutoFullyMelees = true,
+                -- [km42] Tom = NGUNG tu dich bien (SeaTravelTick + nut ngung LevelFarm tat)
+                AutoSeaTravel = true,
                 -- Swords
                 Saber = true,
                 CursedDualKatana = false,
@@ -77,8 +80,14 @@ Config =
                 AutoEatFruit = 1,
                 Eatlist = {},
                 -- Random trai (gacha) + tu dong cat trai vao Treasure Inventory
-                AutoRandomFruit = true,
+                -- [km43] TAT mac dinh: khi RAID can trai cui thi khong duoc cat nguoc lai vao kho
+                AutoRandomFruit = false,
                 RandomFruitInterval = 60,
+            },
+            -- [km43] Lay trai cui trong KHO DO ra de RAID lay Fragments
+            Raid = {
+                UseStoredFruits = true, -- false = quay lai luong trai tu dong cu (gacha + tu cat kho)
+                MinLevel = 1000,        -- [km43] Raid mo som hon (truoc day hard-code 1100 chan Lv 1070)
             },
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
@@ -89,6 +98,337 @@ Config =
                 MinFarmDuration = 2.5,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
             }
 }
+
+-- ============ [km43] KHO TRAI -> RAID (lay trai cui ra kho di raid lay Fragments) ============
+-- Config co the la ban CU tu lan inject truoc (getgenv khong bi xoa khi re-inject) -> bu key thieu
+do
+    if type(Config.Items) ~= "table" then
+        Config.Items = {}
+    end
+    if type(Config.Raid) ~= "table" then
+        Config.Raid = {}
+    end
+    if Config.Raid.UseStoredFruits == nil then
+        Config.Raid.UseStoredFruits = true
+    end
+    if Config.Raid.MinLevel == nil then
+        Config.Raid.MinLevel = 1000
+    end
+end
+
+function RaidUsesStoredFruits()
+    if type(Config) ~= "table" or type(Config.Raid) ~= "table" then
+        return true
+    end
+    return Config.Raid.UseStoredFruits ~= false
+end
+
+-- Danh sach trai "cui" (duoi 1M Bel, dung de RAID)
+TraiCuiTen = {
+    "Rocket-Rocket", "Spin-Spin", "Blade-Blade", "Chop-Chop", "Spring-Spring",
+    "Bomb-Bomb", "Smoke-Smoke", "Spike-Spike", "Flame-Flame", "Falcon-Falcon",
+    "Ice-Ice", "Sand-Sand", "Dark-Dark", "Diamond-Diamond", "Light-Light",
+    "Rubber-Rubber", "Barrier-Barrier", "Ghost-Ghost", "Magma-Magma", "Quake-Quake",
+    "Stone-Stone", "Steel-Steel", "Mark-Mark", "Bloom-Bloom", "Bird-Bird",
+    "Candle-Candle", "Claws-Claws", "Elevator-Elevator", "Muffler-Muffler", "Paw-Paw",
+}
+
+-- Lieat ke trai dang nam trong kho: thu Data.Fruits (client) roi toi remote getInventoryFruits
+function TraiTrongKho(luc)
+    if not luc and TraiKhoCache and (os.clock() - (TraiKhoCacheTick or 0)) < 10 then
+        return TraiKhoCache
+    end
+    local out = {}
+    local seen = {}
+    local function Them(ten, price)
+        if type(ten) ~= "string" or ten == "" or seen[ten] then
+            return
+        end
+        seen[ten] = true
+        table.insert(out, {Name = ten, Type = "Blox Fruit", Price = tonumber(price) or 0, FromStorage = true})
+    end
+    local lp = game:GetService("Players").LocalPlayer
+    pcall(function()
+        local data = lp and lp:FindFirstChild("Data")
+        local dv = data and data:FindFirstChild("Fruits")
+        if dv then
+            local val = nil
+            pcall(function()
+                val = dv.Value
+            end)
+            if typeof(dv) == "StringValue" and type(val) == "string" then
+                for part in string.gmatch(val, "[^;,]+") do
+                    local clean = string.match(part, "^%s*(.-)%s*$")
+                    if clean and clean ~= "" then
+                        Them(clean, 0)
+                    end
+                end
+            elseif typeof(dv) == "Folder" then
+                for _, c in ipairs(dv:GetChildren()) do
+                    Them(c.Name, 0)
+                end
+            end
+        end
+    end)
+    if #out == 0 and Remotes and Remotes.CommF_ then
+        pcall(function()
+            local list = Remotes.CommF_:InvokeServer("getInventoryFruits")
+            if type(list) == "table" then
+                for _, v in pairs(list) do
+                    if type(v) == "table" and v.Name then
+                        Them(tostring(v.Name), v.Price or v.Value)
+                    end
+                end
+            end
+        end)
+    end
+    if #out == 0 and Remotes and Remotes.CommF_ then
+        pcall(function()
+            local list = Remotes.CommF_:InvokeServer("getInventory")
+            if type(list) == "table" then
+                for _, v in pairs(list) do
+                    if type(v) == "table" and v.Name and (v.Type == "Blox Fruit" or string.find(tostring(v.Name), "-")) then
+                        Them(tostring(v.Name), v.Price or v.Value)
+                    end
+                end
+            end
+        end)
+    end
+    TraiKhoCache = out
+    TraiKhoCacheTick = os.clock()
+    if #out == 0 and not TraiKhoEmptyDumped then
+        TraiKhoEmptyDumped = true
+        local tenData = {}
+        pcall(function()
+            local data = lp and lp:FindFirstChild("Data")
+            if data then
+                for _, c in ipairs(data:GetChildren()) do
+                    table.insert(tenData, c.Name .. "(" .. c.ClassName .. ")")
+                end
+            end
+        end)
+        local tenNet = {}
+        pcall(function()
+            local mods = game:GetService("ReplicatedStorage"):FindFirstChild("Modules")
+            local net = mods and mods:FindFirstChild("Net")
+            if net then
+                for _, c in ipairs(net:GetChildren()) do
+                    table.insert(tenNet, c.Name)
+                end
+            end
+        end)
+        print("[KhoTrai] KHONG liet ke duoc trai trong kho | LocalPlayer.Data: " .. table.concat(tenData, ", "))
+        print("[KhoTrai] ReplicatedStorage.Modules.Net: " ..
+            (next(tenNet) and table.concat(tenNet, ", ") or "khong co Modules.Net"))
+        print("[KhoTrai] -> se THU CU SOA tung ten trai cui qua LoadFruit (khong can danh sach)")
+    end
+    return out
+end
+
+function DemTraiVatLy()
+    local n = 0
+    local lp = game:GetService("Players").LocalPlayer
+    pcall(function()
+        for _, Holder in {lp:FindFirstChild("Backpack"), lp.Character} do
+            if Holder then
+                for _, Item in ipairs(Holder:GetChildren()) do
+                    if Item:IsA("Tool") and string.find(Item.Name, "Fruit", 1, true) then
+                        n = n + 1
+                    end
+                end
+            end
+        end
+    end)
+    return n
+end
+
+-- Lay 1 trai tu kho ve balo: LoadFruit roi xac minh bang Tool xuat hien that
+function LayTraiKhoRa(tenTrai)
+    if not (Remotes and Remotes.CommF_) then
+        return false
+    end
+    local lp = game:GetService("Players").LocalPlayer
+    if not lp then
+        return false
+    end
+    local tenTool = nil
+    pcall(function()
+        tenTool = FruitIdToName(tostring(tenTrai))
+    end)
+    local Truoc = DemTraiVatLy()
+    local okCall, resp = pcall(function()
+        return Remotes.CommF_:InvokeServer("LoadFruit", tostring(tenTrai))
+    end)
+    local Got = nil
+    -- [km43] verify NGAN (1.2s) vi ham nay chay trong tick cua scheduler:
+    -- cho lau thi script dung het viec fam/nhat trai
+    local Deadline = os.clock() + 1.2
+    repeat
+        task.wait(0.1)
+        if tenTool and lp:FindFirstChild("Backpack") and lp.Backpack:FindFirstChild(tenTool) then
+            Got = tenTool
+        elseif DemTraiVatLy() > Truoc then
+            Got = "tool trai khac"
+        end
+    until Got or os.clock() > Deadline
+    print("[KhoTrai] LoadFruit \"" .. tostring(tenTrai) .. "\" -> " ..
+        (okCall and tostring(resp) or ("LOI:" .. tostring(resp))) ..
+        (Got and (" | DA NAM TRONG BALO (" .. tostring(Got) .. ")") or " | van khong co gi"))
+    return Got ~= nil
+end
+
+-- Lan luot thu tung trai cui cho toi khi lay duoc 1 trai ra kho
+function TimTraiCuiTrongKho()
+    if not RaidUsesStoredFruits() then
+        return nil
+    end
+    if getgenv().IsRaidStarting then
+        return nil
+    end
+    if KhoTraiLastTry and os.clock() - KhoTraiLastTry < 6 then
+        return nil
+    end
+    KhoTraiLastTry = os.clock()
+
+    local candidates = {}
+    for _, F in ipairs(TraiTrongKho(true)) do
+        table.insert(candidates, F.Name)
+    end
+    if #candidates == 0 then
+        for _, Ten in ipairs(TraiCuiTen) do
+            table.insert(candidates, Ten)
+        end
+    end
+
+    local HighTen = {"Kitsune", "Dragon", "Leopard", "Spirit", "Control", "Venom", "Shadow", "Dough", "T-Rex",
+        "Mammoth", "Gravity", "Blizzard", "Pain", "Rumble", "Portal", "Phoenix", "Sound", "Spider", "Love", "Buddha"}
+    KhoTraiFail = KhoTraiFail or {}
+    -- [km43] CHI THU TOI DA 2 TEN MOI LAN GOI (moi ten mat toi da 2.5s cho verify)
+    -- -> khong block vong lap chinh hung phut nhu khi thu ca danh sach 1 luc
+    local daThu = 0
+    while daThu < 2 do
+        KhoTraiCursor = (KhoTraiCursor or 0) + 1
+        if KhoTraiCursor > #candidates then
+            KhoTraiCursor = 1
+            KhoTraiFail = {}
+            break
+        end
+        local Ten = candidates[KhoTraiCursor]
+        local bo = false
+        for _, h in ipairs(HighTen) do
+            if string.find(Ten, h) then
+                bo = true
+            end
+        end
+        if Config.Items.Eatlist and table.find(Config.Items.Eatlist, Ten) then
+            bo = true
+        end
+        local blocked = KhoTraiFail[Ten]
+        if type(blocked) == "number" and blocked > os.time() then
+            bo = true
+        end
+        if not bo then
+            daThu = daThu + 1
+            if LayTraiKhoRa(Ten) then
+                RaidFruitHoldName = Ten
+                RaidFruitHoldUntil = os.time() + 1800
+                if not table.find(ScriptStorage.IgnoreStoreFruits, Ten) then
+                    table.insert(ScriptStorage.IgnoreStoreFruits, Ten)
+                end
+                print("[KhoTrai] DA lay \"" .. Ten .. "\" ra kho de RAID (giu 30 phut khong cat lai)")
+                return {Name = Ten, Type = "Blox Fruit", FromStorage = true}
+            end
+            KhoTraiFail[Ten] = os.time() + 900
+        end
+    end
+    if not KhoTraiAllFailLogged or os.time() - KhoTraiAllFailLogged > 120 then
+        KhoTraiAllFailLogged = os.time()
+        print("[KhoTrai] qua " .. tostring(#candidates) .. " ten trai ma chua lay duoc trai cui nao -> " ..
+            "bat Config.Configuration.RemoteSpy=true roi TU TAY lay 1 trai ra trong game de log lenh that")
+    end
+    return nil
+end
+
+-- [km40] REMOTE SPY: dat Config.Configuration.RemoteSpy = true roi inject, TU TAY lam
+-- chuc nang muon hoc trong game (vi du: di tau/cua ngo sang Sea 3) -> log "[SPY] <ten>: <tham so>"
+-- se cho biet chinh xac lenh server nao duoc goi. Bat ra thi LOG RAT DAY, chi bat khi can.
+do
+    local wrap = (type(newcclosure) == "function") and newcclosure or function(f) return f end
+    local okHook, errHook = pcall(function()
+        if type(hookmetamethod) ~= "function" or type(getnamecallmethod) ~= "function" then
+            print("[SPY] executor khong ho tro hookmetamethod -> khong bat duoc spy")
+            return
+        end
+        local old
+        local function fmtArg(a)
+            local ta = typeof(a)
+            if ta == "Vector3" then
+                return string.format("V(%.0f,%.0f,%.0f)", a.X, a.Y, a.Z)
+            elseif ta == "CFrame" then
+                return string.format("CF(%.0f,%.0f,%.0f)", a.Position.X, a.Position.Y, a.Position.Z)
+            elseif ta == "table" then
+                local n, ke = 0, {}
+                for k, v in pairs(a) do
+                    n = n + 1
+                    if n <= 5 then
+                        ke[#ke + 1] = tostring(k) .. "=" .. tostring(v)
+                    end
+                end
+                return "(table#" .. n .. "){" .. table.concat(ke, ",") .. "}"
+            elseif ta == "Instance" then
+                return "(" .. a.ClassName .. ")" .. a.Name
+            end
+            return tostring(a)
+        end
+        old = hookmetamethod(game, "__namecall", wrap(function(self, ...)
+            local isSpy = (type(Config) == "table" and Config.Configuration and Config.Configuration.RemoteSpy)
+            local method = nil
+            if isSpy then
+                pcall(function()
+                    method = getnamecallmethod()
+                end)
+            end
+            -- [km43] SPY MO RONG: bat MOI RemoteFunction/RemoteEvent (khong rieng CommF_)
+            -- va in ca ket tra ve -> dung de tim lenh "lay trai ra kho cua" that
+            if isSpy and (method == "InvokeServer" or method == "FireServer") then
+                local la = self
+                local okK, isRemote = pcall(function()
+                    return la:IsA("RemoteFunction") or la:IsA("RemoteEvent") or la:IsA("UnreliableRemoteEvent")
+                end)
+                if okK and isRemote then
+                    local okN, nm = pcall(function()
+                        return la.Name
+                    end)
+                    local okP, pn = pcall(function()
+                        return (la.Parent and la.Parent.Name) or "?"
+                    end)
+                    local args = { ... }
+                    local parts = {}
+                    for i = 1, math.min(#args, 6) do
+                        parts[i] = fmtArg(args[i])
+                    end
+                    local ten = tostring(pn) .. "." .. tostring(nm)
+                    if method == "InvokeServer" then
+                        local okR, res = pcall(function()
+                            return old(la, table.unpack(args, 1, #args))
+                        end)
+                        print("[SPY] " .. ten .. ": " .. table.concat(parts, ", ") .. " ==> " ..
+                            (okR and fmtArg(res) or ("LOI " .. tostring(res))))
+                        if okR then
+                            return res
+                        end
+                        return nil
+                    end
+                    print("[SPY] " .. ten .. ": " .. table.concat(parts, ", "))
+                end
+            end
+            return old(self, ...)
+        end))
+    end)
+    if not okHook then
+        print("[SPY] hook that bai: " .. tostring(errHook))
+    end
+end
 
 local loadedStart = tick()
 while not game:IsLoaded() and tick() - loadedStart < 10 do
@@ -299,7 +639,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "2TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1231,7 +1571,14 @@ ScriptStorage = {
                 -- 1. Quét các vật phẩm & nguyên liệu thông thường
                 local inv = nil
                 pcall(function() inv = Remotes.CommF_:InvokeServer("getInventory") end)
-                if type(inv) == "table" and #inv > 0 then
+                -- [km43] getInventory da CHET (tra nil) o ban game nay -> bu {} de van chay
+                -- toi doan liet ke TRAI TRONG KHO. Truoc day doan do nam sau dieu kien
+                -- "#inv > 0" nen khong bao gio chay => ScriptStorage.Backpack luon rong
+                -- => Raid khong bao gio tim thay trai cui.
+                if type(inv) ~= "table" then
+                    inv = {}
+                end
+                do
                     local newBp = {}
                     for _, Value in pairs(inv) do
                         if type(Value) == "table" and Value.Name then
@@ -1252,19 +1599,12 @@ ScriptStorage = {
                         end
                     end
 
-                    -- 2. Quét toàn bộ Trái Ác Quỷ lưu trữ trong Treasure Inventory (getInventoryFruits)
-                    local fruits = nil
-                    pcall(function() fruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
-                    if type(fruits) == "table" then
-                        for _, Value in pairs(fruits) do
-                            if type(Value) == "table" and Value.Name then
-                                Value.Type = "Blox Fruit"
-                                newBp[Value.Name] = Value
-                                local cleanName = string.lower(string.gsub(Value.Name, "^%s*(.-)%s*$", "%1"))
-                                newBp[cleanName] = Value
-                                newBp[string.gsub(cleanName, "%s+", "")] = Value
-                            end
-                        end
+                    -- 2. [km43] Trai luu trong kho (Data.Fruits -> getInventoryFruits -> getInventory)
+                    for _, Value in ipairs(TraiTrongKho()) do
+                        newBp[Value.Name] = Value
+                        local cleanName = string.lower(string.gsub(Value.Name, "^%s*(.-)%s*$", "%1"))
+                        newBp[cleanName] = Value
+                        newBp[string.gsub(cleanName, "%s+", "")] = Value
                     end
 
                     ScriptStorage.Backpack2 = newBp
@@ -1361,7 +1701,7 @@ ScriptStorage = {
                             if FunctionsHandler.Trevor and FunctionsHandler.Trevor:Get("IsLoadingFruit") then
                                 return
                             end
-                            
+
                             if table.find(ScriptStorage.IgnoreStoreFruits, Child:GetAttribute("OriginalName")) then
                                 return
                             end
@@ -1376,6 +1716,14 @@ ScriptStorage = {
                                     FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call(Child.Name)
                                 end
                                 LocalPlayer.Character:FindFirstChild(Child.Name).EatRemote:InvokeServer()
+                            end
+                            -- [km43] RAID dang can trai cui -> TAT viec TU CAT TRAI o day, neu
+                            -- khong thi lay duoc ra kho la bi nhiet nguoc lai vao kho ngay
+                            if RaidUsesStoredFruits() then
+                                return
+                            end
+                            if RaidFruitHoldUntil and os.time() < RaidFruitHoldUntil then
+                                return
                             end
                             local StoreResult =
                                 Remotes.CommF_:InvokeServer("StoreFruit", Child:GetAttribute("OriginalName"), Child)
@@ -1742,25 +2090,30 @@ ScriptStorage = {
 
         -- Nhóm ưu tiên task: duyệt từ nhóm đầu xuống cuối; trong mỗi nhóm theo thứ tự liệt kê.
         -- Mỗi tick, task ĐẦU TIÊN có Refresh trả về true sẽ được chạy (chỉ 1 task/tick).
+        -- [km41] THEO YEU CUA USER: "nhat trai + fam boss la quan trong nhat" -> 2 nhom nay
+        -- dat LEN TRUOC nhan nhiem vu / fam lv thuong (truoc day Quests di truoc Bosses nen
+        -- luc nao cung chi thay "Level Farming", khong bao gio danh boss).
         TaskGroups = {
-            -- 1. Nhat trai roi (chi bat khi qua trong khoang 250 studs)
+            -- 1. Nhat trai roi (uu tien tuyet doi)
             Drops    = { "CollectDrops" },
-            -- 2. Nhan qua / reward
+            -- 2. Danh Boss (boss live trong server la danh ngay, khong cho no chen vao sau)
+            Bosses   = { "SpecialBossesTask", "BossesTask" },
+            -- 3. Nhan qua / reward
             Rewards  = { "ExpRedeem" },
-            -- 3. Nhiem vu + puzzle
+            -- 4. Nhiem vu + puzzle
             Quests   = { "SoulGuitar", "Tushita", "ColosseumPuzzle", "SecondSeaPuzzle", "ThirdSeaPuzzle", "Yama", "Saber" },
-            -- 4. Danh Boss / Raid
-            Combat   = { "RaidController", "SpecialBossesTask", "PirateRaid", "BossesTask" },
-            -- 5. Item ho tro
+            -- 5. Raid
+            Combat   = { "RaidController", "PirateRaid" },
+            -- 6. Item ho tro
             Utility  = { "Trevor", "UtillyItemsActivitation" },
-            -- 6. Kiem tra vo thieu mastery -> farm nguyen lieu Godhuman
+            -- 7. Kiem tra vo thieu mastery -> farm nguyen lieu Godhuman
             Melee    = { "MeleesController" },
-            -- 7. Cuoi cung moi fam lv thong thuong
+            -- 8. Cuoi cung moi fam lv thong thuong
             LevelUp  = { "LevelFarm" },
         }
 
         TasksOrder = {}
-        for _, GroupName in ipairs({ "Drops", "Rewards", "Quests", "Combat", "Utility", "Melee", "LevelUp" }) do
+        for _, GroupName in ipairs({ "Drops", "Bosses", "Rewards", "Quests", "Combat", "Utility", "Melee", "LevelUp" }) do
             for _, TaskName in ipairs(TaskGroups[GroupName] or {}) do
                 table.insert(TasksOrder, TaskName)
             end
@@ -1795,6 +2148,56 @@ ScriptStorage = {
                 SeaIndex = 3
             end
         end
+
+        -- [km36] PlaceId o ban game nay co the KHONG nam trong bang tren -> SeaIndex tinh
+        -- 1 lan luc inject co the SAI, khien LevelFarm cu dung o buoc "dich sea" roi return.
+        -- Do lai theo workspace.Map moi 30s (chi khi placeId khong duoc biet).
+        function DetectSeaIndex()
+            local pid = game.PlaceId
+            if pid == 2753915549 or pid == 85211729168715 then return 1 end
+            if pid == 4442272183 or pid == 79091703265657 then return 2 end
+            if pid == 7449423635 or pid == 100117331123089 then return 3 end
+            local map = workspace:FindFirstChild("Map")
+            if not map then return nil end
+            local function has(n) return map:FindFirstChild(n) ~= nil end
+            if has("Turtle") or has("Port Town") or has("Great Tree") then return 3 end
+            if has("Ice Castle") or has("Green Zone") or has("Colosseum") or has("Kingdom of Rose") then return 2 end
+            if has("Jungle") or has("Sky Islands") or has("Desert") then return 1 end
+            return nil
+        end
+        task.spawn(function()
+            task.wait(5)
+            local pending, same = nil, 0
+            while task.wait(30) do
+                local ni = DetectSeaIndex()
+                if not ni then
+                    local names = {}
+                    pcall(function()
+                        local map = workspace:FindFirstChild("Map")
+                        if map then
+                            for _, c in ipairs(map:GetChildren()) do
+                                if #names < 25 then table.insert(names, c.Name) end
+                            end
+                        end
+                    end)
+                    print("[SeaCheck] PlaceId=" .. tostring(game.PlaceId) .. " | SeaIndex=" .. tostring(SeaIndex) ..
+                        " | workspace.Map: " .. table.concat(names, ", "))
+                elseif ni ~= SeaIndex then
+                    if pending == ni then same = same + 1 else pending, same = ni, 0 end
+                    if same >= 1 then
+                        print("[SeaCheck] doi SeaIndex " .. tostring(SeaIndex) .. " -> " .. tostring(ni) ..
+                            " (do tu workspace.Map)")
+                        SeaIndex = ni
+                        Sea = (ni == 1 and "Main") or (ni == 2 and "Dressrosa") or "Zou"
+                        MeleeNpcIndex = nil
+                        MeleeNpcIndexSea = nil
+                        pending, same = nil, 0
+                    end
+                else
+                    pending, same = nil, 0
+                end
+            end
+        end)
 
         Portals =
             (
@@ -1832,6 +2235,14 @@ ScriptStorage = {
             ["Cake Prince"] = 1500,
             ["Soul Reaper"] = 1500
         }
+        -- [km38] Ban goc de khoi phuc khi UtillyItemsActivitation loc het BossesOrder
+        BossesOrderBase = {}
+        for _, v in ipairs(BossesOrder) do
+            table.insert(BossesOrderBase, v)
+        end
+        -- [km41] BossFarSince: boss song nhung o qua xa; BossSkipUntil: tam bo qua boss do 10 phut
+        BossFarSince = {}
+        BossSkipUntil = {}
 
         BossesOrderWL = {
             ["Deandre"] = 1500,
@@ -2450,7 +2861,14 @@ ScriptStorage = {
             Remotes.CommF_:InvokeServer("AbandonQuest")
         end
 
+        -- [km41] "kiem tra 1 lan thoi": HasActiveQuest duoc goi trong vong farm
+        -- (task.wait(0.05) -> ~20 lan/giay) va moi lan la quet HUD. memo 0.35s.
         function QuestManager.HasActiveQuest()
+            local ck = os.clock()
+            if ActiveQuestMemo and (ck - (ActiveQuestMemoTick or 0) < 0.35) then
+                local m = ActiveQuestMemo
+                return m[1], m[2], m[3], m[4]
+            end
             local hasQuest = false
             local cleanTitle, rawTitle = nil, nil
             local currentKills, maxKills = nil, nil
@@ -2523,6 +2941,19 @@ ScriptStorage = {
                     end
                 end
 
+                -- [km38] Van phuong an cuoi: doc thang panel "x/y" trong HUD cua game.
+                -- Build hien tai khong con PlayerGui.Main.Quest nen moi cach tren bo lot,
+                -- du "Defeat 8 Water Fighters / 0/8" hien ro tren man hinh.
+                if not hasQuest and type(QuestProgressFromHud) == "function" then
+                    local hCur, hMax, hTitle = QuestProgressFromHud()
+                    if hCur then
+                        hasQuest = true
+                        currentKills = currentKills or hCur
+                        maxKills = maxKills or hMax
+                        rawTitle = rawTitle or hTitle
+                    end
+                end
+
                 if hasQuest then
                     local qClean, qRaw = QuestManager.GetCurrentClaimQuest()
                     if qClean and qClean ~= "" then
@@ -2532,7 +2963,10 @@ ScriptStorage = {
                 end
             end)
 
-            return hasQuest, currentKills, maxKills, cleanTitle or rawTitle or "ActiveQuest"
+            local finalTitle = cleanTitle or rawTitle or "ActiveQuest"
+            ActiveQuestMemo = { hasQuest, currentKills, maxKills, finalTitle }
+            ActiveQuestMemoTick = os.clock()
+            return hasQuest, currentKills, maxKills, finalTitle
         end
 
         function QuestManager.GetCurrentClaimQuest(selfOrRaw, rawResponse)
@@ -2882,7 +3316,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 160
+            local Speed = (CurrentDist < 30) and 45 or 120
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -3766,6 +4200,8 @@ CombatController = {
         end
 
         function CombatController.Attack(MobTable, NearbyHit, Range, Callback)
+            -- [km44] DA BO "NING combat": lenh dich Sea giu co InCombat ->
+            -- CombatController return som moi 45s => nhan vat DUNG IM hoan toan.
             -- Cache GuideModule env để tránh gọi getsenv nhiều lần
             local GuideEnv = pcall(function()
                 return GetGuideEnv()
@@ -3933,14 +4369,26 @@ CombatController = {
                     if not Region or (type(Region) == "table" and #Region == 0) then
                         -- [km27] Chi chap nhan khop TEN CHINH XAC. Truoc day dung phu ten nen
                         -- "Pirate" khop part "PirateFlag" -> bay den do vung bo vo.
-                        pcall(function()
-                            for _, spawnObj in pairs(workspace:GetDescendants()) do
-                                if spawnObj.Name == Child and (spawnObj:IsA("BasePart") or spawnObj:IsA("Model")) then
-                                    Region = { spawnObj:IsA("BasePart") and spawnObj.Position or spawnObj:GetPivot().Position }
-                                    break
+                        -- [km41] GetDescendants() toan bo workspace rat dat, lai chay moi tick
+                        -- -> ke thu chi tim toi da 1 lan / 3s cho tung ten quai.
+                        SpawnPosCache = SpawnPosCache or {}
+                        SpawnPosCacheTick = SpawnPosCacheTick or {}
+                        local ck = os.clock()
+                        if not SpawnPosCache[Child] or (ck - (SpawnPosCacheTick[Child] or 0) > 3) then
+                            SpawnPosCacheTick[Child] = ck
+                            SpawnPosCache[Child] = nil
+                            pcall(function()
+                                for _, spawnObj in pairs(workspace:GetDescendants()) do
+                                    if spawnObj.Name == Child and (spawnObj:IsA("BasePart") or spawnObj:IsA("Model")) then
+                                        SpawnPosCache[Child] = spawnObj:IsA("BasePart") and spawnObj.Position or spawnObj:GetPivot().Position
+                                        break
+                                    end
                                 end
-                            end
-                        end)
+                            end)
+                        end
+                        if SpawnPosCache[Child] then
+                            Region = { SpawnPosCache[Child] }
+                        end
                     end
 
                     if Region and #Region > 0 then
@@ -3966,6 +4414,82 @@ CombatController = {
         LevelFarmTTL = 0
         LastTravel = os.time()
 
+        -- ================== [km42] SEA TRAVEL ( chay o VONG LAP CHINH, khong phu thuoc priority task)
+        -- Dieu kien sang bien cua game: Sea 2 = du 700, Sea 3 = du 1500 (khong can nhiem vu/item).
+        -- Server TU CHOI moi lenh dich khi co co "In Combat" -> chi con [Cannot teleport during
+        -- combat.], nghia la dieu kien con thieu la "duoc yen ~20-45s". requestEntrance khong dung
+        -- duoc cho LAN DAU sang Sea 3 vi fast-travel chi mo cac diem DA TUNG den, nen chi dung
+        -- TravelDressrosa / TravelZou. Truoc day doan nay nam TRONG LevelFarm.Start = task CUOI
+        -- cung cua TasksOrder -> khi Bosses/Quests/Melee chiem tick thi lenh dich khong chay lan
+        -- nao; km42 nang no ra vong lap chinh va giu lai o LevelFarm mot NUT NGUNG duy nhat.
+
+        -- Tra (ToSea, RemoteName) neu du dieu kien sang bien; nil neu khong can di.
+        function SeaTravelTarget()
+            if Config.Items and Config.Items.AutoSeaTravel == false then
+                return nil
+            end
+            local pLvl = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 0
+            if pLvl >= 700 and SeaIndex == 1 then
+                return 2, "TravelDressrosa"
+            elseif pLvl >= 1500 and SeaIndex == 2 then
+                local iceDoor = false
+                pcall(function()
+                    iceDoor = workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor") ~= nil
+                end)
+                if iceDoor then
+                    if not SeaTravelDoorLogTick or os.time() - SeaTravelDoorLogTick >= 60 then
+                        SeaTravelDoorLogTick = os.time()
+                        print("[SeaTravel] CON TUA Library (PhoeyuDoor) -> tam dung o Sea 2, xong Ice V2 roi moi di Sea 3")
+                    end
+                    return nil
+                end
+                return 3, "TravelZou"
+            end
+            return nil
+        end
+
+        -- [km44] TrySeaTravel KHONG CON chan thao tac nao nua: chi goi lenh dich trong
+        -- background (khoa 12s/lan). Server bao "combat" -> bo qua, fam tiep, lan sau thu.
+        -- (km42/43 ning 45s + bay cao 250 studs => nhan vat dung im, trai nguoi dung yeu cau)
+        function TrySeaTravel(ToSea, RemoteName)
+            local now = os.time()
+            local pLvl = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 0
+            SeaTravelTries = SeaTravelTries or {}
+
+            if SeaTravelGiveUpUntil and now < SeaTravelGiveUpUntil then
+                return false
+            end
+            local tries = SeaTravelTries[RemoteName] or 0
+            if tries >= 12 then
+                SeaTravelGiveUpUntil = now + 90
+                SeaTravelTries[RemoteName] = 0
+                print("[SeaTravel] " .. RemoteName .. " bi tu choi " .. tostring(tries) ..
+                    " lan -> nghi 90s, fam tiep o Sea " .. tostring(SeaIndex))
+                return false
+            end
+            if not LastSeaTravelTime or now - LastSeaTravelTime > 12 then
+                LastSeaTravelTime = now
+                SeaTravelTries[RemoteName] = tries + 1
+                local okT, respT = pcall(function()
+                    return Remotes.CommF_:InvokeServer(RemoteName)
+                end)
+                print("[SeaTravel] " .. RemoteName .. " (lan " .. tostring(tries + 1) .. ") -> " ..
+                    (okT and ("tra:" .. tostring(respT)) or ("LOI:" .. tostring(respT))) ..
+                    " | van o Sea " .. tostring(SeaIndex) .. " | cap " .. tostring(pLvl) ..
+                    " | (khong dung im nua, van fam binh thuong)")
+            end
+            return true
+        end
+
+        -- Goi moi tick tu vong lap chinh.
+        function SeaTravelTick()
+            local toSea, remote = SeaTravelTarget()
+            if not toSea then
+                return
+            end
+            TrySeaTravel(toSea, remote)
+        end
+
         
 local function GetGuideEnv()
     local ok, env = pcall(function()
@@ -3978,6 +4502,49 @@ local function GetGuideEnv()
         end
     end)
     return ok and env or nil
+end
+
+-- [km40] Do co combat cua CHINH GAME: client luu no trong env cua
+-- PlayerGui.Main.Guide (_G.InCombat). Tra true/false, nil neu khong doc duoc.
+function PlayerInCombat()
+    local now = os.clock()
+    if InCombatCacheTick and now - InCombatCacheTick < 1 then
+        return InCombatCacheVal
+    end
+    InCombatCacheTick = os.clock()
+    local ok, val = pcall(function()
+        if type(getsenv) ~= "function" then return nil end
+        local lp = game:GetService("Players").LocalPlayer
+        local g = lp and lp:FindFirstChild("PlayerGui") and lp.PlayerGui:FindFirstChild("Main") and
+            lp.PlayerGui.Main:FindFirstChild("Guide")
+        if not g then return nil end
+        local env = getsenv(g)
+        return env and env._G and env._G.InCombat
+    end)
+    InCombatCacheVal = (ok and val) or nil
+    -- [km41] O build nay PlayerGui.Main khong ton tai nen getsenv tra ve nil (log "InCombat=nil").
+    -- Do luong cuoi: game HEN LO "In Combat" len man hinh luc dang chong mat, thu khi an ->
+    -- tim chu nay trong danh sach label HUD da quet (GameHudLabels).
+    if InCombatCacheVal == nil then
+        local okH, hud = pcall(function()
+            if type(GameHudLabels) ~= "function" then return nil end
+            for _, lbl in ipairs(GameHudLabels(5)) do
+                local low = string.lower(tostring(lbl.Text))
+                if string.find(low, "combat") or string.find(low, "chiến") then
+                    return true
+                end
+            end
+            return false
+        end)
+        if okH and hud ~= nil then
+            InCombatCacheVal = hud
+            if not InCombatHudDumped then
+                InCombatHudDumped = true
+                print("[SeaTravel] Doc InCombat tu NHAN TIEN HUD (getsenv khong dung duoc) = " .. tostring(hud))
+            end
+        end
+    end
+    return InCombatCacheVal
 end
 
 local function GetExpBoost()
@@ -4326,29 +4893,10 @@ FunctionsHandler = {
                 -- CHUYỂN SEA THEO CẤP ĐỘ CHUẨN:
                 -- Cấp >= 700 ở Sea 1 -> Đi Sea 2
                 -- Cấp >= 1500 ở Sea 2 -> Đi Sea 3
-                if PlayerLevel >= 700 and SeaIndex == 1 then
-                    local now = os.time()
-                    if not LastSeaTravelTime or now - LastSeaTravelTime > 20 then
-                        LastSeaTravelTime = now
-                        SetTask("MainTask", "Sea Travel | Đạt cấp 700+ | Teleporting to Second Sea...")
-                        Remotes.CommF_:InvokeServer("TravelDressrosa")
-                    end
-                    return
-                elseif PlayerLevel >= 1500 and SeaIndex == 2 then
-                    local iceDoorExists = false
-                    pcall(function()
-                        iceDoorExists = workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor") ~= nil
-                    end)
-                    if not iceDoorExists then
-                        local now = os.time()
-                        if not LastSeaTravelTime or now - LastSeaTravelTime > 20 then
-                            LastSeaTravelTime = now
-                            SetTask("MainTask", "Sea Travel | Đạt cấp 1500+ | Teleporting to Third Sea...")
-                            Remotes.CommF_:InvokeServer("TravelZou")
-                        end
-                        return
-                    end
-                end
+                -- [km44] NUT NGUNG DUNG IM DA BI LOAI BO: truoc day khi server bao "combat"
+                -- thi LevelFarm return som + keo nhan vat bay len cao => script dung im
+                -- ca phut chi de cho duoc dich. Gio van fam binh thu, lenh dich chi duoc
+                -- goi lai trong background (SeaTravelTick vong lap chinh).
 
                 -- ========================================================
                 -- [GODHUMAN AUTO-PIPELINE]
@@ -4649,11 +5197,24 @@ FunctionsHandler = {
 
                 -- [km30] CHONG DUNG IM: muc tieu khong con con quai nao trong server ma cung
                 -- khong co nhiem vu dang chay -> doi sang loai quai THAT SU dang co mat o sea nay.
+                -- [km38] KHONG doi khi HUD dang co dem "x/y": Water Fighter chi o xa nen bi
+                -- stream an (MobLiveCount = 0), doi sang Sea Soldier la danh sai quai cua nhiem vu.
+                local hudCur, hudMax = nil, nil
+                if type(QuestProgressFromHud) == "function" then
+                    hudCur, hudMax = QuestProgressFromHud()
+                end
+                if hudCur and not hasActiveQuest then
+                    hasActiveQuest = true
+                    curKills, maxKills = hudCur, hudMax
+                end
                 if not hasActiveQuest and MonName and MobLiveCount(MonName) == 0 then
                     local altMob, altCount = PickLiveSeaMob()
                     if altMob and altMob ~= MonName then
-                        print("[LevelFarm] " .. tostring(MonName) .. " khong co trong server nay -> chon " ..
-                            altMob .. " (" .. tostring(altCount) .. " con dang co mat)")
+                        if not LevelFarmMobSwapTick or os.time() - LevelFarmMobSwapTick >= 20 then
+                            LevelFarmMobSwapTick = os.time()
+                            print("[LevelFarm] " .. tostring(MonName) .. " khong co trong server nay -> chon " ..
+                                altMob .. " (" .. tostring(altCount) .. " con dang co mat)")
+                        end
                         MonName = altMob
                     else
                         SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Khong tim thay quai nay trong server")
@@ -4714,14 +5275,21 @@ FunctionsHandler = {
                     task.wait(1)
                     LevelFarmTTL = 0
                     if QuestId and QuestIndex then
-                        getgenv().DynamicQuestGracePeriod = 10
-                        getgenv().LastQuestClaimTick = tick()
                         local okStart, startResp = pcall(function()
                             return QuestManager.StartQuest(QuestId, QuestIndex)
                         end)
+                        -- [km37] Server build nay tra ve 0 (khong phai loi) khi NHAN xong, giong
+                        -- ZQuestProgress == 0 = OK o phan puzzle. Chi tinh TU CHOI khi co ly do ro:
+                        -- pcall loi, chuoi loi, hoac table Success=false.
+                        local rejected = (not okStart)
+                            or (type(startResp) == "string" and startResp ~= "")
+                            or (type(startResp) == "table" and (startResp.Success == false or startResp.Error ~= nil))
+                        getgenv().DynamicQuestGracePeriod = rejected and 10 or 25
+                        getgenv().LastQuestClaimTick = tick()
                         print("[QuestState] StartQuest " .. tostring(QuestId) .. "," .. tostring(QuestIndex) ..
                             " (cach NPC " .. tostring(math.floor(distToNpc)) .. "m) -> " ..
-                            tostring(okStart and startResp or ("LOI:" .. tostring(startResp))))
+                            (okStart and ("tra:" .. tostring(startResp)) or ("LOI:" .. tostring(startResp))) ..
+                            (rejected and " | bi tu choi" or " | server khong tu choi -> an han 25s cho UI, fam tiep"))
                         local startTimeout = (Config and Config.Settings and tonumber(Config.Settings.QuestStartTimeout)) or 2.0
                         local waitQuest = tick() + startTimeout
                         repeat
@@ -4729,16 +5297,28 @@ FunctionsHandler = {
                             hasActiveQuest = QuestManager.HasActiveQuest()
                         until hasActiveQuest or tick() > waitQuest
                         if not hasActiveQuest then
-                            -- [km31] NPC nay tu choi nhiem vu 3 lan -> bo qua 10 phut de thu nhiem vu khac
-                            QuestFailCount = QuestFailCount or {}
-                            QuestFailCount[QuestId] = (QuestFailCount[QuestId] or 0) + 1
-                            print("[QuestState] NHAN THAT BAI " .. tostring(QuestId) .. " lan " .. tostring(QuestFailCount[QuestId]))
-                            if QuestFailCount[QuestId] >= 3 then
-                                QuestManager.BlacklistedQuestIds = QuestManager.BlacklistedQuestIds or {}
-                                QuestManager.BlacklistedQuestIds[QuestId] = os.time() + 600
-                                QuestFailCount[QuestId] = nil
-                                print("[QuestState] BO QUA " .. tostring(QuestId) .. " 10 phut, chon nhiem vu khac")
+                            if not rejected then
+                                -- [km37] Server khong tu choi lenh, chi co dieu UI tieng Viet doc khong
+                                -- ra task -> nghi la DA NHAN, de LevelFarm tien hanh danh quai,
+                                -- KHONG phong blacklist (ban cu phong nham nhiem vu that).
+                                print("[QuestState] " .. tostring(QuestId) .. " khong doc thay tren UI sau " ..
+                                    tostring(startTimeout) .. "s -> gia dinh DA NHAN, di danh " .. tostring(MonName))
+                                getgenv().QuestAcceptedBlind = QuestId
+                                getgenv().QuestAcceptedBlindUntil = os.time() + 900
+                            else
+                                -- [km31] NPC nay tu choi nhiem vu 3 lan -> bo qua 10 phut de thu nhiem vu khac
+                                QuestFailCount = QuestFailCount or {}
+                                QuestFailCount[QuestId] = (QuestFailCount[QuestId] or 0) + 1
+                                print("[QuestState] NHAN THAT BAI " .. tostring(QuestId) .. " lan " .. tostring(QuestFailCount[QuestId]))
+                                if QuestFailCount[QuestId] >= 3 then
+                                    QuestManager.BlacklistedQuestIds = QuestManager.BlacklistedQuestIds or {}
+                                    QuestManager.BlacklistedQuestIds[QuestId] = os.time() + 600
+                                    QuestFailCount[QuestId] = nil
+                                    print("[QuestState] BO QUA " .. tostring(QuestId) .. " 10 phut, chon nhiem vu khac")
+                                end
                             end
+                        else
+                            getgenv().QuestAcceptedBlind = nil
                         end
                     end
                 end
@@ -5507,7 +6087,7 @@ FunctionsHandler = {
             ["Black Leg"] = {Sea = 1, CFrame = CFrame.new(-1436.5, 29.8, 298.5), Npc = "Dark Step Teacher"},
             ["Electro"] = {Sea = 1, CFrame = CFrame.new(-4722.5, 717.8, -842.2), Npc = "Mad Scientist"},
             ["Fishman Karate"] = {Sea = 1, CFrame = CFrame.new(61163.8, 18.5, 1569.4), Npc = "Water Kung-fu Teacher"},
-            ["Dragon Claw"] = {Sea = 2, CFrame = CFrame.new(-4979.9, 371.3, -3205.5), Npc = "Sabi"},
+            ["Dragon Claw"] = {Sea = 2, CFrame = CFrame.new(-4979.9, 371.3, -3205.5), Npc = "Sabi", Near = "Fishman Karate"},
             ["Superhuman"] = {Sea = 2, CFrame = CFrame.new(-3800, 332, -2900), Npc = "Martial Arts Master"},
             ["Death Step"] = {Sea = 2, CFrame = CFrame.new(6353, 298, -6378), Npc = "Phoeyu, the Reformed"},
             ["Sharkman Karate"] = {Sea = 2, CFrame = CFrame.new(-5084, 38, -3159), Npc = "Sharkman Teacher"},
@@ -5550,79 +6130,237 @@ FunctionsHandler = {
         end
         function MeleeCFrameOf(obj)
             if not obj then return nil end
-            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("HumanoidRootPart", true)
             if hrp then return hrp.CFrame end
             local okP, pv = pcall(function() return obj.WorldPivot end)
             if okP and pv and typeof(pv) == "CFrame" then return pv end
-            local pp = obj:FindFirstChildWhichIsA("BasePart")
+            local pp = obj:FindFirstChildWhichIsA("BasePart") or obj:FindFirstChildWhichIsA("BasePart", true)
             if pp then return pp.CFrame end
             return nil
         end
         -- [km25] Mot so thay vo (Sabi cua Dragon Claw) KHONG nam trong workspace.NPCs o ban nay,
         -- nen khi tim nhanh that bai thi quet toan map lay cac Model co Humanoid.
+        -- [km35] Blox Fruits ban nay ghi TEN NPC len BillboardGui / DisplayName, con Model
+        -- thi ten lung tung (vd "Model 17") -> doc ten NPC phai lay ca label trong 3 level con.
+        function MeleeNpcLabels(obj)
+            local out, seen = {}, {}
+            local function add(s)
+                s = tostring(s or "")
+                s = s:gsub("^%s+", ""):gsub("%s+$", "")
+                if #s > 1 and #s < 60 and not seen[string.lower(s)] then
+                    seen[string.lower(s)] = true
+                    table.insert(out, s)
+                end
+            end
+            add(obj.Name)
+            pcall(function() add(obj.DisplayName) end)
+            pcall(function()
+                local h = obj:FindFirstChildWhichIsA("Humanoid")
+                if h then add(h.DisplayName) end
+            end)
+            pcall(function()
+                for k, v in pairs(obj:GetAttributes()) do
+                    if type(v) == "string" then
+                        local lk = string.lower(k)
+                        if string.find(lk, "name", 1, true) or string.find(lk, "title", 1, true) then
+                            add(v)
+                        end
+                    end
+                end
+            end)
+            pcall(function()
+                for _, c in ipairs(obj:GetChildren()) do
+                    if c:IsA("ProximityPrompt") then
+                        add(c.ObjectText)
+                        add(c.ActionText)
+                    end
+                    for _, gc in ipairs(c:GetChildren()) do
+                        if gc:IsA("ProximityPrompt") then
+                            add(gc.ObjectText)
+                            add(gc.ActionText)
+                        end
+                        for _, ggc in ipairs(gc:GetChildren()) do
+                            if (ggc:IsA("TextLabel") or ggc:IsA("TextButton")) and ggc.Text ~= "" then
+                                add(ggc.Text)
+                            elseif ggc:IsA("BillboardGui") or ggc:IsA("SurfaceGui") or ggc:IsA("SurfaceBillboardGui") then
+                                for _, lbl in ipairs(ggc:GetChildren()) do
+                                    if (lbl:IsA("TextLabel") or lbl:IsA("TextButton")) and lbl.Text ~= "" then
+                                        add(lbl.Text)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            return out
+        end
         function MeleeBuildNpcIndex(ttl)
             MeleeNpcIndexTick = MeleeNpcIndexTick or 0
+            -- [km34] doi sea (dich/dao) -> NPC khac han, phai quet lai
+            if MeleeNpcIndexSea ~= SeaIndex then
+                MeleeNpcIndexSea = SeaIndex
+                MeleeNpcIndex = nil
+            end
             if MeleeNpcIndex and (os.time() - MeleeNpcIndexTick) < (ttl or 120) then
                 return MeleeNpcIndex
             end
             MeleeNpcIndexTick = os.time()
             local idx = {}
+            local models = 0
             pcall(function()
+                local Players = game:GetService("Players")
                 local roots = { workspace, game:GetService("ReplicatedStorage") }
                 for _, root in ipairs(roots) do
                     for _, d in ipairs(root:GetDescendants()) do
+                        -- [km34] NPC o ban Sea 3 thuong boc Humanoid trong "LocalModel",
+                        -- nen phai tim de quy, khong chi FindFirstChild truc tiep.
                         local okM, isH = pcall(function()
-                            return d:IsA("Model") and d:FindFirstChildWhichIsA("Humanoid") ~= nil
+                            return d:IsA("Model") and d:FindFirstChildWhichIsA("Humanoid", true) ~= nil
                         end)
                         if okM and isH then
-                            local key = MeleeNormName(d.Name)
-                            if key ~= "" and not idx[key] then
+                            local isPlayer = false
+                            pcall(function()
+                                isPlayer = Players:GetPlayerFromCharacter(d) ~= nil or
+                                    (d.Parent == workspace and Players:FindFirstChild(d.Name) ~= nil)
+                            end)
+                            if not isPlayer then
                                 local cf = MeleeCFrameOf(d)
-                                if cf then idx[key] = { cf = cf, name = d.Name } end
+                                if cf then
+                                    models = models + 1
+                                    -- [km35] danh theo MOI ten ma NPC dang mang
+                                    for _, label in ipairs(MeleeNpcLabels(d)) do
+                                        local key = MeleeNormName(label)
+                                        if key ~= "" and not idx[key] then
+                                            idx[key] = { cf = cf, name = label }
+                                        end
+                                    end
+                                end
                             end
                         end
                     end
                 end
             end)
             MeleeNpcIndex = idx
-            print("[MeleeCheck] da quet map: " .. tostring(table.size(idx)) .. " model NPC trong server")
+            print("[MeleeCheck] da quet map: " .. tostring(models) .. " model co Humanoid, " ..
+                tostring(table.size(idx)) .. " ten NPC trong server")
             return idx
         end
+        -- Ten can tim cho 1 loai vo: ten NPC cu + ten bien the + chinh ten mon vo
+        function MeleeNpcTerms(styleName)
+            local out, seen = {}, {}
+            local info = MeleeNpcInfo and MeleeNpcInfo[styleName]
+            local function add(n)
+                if n and not seen[MeleeNormName(n)] then
+                    seen[MeleeNormName(n)] = true
+                    table.insert(out, n)
+                end
+            end
+            if info then
+                add(info.Npc)
+                if type(info.Aliases) == "table" then
+                    for _, a in ipairs(info.Aliases) do add(a) end
+                end
+            end
+            add(styleName)
+            return out
+        end
         -- Tim model NPC THAT trong server hien tai (ten dung truoc, gan giong sau)
-        function FindMeleeNpcCFrame(npcName)
-            if not npcName then return nil end
+        function FindMeleeNpcCFrame(npcName, styleName)
+            local terms = {}
+            if npcName then table.insert(terms, npcName) end
+            if styleName then
+                for _, t in ipairs(MeleeNpcTerms(styleName)) do
+                    local dup = false
+                    for _, have in ipairs(terms) do
+                        if MeleeNormName(have) == MeleeNormName(t) then dup = true break end
+                    end
+                    if not dup then table.insert(terms, t) end
+                end
+            end
+            if #terms == 0 then return nil end
             local ok, res = pcall(function()
                 local folders = {
                     workspace:FindFirstChild("NPCs"),
                     game:GetService("ReplicatedStorage"):FindFirstChild("NPCs"),
                 }
+                -- [km34] lay 1 lan toan bo Model trong folder NPC (NPC co the nam sau folder con)
+                -- [km35] so sanh theo TEN HIEN THI (label), khong chi ten Model
+                local pool = {}
                 for _, f in ipairs(folders) do
                     if f then
-                        local exact = f:FindFirstChild(npcName)
-                        if exact then
-                            local cf = MeleeCFrameOf(exact)
-                            if cf then return cf end
-                        end
-                        for _, obj in ipairs(f:GetChildren()) do
-                            if MeleeNameMatches(obj.Name, npcName) then
-                                local cf = MeleeCFrameOf(obj)
-                                if cf then return cf end
+                        for _, obj in ipairs(f:GetDescendants()) do
+                            if obj:IsA("Model") then
+                                table.insert(pool, { obj = obj, labels = MeleeNpcLabels(obj) })
                             end
                         end
                     end
                 end
-                local stored = ScriptStorage and ScriptStorage.NPCs and ScriptStorage.NPCs[npcName]
-                if stored then
-                    if typeof(stored) == "CFrame" then return stored end
-                    local cf = MeleeCFrameOf(stored)
-                    if cf then return cf end
+                local function poolFind(want, exactOnly)
+                    local wk = MeleeNormName(want)
+                    for _, ent in ipairs(pool) do
+                        for _, label in ipairs(ent.labels) do
+                            local lk = MeleeNormName(label)
+                            if lk == wk or (not exactOnly and lk ~= "" and #wk > 2 and
+                                (string.find(lk, wk, 1, true) or string.find(wk, lk, 1, true))) then
+                                local cf = MeleeCFrameOf(ent.obj)
+                                if cf then return cf end
+                            end
+                        end
+                    end
+                    return nil
+                end
+                for _, want in ipairs(terms) do
+                    for _, f in ipairs(folders) do
+                        if f then
+                            local exact = f:FindFirstChild(want)
+                            if exact then
+                                local cf = MeleeCFrameOf(exact)
+                                if cf then return cf end
+                            end
+                        end
+                    end
+                    local hit = poolFind(want, true)
+                    if hit then return hit end
+                    local stored = ScriptStorage and ScriptStorage.NPCs and ScriptStorage.NPCs[want]
+                    if stored then
+                        if typeof(stored) == "CFrame" then return stored end
+                        local cf = MeleeCFrameOf(stored)
+                        if cf then return cf end
+                    end
+                end
+                for _, want in ipairs(terms) do
+                    local hit = poolFind(want, false)
+                    if hit then return hit end
+                    for _, obj in ipairs(pool) do
+                        if MeleeNameMatches(obj.obj.Name, want) then
+                            local cf = MeleeCFrameOf(obj.obj)
+                            if cf then return cf end
+                        end
+                    end
                 end
                 -- [km25] Van de: quet toan map (Sabi khong nam trong workspace.NPCs)
+                -- Luu y: index toan map co ca QUAI ( cung co Humanoid), nen khong duoc
+                -- khop long theo ten mon vo o day, chi duoc khop gan chinh xac.
+                local styleKey = styleName and MeleeNormName(styleName) or ""
                 local idx = MeleeBuildNpcIndex()
-                local want = MeleeNormName(npcName)
-                if idx[want] then return idx[want].cf end
-                for key, ent in pairs(idx) do
-                    if MeleeNameMatches(ent.name, npcName) then return ent.cf end
+                for _, want in ipairs(terms) do
+                    local key = MeleeNormName(want)
+                    if idx[key] then return idx[key].cf end
+                end
+                for _, want in ipairs(terms) do
+                    if MeleeNormName(want) ~= styleKey then
+                        for key, ent in pairs(idx) do
+                            if MeleeNameMatches(ent.name, want) then return ent.cf end
+                        end
+                    end
+                    -- Cuoi cung: NPC mang TEN MON VO (vd "Dragon Claw Master" o Sea 3)
+                    local nk = MeleeNormName(want)
+                    if #nk >= 6 then
+                        for _, ent in pairs(idx) do
+                            if string.find(MeleeNormName(ent.name), nk, 1, true) then return ent.cf end
+                        end
+                    end
                 end
                 return nil
             end)
@@ -5631,29 +6369,58 @@ FunctionsHandler = {
         function ListNpcNames()
             local ok, res = pcall(function()
                 local out, seen = {}, {}
+                local function add(n)
+                    if n and not seen[n] and #out < 200 then
+                        seen[n] = true
+                        table.insert(out, n)
+                    end
+                end
+                -- [km35] chi lay NPC trong folder NPCs (kem ten hien thi) -> danh sach khong bi
+                -- lan loi ten quai cua index toan map
                 for _, f in ipairs({ workspace:FindFirstChild("NPCs"), game:GetService("ReplicatedStorage"):FindFirstChild("NPCs") }) do
                     if f then
-                        for _, obj in ipairs(f:GetChildren()) do
-                            local n = obj.Name
-                            if not seen[n] and #out < 60 then seen[n] = true; table.insert(out, n) end
+                        for _, obj in ipairs(f:GetDescendants()) do
+                            if obj:IsA("Model") then
+                                for _, label in ipairs(MeleeNpcLabels(obj)) do add(label) end
+                            end
                         end
                     end
                 end
                 if #out == 0 then
-                    -- [km25] server nay khong co folder NPCs -> lay ten tu index da quet
-                    for _, ent in pairs(MeleeBuildNpcIndex()) do
-                        local n = ent.name
-                        if not seen[n] and #out < 60 then seen[n] = true; table.insert(out, n) end
-                    end
+                    for _, ent in pairs(MeleeBuildNpcIndex()) do add(ent.name) end
                 end
                 return table.concat(out, ", ")
             end)
             return (ok and res) or "loi doc danh sach NPC"
         end
+        -- [km35] Tim ten NPC GIONG GIONG ten can tim (cung 4 ky tu dau) -> de sua MeleeNpcInfo
+        function MeleeNpcSimilar(want)
+            local ok, res = pcall(function()
+                local wk = MeleeNormName(want)
+                if #wk < 3 then return "(ten qua ngan)" end
+                local pre = string.sub(wk, 1, 4)
+                local out, seen = {}, {}
+                local function add(n)
+                    if n and not seen[n] and #out < 8 then
+                        seen[n] = true
+                        table.insert(out, n)
+                    end
+                end
+                for _, ent in pairs(MeleeBuildNpcIndex()) do
+                    local k = MeleeNormName(ent.name)
+                    if string.sub(k, 1, #pre) == pre or string.find(k, wk, 1, true) then
+                        add(ent.name)
+                    end
+                end
+                if #out == 0 then return "(khong co ten nao bat dau bang '" .. pre .. "')" end
+                return table.concat(out, " | ")
+            end)
+            return (ok and res) or "loi"
+        end
         -- Co NPC cua vo nay trong server hien tai khong? (cache 20s vi Quet tim kha nang)
         function MeleeNpcHere(name)
             local info = MeleeNpcInfo[name]
-            if not info or not info.Npc then return nil end
+            if not info then return nil end
             MeleeNpcCache = MeleeNpcCache or {}
             MeleeNpcCacheTick = MeleeNpcCacheTick or {}
             local now = os.time()
@@ -5661,14 +6428,29 @@ FunctionsHandler = {
             if cached ~= nil and (now - (MeleeNpcCacheTick[name] or 0)) < 20 then
                 return cached or nil
             end
-            local cf = FindMeleeNpcCFrame(info.Npc)
+            local cf = FindMeleeNpcCFrame(info.Npc, name)
+            if not cf and (now - (MeleeIndexForceTick or 0)) >= 60 then
+                -- [km34] ep quet lai toan map 1 lan (index cu co the thieu NPC vua stream)
+                MeleeIndexForceTick = now
+                MeleeNpcIndex = nil
+                cf = FindMeleeNpcCFrame(info.Npc, name)
+            end
             MeleeNpcCache[name] = cf or false
             MeleeNpcCacheTick[name] = now
             return cf
         end
+        -- [km35] NPC chua stream (con o xa) van du tinh la lay duoc NEU co NPC ke ben de bay toi
+        function MeleeNpcReachable(name)
+            if MeleeNpcHere(name) then return true end
+            local info = MeleeNpcInfo[name]
+            if info and info.Near and MeleeNpcHere(info.Near) then return true end
+            return false
+        end
         function MeleeRefreshNpcCache()
             MeleeNpcCache = {}
             MeleeNpcCacheTick = {}
+            MeleeNpcIndex = nil
+            MeleeNpcIndexSea = nil
         end
 
         function MeleeCurAmount(currency)
@@ -5761,10 +6543,20 @@ FunctionsHandler = {
                     if owned then
                         entry.action = "farm"
                         entry.reason = "dang co, cay mastery " .. mastery .. "/" .. req
-                    elseif not MeleeNpcHere(name) then
+                    elseif not MeleeNpcReachable(name) then
                         -- [km24] Quyet dinh bang NPC THAT trong server, khong bang toa do Sea cu
                         entry.action = "npc_absent"
-                        entry.reason = "khong co NPC [" .. entry.npc .. "] o day (script ghi Sea " .. sea .. ")"
+                        entry.reason = "khong tim thay NPC [" .. entry.npc .. "] trong server (dang o Sea " ..
+                            tostring(SeaIndex) .. ")"
+                        -- [km34] In ten NPC that trong server de sua MeleeNpcInfo cho dung ban nay
+                        MeleeNpcDumpTick = MeleeNpcDumpTick or {}
+                        if not MeleeNpcDumpTick[name] or os.time() - MeleeNpcDumpTick[name] > 90 then
+                            MeleeNpcDumpTick[name] = os.time()
+                            print("[MeleeCheck] " .. name .. " khong tim thay NPC [" .. entry.npc ..
+                                "] (tim theo: " .. table.concat(MeleeNpcTerms(name), " | ") ..
+                                "] | TEN GAN GIONG: " .. MeleeNpcSimilar(entry.npc) ..
+                                " -> NPC dang co trong server: " .. ListNpcNames())
+                        end
                     else
                         local priceMiss = MeleePriceMissing(name)
                         local preqMiss = MeleePrereqMissing(name)
@@ -5899,7 +6691,7 @@ FunctionsHandler = {
                         local mLvl = GetPlayerMeleeMastery(mName)
                         local mReq = (md and md.NextLevelRequirement) or 400
                         local mInfo = MeleeNpcInfo[mName]
-                        local here = MeleeNpcHere(mName)
+                        local here = MeleeNpcReachable(mName)
                         local note = "[NPC " .. (here and "CO o day" or "khong co o day") .. "] "
                         if mLvl >= mReq then
                             note = note .. "du mastery (" .. mLvl .. "/" .. mReq .. ")"
@@ -5918,7 +6710,7 @@ FunctionsHandler = {
 
                 if not ev then
                     -- Toan bo chuoi da du mastery -> khong con gi de lam
-                    SetTask("MainTask", "[km22] Melee | da du mastery toan bo chuoi vo")
+                    SetTask("MainTask", "[km34] Melee | da du mastery toan bo chuoi vo")
                     SetTask("SubTask", "Chuyen sang fam cap / nguyen lieu")
                     ScriptStorage.IsGettingMelee = false
                     if FunctionsHandler.LevelFarm and FunctionsHandler.LevelFarm.Methods and FunctionsHandler.LevelFarm.Methods.Start then
@@ -5937,7 +6729,7 @@ FunctionsHandler = {
                         or (f.action == "farm_prereq" and "cay vo dieu kien truoc do")
                         or (f.action == "npc_absent" and "NPC vo nay khong co trong server nay -> bo qua tam, lay vo ke tiep")
                         or "fam tiep"
-                    SetTask("MainTask", "[km22] Melee | " .. f.name .. " | " .. f.reason)
+                    SetTask("MainTask", "[km34] Melee | " .. f.name .. " | " .. f.reason)
                     SetTask("SubTask", "Chua lay duoc -> " .. hint)
                     print("[MeleeCheck] " .. f.name .. " | " .. f.reason .. " -> " .. hint)
                     ScriptStorage.IsGettingMelee = false
@@ -6083,8 +6875,37 @@ FunctionsHandler = {
                 -- [km24] Bo qua gate "SeaIndex ~= targetInfo.Sea": 3 vo Sea 1 van co NPC o Sea 2,
                 -- nen chi can NPC that nam trong server hien tai (EvalMeleeTarget da check MeleeNpcHere).
                 -- Tim/dung model NPC that trong server hien tai (khong dung toa do cu cua script).
-                local liveNpc = MeleeNpcHere(targetMelee) or FindMeleeNpcCFrame(targetInfo.Npc)
+                local liveNpc = MeleeNpcHere(targetMelee) or FindMeleeNpcCFrame(targetInfo.Npc, targetMelee)
                 ScriptStorage.IsGettingMelee = true
+
+                if not liveNpc then
+                    -- [km35] NPC o XA thi game CHUA stream model cua no -> tim the nao cung khong thay.
+                    -- NPC ke ben (Near) dang co model that -> bay lai gan do, cho stream, roi quet lai.
+                    local nearName = targetInfo.Near
+                    local nearInfo = nearName and MeleeNpcInfo[nearName]
+                    local nearCf = nearName and (MeleeNpcHere(nearName) or
+                        FindMeleeNpcCFrame(nearInfo and nearInfo.Npc, nearName))
+                    if nearCf then
+                        local dNear = CaculateDistance(nearCf.Position)
+                        SetTask("MainTask", "[km35] Melee | " .. targetMelee .. " | bay toi " .. nearName ..
+                            " de tim " .. tostring(targetInfo.Npc))
+                        SetTask("SubTask", tostring(targetInfo.Npc) .. " chua load | cach " .. nearName ..
+                            " " .. tostring(math.floor(dNear)) .. " studs")
+                        if dNear > 60 then
+                            TweenController.Create(nearCf + Vector3.new(0, 5, 3))
+                            ScriptStorage.IsGettingMelee = false
+                            return
+                        end
+                        task.wait(2)
+                        MeleeNpcCache = MeleeNpcCache or {}
+                        MeleeNpcCache[targetMelee] = nil
+                        MeleeNpcIndex = nil
+                        liveNpc = FindMeleeNpcCFrame(targetInfo.Npc, targetMelee)
+                        print("[MeleeCheck] " .. targetMelee .. " quet lai khi dung gan " .. nearName .. " -> " ..
+                            (liveNpc and ("TIM THAY NPC " .. tostring(targetInfo.Npc)) or
+                                ("VAN KHONG THAY | ten gan giong: " .. MeleeNpcSimilar(targetInfo.Npc))))
+                    end
+                end
 
                 if not liveNpc then
                     -- [km21] KHONG bay theo toa do cung nua (Superhuman tung bi bay giua troi).
@@ -6093,10 +6914,12 @@ FunctionsHandler = {
                     NpcDumpTick = NpcDumpTick or 0
                     if os.time() - NpcDumpTick > 30 then
                         NpcDumpTick = os.time()
-                        print("[MeleeCheck] khong tim thay NPC [" .. tostring(targetInfo.Npc) .. "] trong game.\n  NPC dang co: " .. ListNpcNames())
+                        print("[MeleeCheck] khong tim thay NPC [" .. tostring(targetInfo.Npc) .. "] trong game." ..
+                            "\n  TEN GAN GIONG: " .. MeleeNpcSimilar(targetInfo.Npc) ..
+                            "\n  NPC dang co: " .. ListNpcNames())
                     end
                     MeleeDeny(targetMelee, "tim den NPC [" .. tostring(targetInfo.Npc) .. "] ma khong co model trong game")
-                    SetTask("MainTask", "[km23] Melee | " .. targetMelee .. " | khong tim thay NPC [" .. tostring(targetInfo.Npc) .. "]")
+                    SetTask("MainTask", "[km35] Melee | " .. targetMelee .. " | khong tim thay NPC [" .. tostring(targetInfo.Npc) .. "]")
                     SetTask("SubTask", "Nghi 10 phut roi thu lai -> hoi fam / raid diem F")
                     ScriptStorage.IsGettingMelee = false
                     if FunctionsHandler.LevelFarm and FunctionsHandler.LevelFarm.Methods and FunctionsHandler.LevelFarm.Methods.Start then
@@ -6109,7 +6932,7 @@ FunctionsHandler = {
                 -- [km26] Ngung o 12 studs (gan hon) de server tinh tam voi NPC.
                 local npcDist = CaculateDistance(liveNpc.Position)
                 if npcDist > 12 then
-                    SetTask("MainTask", "[km23] Melee | " .. targetMelee .. " | dang bay toi " .. tostring(targetInfo.Npc))
+                    SetTask("MainTask", "[km34] Melee | " .. targetMelee .. " | dang bay toi " .. tostring(targetInfo.Npc))
                     SetTask("SubTask", "Cach " .. math.floor(npcDist) .. " studs -> check tan noi")
                     TweenController.Create(liveNpc)
                     ScriptStorage.IsGettingMelee = false
@@ -6127,7 +6950,7 @@ FunctionsHandler = {
                 if not MeleeBuyable[targetMelee] then
                     -- [km23] NPC tu -> cach ly 10 phut de khong bay lai ong nay lien tuc
                     MeleeDeny(targetMelee, "server tra " .. tostring(resC) .. " khi den tan noi " .. tostring(targetInfo.Npc))
-                    SetTask("MainTask", "[km23] Melee | " .. targetMelee .. " | " .. tostring(targetInfo.Npc) .. " tu (ma " .. tostring(resC) .. ")")
+                    SetTask("MainTask", "[km34] Melee | " .. targetMelee .. " | " .. tostring(targetInfo.Npc) .. " tu (ma " .. tostring(resC) .. ")")
                     SetTask("SubTask", "Nghi 10 phut -> chuyen sang vo ke tiep / raid diem F")
                     ScriptStorage.IsGettingMelee = false
                     MeleeEvalTick = 0
@@ -6261,12 +7084,21 @@ FunctionsHandler = {
         FunctionsHandler.ColosseumPuzzle:RegisterMethod(
             "Refresh",
             function()
-                -- [QuestDebug] in toi da 1 lan / 15s de biet nhiem vu Bartilo co duoc chay ko
-                QuestDbgTick = (QuestDbgTick or 0) + 1
+                -- [km39] do theo GIAY (ban cu do theo tick -> in ~20 dong/giay).
+                -- [km44] MOI LOI BAO CHI IN 1 LAN: user bao "toan dung im check ko, bo
+                -- check kieu vay di" -> cac dong "bo qua Level=1523 (can 850-1499)" lap lai
+                -- vo ich vi day la dieu kien VINH VIEN (cap da qua 1500).
                 local function qdbg(msg)
-                    if QuestDbgTick % 15 == 1 then
-                        print("[QuestDebug] Bartilo: " .. msg)
+                    QuestDbgSeen = QuestDbgSeen or {}
+                    if QuestDbgSeen[msg] then
+                        return
                     end
+                    if QuestDbgLastPrint and os.time() - QuestDbgLastPrint < 15 then
+                        return
+                    end
+                    QuestDbgSeen[msg] = true
+                    QuestDbgLastPrint = os.time()
+                    print("[QuestDebug] Bartilo: " .. msg)
                 end
 
                 if SeaIndex ~= 2 then
@@ -6329,6 +7161,162 @@ FunctionsHandler = {
 
         -- [km17] Ban game nay khong doc duoc ten nhiem vu tu PlayerGui (GetCurrentClaimQuest tra nil),
         -- nen quet truc tiep moi TextLabel trong PlayerGui de lay chu nhiem vu. Cache 5s.
+
+        -- [km38] HUD cua game o build nay KHONG nam trong PlayerGui.Main.Quest nua (panel
+        -- "Defeat 8 Water Fighters / 0/8" van hien tren man hinh ma HasActiveQuest() = false),
+        -- nen quet TOAN BO ScreenGui cua PlayerGui tru GUI cua hub, va lay dem "x/y" lam bang chung.
+        HUB_GUI_NAMES = { CyndralDev = true }
+
+        function GuiChainVisible(inst)
+            local ok, vis = pcall(function()
+                local cur = inst
+                while cur do
+                    if HUB_GUI_NAMES[cur.Name] then
+                        return false
+                    end
+                    if cur:IsA("LayerCollector") then
+                        return cur.Enabled ~= false
+                    end
+                    if cur:IsA("GuiObject") and cur.Visible == false then
+                        return false
+                    end
+                    if not cur.Parent then return false end
+                    cur = cur.Parent
+                end
+                return false
+            end)
+            return (ok and vis) == true
+        end
+
+        -- Danh sach TextLabel dang hien cua HUD TRONG GAME (cache 5s)
+        -- [km41] BAN CU chi quet CON TRUC TIEP cua PlayerGui nen neu HUD nam sau mot Folder
+        -- (kieu "Configuration"/"ScreenGui" long nhau) thi ket qua = 0 label, du tren man hinh
+        -- van hien "Defeat 8 Water Fighters 4/8" (user bao luc nay van thay q=false).
+        -- Nay quet TOAN BO descendants cua PlayerGui, lay moi vat tu GUI co chu (TextLabel,
+        -- TextButton, TextBox).
+        function GameHudLabels(ttl)
+            local now = os.clock()
+            if GameHudLabelCache and GameHudLabelTick and (now - GameHudLabelTick < (ttl or 5)) then
+                return GameHudLabelCache
+            end
+            GameHudLabelTick = now
+            local out = {}
+            pcall(function()
+                local pgui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                if not pgui then
+                    if not HudDumped then
+                        HudDumped = true
+                        print("[QuestUi] KHONG co PlayerGui")
+                    end
+                    return
+                end
+                if not HudDumped then
+                    HudDumped = true
+                    local kids = {}
+                    for _, sg in ipairs(pgui:GetChildren()) do
+                        table.insert(kids, sg.Name .. "(" .. sg.ClassName .. ")")
+                        if #kids >= 40 then break end
+                    end
+                    print("[QuestUi] PlayerGui co " .. tostring(#pgui:GetChildren()) ..
+                        " con: " .. table.concat(kids, ", "))
+                end
+                local scanned = 0
+                for _, d in ipairs(pgui:GetDescendants()) do
+                    scanned = scanned + 1
+                    if scanned > 4000 then break end
+                    if #out >= 400 then break end
+                    if d:IsA("GuiObject") and GuiChainVisible(d) then
+                        local t = d.Text
+                        if type(t) == "string" and t ~= "" and #t < 80 then
+                            table.insert(out, d)
+                        end
+                    end
+                end
+                if not HudLabelDumped then
+                    HudLabelDumped = true
+                    local sample = {}
+                    for i = 1, math.min(#out, 25) do
+                        table.insert(sample, out[i].Text)
+                    end
+                    print("[QuestUi] Label HUD tim thay = " .. tostring(#out) .. " | mau: " ..
+                        table.concat(sample, " / "))
+                end
+            end)
+            GameHudLabelCache = out
+            return out
+        end
+
+        function ParseQuestXY(s)
+            if type(s) ~= "string" then return nil end
+            local c, t = string.match(s, "^%s*%((%d+)%s*/%s*(%d+)%)%s*$")
+            if not c then
+                c, t = string.match(s, "^%s*(%d+)%s*/%s*(%d+)%s*$")
+            end
+            if not c then return nil end
+            return tonumber(c), tonumber(t)
+        end
+
+        -- Tim chu nhiem vu gan nhat voi label dem tien do ( cung khung, toi 4 cap cha)
+        function NearQuestTitle(lbl)
+            local ok, res = pcall(function()
+                local node = lbl
+                for _ = 1, 3 do
+                    node = node.Parent
+                    if not node then break end
+                    local scanned = 0
+                    for _, d in ipairs(node:GetDescendants()) do
+                        scanned = scanned + 1
+                        if scanned > 250 then break end
+                        if d ~= lbl and d:IsA("GuiObject") and type(d.Text) == "string" and #d.Text < 60 then
+                            local low = string.lower(d.Text)
+                            if string.find(low, "efeat") or string.find(low, "đánh") or string.find(low, "danh")
+                                or string.find(low, "tiêu") or string.find(low, "nhiệm") or string.find(low, "quest")
+                                or string.find(low, "kill") or string.find(low, "def") then
+                                return d.Text
+                            end
+                        end
+                    end
+                end
+                return nil
+            end)
+            return ok and res or nil
+        end
+
+        -- Tra: curKills, maxKills, title, label  (nil neu HUD khong co panel nhiem vu)
+        -- [km41] Co dem "x/y" du coi LA DANG CO NHIEM VU, khong bat buoc phai tim ra chu
+        -- "Defeat..." gan no nua (truoc day khong co chu -> tra ve nil -> van q=false).
+        function QuestProgressFromHud()
+            local now = os.clock()
+            if QuestHudCacheTick and (now - QuestHudCacheTick < 1) then
+                local c = QuestHudCache
+                return c[1], c[2], c[3]
+            end
+            QuestHudCacheTick = now
+            local bestC, bestT, bestTitle, bestLbl = nil, nil, nil, nil
+            local xySeen = {}
+            for _, lbl in ipairs(GameHudLabels(5)) do
+                local c, t = ParseQuestXY(lbl.Text)
+                if c and t and t >= 2 and t <= 60 and c <= t then
+                    table.insert(xySeen, lbl.Text)
+                    if not bestLbl then
+                        bestC, bestT, bestTitle, bestLbl = c, t, NearQuestTitle(lbl), lbl
+                    end
+                end
+            end
+            if bestLbl and not QuestHudDumped then
+                QuestHudDumped = true
+                print("[QuestUi] Panel nhiem vu: " .. bestLbl:GetFullName() .. " = " .. bestLbl.Text ..
+                    " | title = " .. tostring(bestTitle))
+            end
+            if not bestLbl and not QuestHudEmptyDumped then
+                QuestHudEmptyDumped = true
+                print("[QuestUi] KHONG tim thay dem x/y nao trong HUD game. So label quet duoc = " ..
+                    tostring(#GameHudLabels(5)))
+            end
+            QuestHudCache = { bestC, bestT, bestTitle }
+            return bestC, bestT, bestTitle, bestLbl
+        end
+
         function ScanQuestUiText()
             local now = os.time()
             if BartiloUiScanTime and now - BartiloUiScanTime < 5 then
@@ -6337,46 +7325,31 @@ FunctionsHandler = {
             BartiloUiScanTime = now
             local titles, kills = {}, {}
             pcall(function()
-                local pgui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
-                if not pgui then return end
-                -- [km29] CHI quet trong HUD cua CHINH GAME (PlayerGui.Main).
-                -- O km28 quet moi frame ten chua "Quest" trong PlayerGui -> an ca label
-                -- cua bang cai dat cua hub (ten cac loai quai) -> suy ra nhiem vu sai ("Bandit").
-                local hud = pgui:FindFirstChild("Main") or pgui:FindFirstChild("MainGui") or pgui:FindFirstChild("Hud")
-                if not hud then return end
-                local hudLabels = {}
-                for _, d in ipairs(hud:GetDescendants()) do
-                    if d:IsA("TextLabel") and d.Visible and d.Text and d.Text ~= "" and #d.Text < 60 then
-                        table.insert(hudLabels, d)
-                    end
-                end
-                for _, d in ipairs(hudLabels) do
+                -- [km38] Quet HUD cua CHINH GAME (moi ScreenGui trong PlayerGui, tru GUI cua hub).
+                -- Build nay panel "Defeat 8 Water Fighters / 0/8" khong nam duoi PlayerGui.Main
+                -- nen km29 (chi doc PlayerGui.Main) khong thay gi -> HasActiveQuest = false.
+                for _, d in ipairs(GameHudLabels(5)) do
                     local t = d.Text
-                    if string.find(t, "efeat") or string.find(t, "wan") or string.find(t, "Jeremy") then
+                    local low = string.lower(t)
+                    if string.find(low, "efeat") or string.find(low, "wan") or string.find(low, "jeremy")
+                        or string.find(low, "nhiệm") or string.find(low, "đánh") or string.find(low, "tiêu")
+                        or string.find(low, "quest") then
                         table.insert(titles, t)
                     else
                         -- [km18] Chi lay dem x/y co so chia <= 50 (dang nhiem vu),
                         -- loai bo mau/nang luong (5480/5480) va mastery (200/1000)
-                        local c, m = string.match(t, "^%s*(%d+)%s*/%s*(%d+)%s*$")
-                        if c and m and tonumber(m) and tonumber(m) <= 50 then
+                        local c, m = ParseQuestXY(t)
+                        if c and m and m >= 2 and m <= 50 then
                             table.insert(kills, t)
                         end
                     end
                 end
-                -- [km28] Game doi ngon ngu -> tieu chi co the la "Cuộc Tập Kích của Swan" (khong co tu "Defeat").
-                -- [km29] Chi them chu trong khung "Quest" khi THAT SU co dem tien do x/y,
-                -- neu khong thi UI nhiem vu trong (an) cung bi tinh la dang co nhiem vu.
-                if #kills > 0 then
-                    for _, g in ipairs(hud:GetDescendants()) do
-                        if (g:IsA("Frame") or g:IsA("CanvasGroup") or g:IsA("ScrollingFrame"))
-                            and string.find(g.Name:lower(), "quest", 1, true) and g.Visible then
-                            for _, lbl in ipairs(g:GetDescendants()) do
-                                if lbl:IsA("TextLabel") and lbl.Visible and lbl.Text and lbl.Text ~= "" and #lbl.Text < 60 then
-                                    table.insert(titles, lbl.Text)
-                                end
-                            end
-                        end
-                    end
+                -- [km38] Chu cua panel gan voi dem tien do (khong can frame ten "Quest")
+                local hudCur, hudMax, hudTitle = QuestProgressFromHud()
+                if hudTitle then
+                    table.insert(titles, hudTitle)
+                elseif hudCur then
+                    table.insert(kills, tostring(hudCur) .. "/" .. tostring(hudMax))
                 end
             end)
             BartiloUiScanText = table.concat(titles, " | ")
@@ -6398,18 +7371,49 @@ FunctionsHandler = {
         end
 
         -- [km30] Dem model quai dang co THAT trong server theo ten (quai o xa bi stream an = 0)
-        function MobLiveCount(mobName)
-            local n = 0
-            if not mobName or mobName == "" then return 0 end
+        -- [km38] SIEN lai: Humanoid co the nam sau mot "LocalModel" (giong NPC o km34) nen phai
+        -- tim de quy, va ten model co the them dau cach/ky tu -> so sanh dang da hoa.
+        function MobNormName(s)
+            return (string.gsub(string.lower(tostring(s or "")), "[^%a0-9]", ""))
+        end
+
+        -- [km41] "kiem tra 1 lan thoi": dem quai chi QUET workspace.Enemies 1 LAN moi 0.5s va
+        -- luu vao map ten->solan. Truoc day moi lan goi (questStateLine + doi muc tieu +
+        -- PickLiveSeaMob vet nhiem vu) la quet lai toan bo -> scheduler ~20 tick/s nen
+        -- quet den ~40 lan/giay.
+        function LiveEnemyCounts(ttl)
+            local now = os.clock()
+            if EnemyCountCache and EnemyCountCacheTick and (now - EnemyCountCacheTick < (ttl or 0.5)) then
+                return EnemyCountCache
+            end
+            EnemyCountCacheTick = now
+            local map = {}
             pcall(function()
                 local ef = workspace:FindFirstChild("Enemies")
                 if not ef then return end
                 for _, e in ipairs(ef:GetChildren()) do
-                    if e.Name == mobName and e:FindFirstChild("Humanoid") and e.Humanoid.Health > 0 then
-                        n = n + 1
+                    local h = e:FindFirstChildWhichIsA("Humanoid", true)
+                    if h and h.Health > 0 then
+                        local nm = MobNormName(e.Name)
+                        map[nm] = (map[nm] or 0) + 1
                     end
                 end
             end)
+            EnemyCountCache = map
+            return map
+        end
+
+        function MobLiveCount(mobName)
+            if not mobName or mobName == "" then return 0 end
+            local want = MobNormName(mobName)
+            if want == "" then return 0 end
+            local map = LiveEnemyCounts()
+            local n = map[want] or 0
+            for nm, c in pairs(map) do
+                if nm ~= want and string.find(nm, want, 1, true) then
+                    n = n + c
+                end
+            end
             return n
         end
 
@@ -6698,28 +7702,87 @@ FunctionsHandler = {
         FunctionsHandler.BossesTask:RegisterMethod(
             "Refresh",
             function()
+                -- [km38] Boss chi duoc danh khi NO DANG ton tai trong workspace.Enemies (boss the
+                -- gio spawn theo gio), nen do Humanoid kieu de quy + in log kiem tra 30s 1 lan
+                -- de biet server nay co boss nao / cach bao nhieu.
+                -- [km41] "kiem tra 1 lan thoi": BossesTask now duoc dut dau tien (priority 2)
+                -- nen vong lap do boss chay moi tick (~20/s) -> ket qua cu 1 GIAY.
+                local ck = os.clock()
                 local Boss
-                for _, BossName in BossesOrder do
-                    if BossName then 
-                    local LevelReq = BossesOrderLevel[BossName]
-
-                    if ScriptStorage.PlayerData.Level >= LevelReq then
-                        local Result = ScriptStorage.Enemies[BossName]
-                        if Result and Result:FindFirstChild("Humanoid") and Result.Humanoid.Health > 0 then
-                            Boss = Result
+                if not BossScanCache or (ck - (BossScanTick or 0) >= 1) then
+                    BossScanTick = ck
+                    for _, BossName in ipairs(BossesOrder) do
+                        if not (BossSkipUntil and BossSkipUntil[BossName] and
+                                os.time() < BossSkipUntil[BossName]) then
+                            local LevelReq = BossesOrderLevel[BossName] or 0
+                            if (ScriptStorage.PlayerData.Level or 0) >= LevelReq then
+                                local Result = ScriptStorage.Enemies[BossName]
+                                local h = Result and Result:FindFirstChildWhichIsA("Humanoid", true)
+                                if h and h.Health > 0 then
+                                    Boss = Result
+                                    break
+                                end
+                            end
                         end
                     end
-                    end
+                    BossScanCache = Boss or false
                 end
+                Boss = BossScanCache or nil
 
-                if
-                    Boss and
-                        (CaculateDistance(Boss.HumanoidRootPart.CFrame) < (SeaIndex == 2 and 3000 or 5000) or
-                            BossesOrderWL[tostring(Boss)] or
-                            ScriptStorage.PlayerData.Level == MaxLevel)
-                 then
+                if Boss then
+                    -- [km41] BO KHOA khoang cach 3000/5000 studs: truoc day boss con song ma o
+                    -- xa la Refresh tra nil -> LevelFarm chen vao fam lv, khong bao gio bay di
+                    -- danh boss. Bay gio Start tu bay toi model boss.
+                    -- Chong KET: boss song nhung o qua xa hon 2500m lien tuc 60s (Tide Keeper
+                    -- duoi day bi an chang han) -> bo qua boss do 10 phut de fam tiep.
+                    local okD, d = pcall(function()
+                        local hrp = Boss:FindFirstChild("HumanoidRootPart") or
+                            Boss:FindFirstChildWhichIsA("BasePart", true)
+                        return hrp and CaculateDistance(hrp.Position) or nil
+                    end)
+                    if okD and d and d > 2500 then
+                        BossFarSince[Boss.Name] = (BossFarSince[Boss.Name] or os.time())
+                        if os.time() - BossFarSince[Boss.Name] > 60 then
+                            BossSkipUntil[Boss.Name] = os.time() + 600
+                            BossFarSince[Boss.Name] = nil
+                            print("[Boss] " .. Boss.Name .. " o qua xa (>2500m) hon 60s -> bo qua 10 phut")
+                            return nil
+                        end
+                    else
+                        BossFarSince[Boss.Name] = nil
+                    end
                     return Boss
                 end
+
+                -- [km38] Log 30s 1 LAN: user hoi "sao ko co nhiem vu fam boss" -> can biet
+                -- server nay co boss nao, va danh sach quai thuc te trong workspace.Enemies.
+                -- [km44] dung lai LiveEnemyCounts (chung nguon voi questStateLine) + in so
+                -- con cua folder de phan biet "folder rong" vs "khong tim thay Humanoid".
+                if not BossesCheckTick or os.time() - BossesCheckTick >= 30 then
+                    BossesCheckTick = os.time()
+                    local found, tongCon = {}, 0
+                    pcall(function()
+                        local ef = workspace:FindFirstChild("Enemies")
+                        if ef then
+                            tongCon = #ef:GetChildren()
+                        end
+                        for nm, c in pairs(LiveEnemyCounts(30)) do
+                            table.insert(found, nm .. " x" .. tostring(c))
+                        end
+                        table.sort(found)
+                    end)
+                    print("[Boss] (Sea " .. tostring(SeaIndex) .. ", cap " ..
+                        tostring(ScriptStorage.PlayerData.Level) .. ") danh sach boss script biet: " ..
+                        table.concat(BossesOrder, ", ") .. " | quai dang co trong server: " ..
+                        (#found > 0 and table.concat(found, ", ") or ("(rong - Enemies folder co " ..
+                        tostring(tongCon) .. " con)")))
+                    if not BossNoWorldSpawnHinted and tongCon > 0 and #found == 0 then
+                        BossNoWorldSpawnHinted = true
+                        print("[Boss] GHI CHU: " .. tostring(SeaIndex) ..
+                            " khong co boss nao spawn ngoai world. Loai boss nay (Ice Admiral, Tide Keeper, Deandre...) chi xuat hien BEN TRONG RAID hoac sea event -> muon danh boss phai de Raid/Quest chay, KHONG dung im cho boss")
+                    end
+                end
+                return nil
             end
         )
 
@@ -6728,6 +7791,21 @@ FunctionsHandler = {
             function(Boss)
                 if Boss then
                     SetTask("MainTask", "Auto Farm Boss - Defeating " .. Boss.Name)
+                    -- [km41] Bay thang toi MODEL boss (khong dua vao bai spawn cua quai thuong,
+                    -- boss khong co bai spawn trong BangMobPositions -> Attack tu luc bat o
+                    -- khoang cach 3000+ ma khong toi duoc, user van thay "Level Farming").
+                    pcall(function()
+                        local hrp = Boss:FindFirstChild("HumanoidRootPart") or
+                            Boss:FindFirstChildWhichIsA("BasePart", true)
+                        if hrp then
+                            local d = CaculateDistance(hrp.Position)
+                            SetTask("SubTask", "Cach boss " .. tostring(math.floor(d)) .. "m")
+                            if d > 70 then
+                                TweenController.Create(hrp.Position + Vector3.new(0, 25, 0))
+                                return
+                            end
+                        end
+                    end)
 
                     CombatController.Attack(
                         tostring(Boss),
@@ -6747,11 +7825,12 @@ FunctionsHandler = {
             "Refresh",
             function()
                 local Boss2
-
-                for BossName, LevelReq in SpecialBossesOrder do
-                    if ScriptStorage.PlayerData.Level >= LevelReq then
+                -- [km38] Humanoid cua boss co the nam sau LocalModel -> tim de quy.
+                for BossName, LevelReq in pairs(SpecialBossesOrder) do
+                    if (ScriptStorage.PlayerData.Level or 0) >= (tonumber(LevelReq) or 0) then
                         local Result = ScriptStorage.Enemies[BossName]
-                        if Result and Result:FindFirstChild("Humanoid") and Result.Humanoid.Health > 0 then
+                        local h = Result and Result:FindFirstChildWhichIsA("Humanoid", true)
+                        if h and h.Health > 0 then
                             Boss2 = Result
                         end
                     end
@@ -6773,7 +7852,7 @@ FunctionsHandler = {
 
                 if Boss then
                     SetTask("MainTask", "Auto Farm Boss - Defeating " .. Boss.Name)
-                    CombatController.Attack(tostring(Boss))
+                    CombatController.Attack(Boss.Name)
                 end
             end
         )
@@ -6820,11 +7899,10 @@ FunctionsHandler = {
                     "Sound", "Spider", "Love", "Buddha"
                 }
 
-                -- 1. Kiểm tra trực tiếp qua getInventoryFruits
-                local directFruits = nil
-                pcall(function() directFruits = Remotes.CommF_:InvokeServer("getInventoryFruits") end)
+                -- 1. [km43] Trai dang nam trong KHO (Data.Fruits / getInventoryFruits / getInventory)
+                local directFruits = TraiTrongKho()
                 if type(directFruits) == "table" then
-                    for _, Fruit in pairs(directFruits) do
+                    for _, Fruit in ipairs(directFruits) do
                         if type(Fruit) == "table" and Fruit.Name then
                             local rawName = tostring(Fruit.Name)
                             local price = tonumber(Fruit.Price) or tonumber(Fruit.Value) or 0
@@ -6839,6 +7917,11 @@ FunctionsHandler = {
                                 end
                             end
                             local isHighTier = false
+                            -- [km43] trai lay ra kho THAT BAI trong 15 phut gan day -> bo, trai khac
+                            local kf = KhoTraiFail and KhoTraiFail[rawName]
+                            if type(kf) == "number" and kf > os.time() then
+                                isHighTier = true
+                            end
                             for _, hName in ipairs(HighFruits) do
                                 if string.find(rawName, hName) then
                                     isHighTier = true
@@ -6846,7 +7929,9 @@ FunctionsHandler = {
                                 end
                             end
                             local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
-                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList then
+                            -- [km43] price == 0 = nguon danh sach chi co TEN (Data.Fruits) khong co
+                            -- gia -> van dung duoc de raid, mien khong phai trai xep hang cao
+                            if (isTrash or (price > 0 and price < 1000000) or price == 0) and not isHighTier and not isEatList then
                                 Fruit.Type = "Blox Fruit"
                                 return Fruit
                             end
@@ -6872,6 +7957,11 @@ FunctionsHandler = {
                                 end
                             end
                             local isHighTier = false
+                            -- [km43] trai lay ra kho THAT BAI trong 15 phut gan day -> bo, trai khac
+                            local kf = KhoTraiFail and KhoTraiFail[rawName]
+                            if type(kf) == "number" and kf > os.time() then
+                                isHighTier = true
+                            end
                             for _, hName in ipairs(HighFruits) do
                                 if string.find(rawName, hName) then
                                     isHighTier = true
@@ -6913,6 +8003,14 @@ FunctionsHandler = {
                             return { Name = toolName, Type = "Blox Fruit", IsPhysical = true }
                         end
                     end
+                end
+
+                -- 4. [km43] Van co the co trai trong kho nhung remote liet ke da CHET o ban nay
+                -- -> lay cu soa: goi LoadFruit tung ten trai cui, dung khi nao Tool trai
+                -- xuat hien that trong balo (TimTraiCuiTrongKho tu throttle 6s/lan thu)
+                local LayDuoc = TimTraiCuiTrongKho()
+                if LayDuoc then
+                    return LayDuoc
                 end
 
                 return nil
@@ -6968,36 +8066,54 @@ FunctionsHandler = {
             local Fragments = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Fragments) or 0
             local Beli = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Beli) or 0
         
-            -- Điều kiện cơ bản: Raid mở từ Sea 2 (Lv 1100+) hoặc Sea 3
-            if Level < 1100 or SeaIndex == 1 then return end
+            -- Dieu kien co ban: Raid mo tu Sea 2
+            -- [km43] nguong Level lay tu Config.Raid.MinLevel (mac dinh 1000). truoc day
+            -- hard-code 1100 -> nhan Lv 1070 bi chan vinh vien, khong bao di raid duoc
+            local MinRaidLevel = tonumber(type(Config) == "table" and Config.Raid and Config.Raid.MinLevel) or 1000
+            if Level < MinRaidLevel or SeaIndex == 1 then return end
             if ScriptStorage.IsGettingMelee then return end
 
             local isSaberOngoing = (type(IsSaberQuestActive) == "function" and IsSaberQuestActive()) or (CurrentTask == "Saber")
             if isSaberOngoing then return end
         
             -- 1. Check Melee: Chỉ chặn Raid nếu thực sự có thể mua NGAY LẬP TỨC
+            -- [km36] Doan nay GOI THAT remote Buy<Melee> (mo shop) -> chi chay moi 20s.
+            -- [km37] SUA: ban km36 van in "Da du dieu kien mua..." moi TICK (spam ~20 dong/giay),
+            -- va dung ScriptStorage.Melees[Melee] de xac dinh "da co vo" -> Black Leg (da co,
+            -- mastery 600) bi tinh la CHUA co => chan Raid vĩnh viễn.
             if Config.Items.AutoFullyMelees then
-                for Cursor, Melee in pairs(MeleesTable) do
-                    if Melee ~= "SanguineArt" then
-                        local Data = MeleePrices[Melee]
-                        if Data then
-                            local CanMeleePurchaseable = CanPurchase[Melee]
-                            if not CanMeleePurchaseable and type(Data.Buy) == "function" then
-                                CanMeleePurchaseable = Data.Buy(1)
-                            end
+                if not MeleeBlockRaidCacheTick or os.time() - MeleeBlockRaidCacheTick >= 20 then
+                    MeleeBlockRaidCacheTick = os.time()
+                    MeleeBlockRaid = nil
+                    for Cursor, Melee in pairs(MeleesTable) do
+                        if Melee ~= "SanguineArt" and not MeleeBlockRaid then
+                            local Data = MeleePrices[Melee]
+                            if Data then
+                                local CanMeleePurchaseable = CanPurchase[Melee]
+                                if not CanMeleePurchaseable and type(Data.Buy) == "function" then
+                                    CanMeleePurchaseable = Data.Buy(1)
+                                end
 
-                            local RequiredFragments = (Data.Price and Data.Price.Fragments) or 0
-                            local CurrentFragments = Fragments
+                                local RequiredFragments = (Data.Price and Data.Price.Fragments) or 0
+                                local CurrentFragments = Fragments
 
-                            if CanMeleePurchaseable and Data.Requirements and Data.Requirements() and
-                               (RequiredFragments == 0 or CurrentFragments >= RequiredFragments)
-                            then
-                                if not ScriptStorage.Melees[Melee] or ScriptStorage.Melees[Melee] == 0 then
-                                    print("Da du dieu kien mua " .. Melee .. ". Dung Raid de di mua!")
-                                    return
+                                if CanMeleePurchaseable and Data.Requirements and Data.Requirements() and
+                                   (RequiredFragments == 0 or CurrentFragments >= RequiredFragments)
+                                then
+                                    if not MeleeIsOwned(Melee) then
+                                        MeleeBlockRaid = Melee
+                                    end
                                 end
                             end
                         end
+                    end
+                    if MeleeBlockRaid then
+                        -- [km44] CHI BAO, KHONG CHAN NUA: Black Leg / Electro / Dark Step /
+                        -- Fishman Karate chi mua duoc BEN TRONG raid, nen chan raid o day la
+                        -- The deadlock: in "Dung Raid de di mua!" 1000 lan ma khong bao gio raid
+                        -- => Fragments = 0 (man hinh user cung 1070/F 0 chinh la loi nay).
+                        print("[Raid] " .. tostring(MeleeBlockRaid) ..
+                            " can mua trong raid -> VAN di raid (km44 bo chan)")
                     end
                 end
             end
@@ -7041,8 +8157,14 @@ FunctionsHandler = {
             end
             if not RaidFruit and Beli >= 100000 and (not RaidWaitLogTick or os.time() - RaidWaitLogTick > 60) then
                 RaidWaitLogTick = os.time()
-                print("[RaidCheck] chua co trai cui -> fam + nhat trai, chua raid (con " ..
-                    math.max(0, 1200 - (os.time() - RaidNoFruitSince)) .. "s thi moi mua chip bang Bel)")
+                local soTraiKho, soTool = 0, 0
+                pcall(function()
+                    soTraiKho = #TraiTrongKho()
+                    soTool = DemTraiVatLy()
+                end)
+                print("[RaidCheck] chua co trai cui | kho liet ke duoc " .. tostring(soTraiKho) ..
+                    " trai, balo co " .. tostring(soTool) .. " tool trai -> fam + nhat trai, con " ..
+                    math.max(0, 1200 - (os.time() - RaidNoFruitSince)) .. "s nua moi mua chip bang Bel")
             end
             
             return false
@@ -7110,8 +8232,31 @@ FunctionsHandler = {
                                 if getgenv().LastLoadedFruit ~= cRaidFruit.Name then
                                     getgenv().LastLoadedFruit = cRaidFruit.Name
                                     alert("Load Fruit", cRaidFruit.Name)
-                                    Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
-                                    task.wait(1.5)
+                                    -- [km43] LayTraiKhoRa = LoadFruit + kiem tra Tool trai ve duoc
+                                    -- balo that, de biet ngay server co che lay trai hay khong
+                                    local okLoad = false
+                                    pcall(function()
+                                        okLoad = LayTraiKhoRa(cRaidFruit.Name)
+                                    end)
+                                    if not okLoad then
+                                        pcall(function()
+                                            Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
+                                        end)
+                                        task.wait(1.5)
+                                        okLoad = (DemTraiVatLy() > 0)
+                                        print("[Raid] LoadFruit \"" .. tostring(cRaidFruit.Name) ..
+                                            "\" lan 2 -> co trai trong balo = " .. tostring(okLoad))
+                                    end
+                                    if okLoad then
+                                        RaidFruitHoldName = cRaidFruit.Name
+                                        RaidFruitHoldUntil = os.time() + 1800
+                                    else
+                                        -- [km43] server khong cho lay trai nay ra kho -> danh dau
+                                        -- 15 phut de GetRaidableFruit nhay sang trai khac
+                                        KhoTraiFail = KhoTraiFail or {}
+                                        KhoTraiFail[tostring(cRaidFruit.Name)] = os.time() + 900
+                                        getgenv().LastLoadedFruit = nil
+                                    end
                                 end
                                 Remotes.CommF_:InvokeServer("RaidsNpc", "Select", FunctionsHandler.RaidController:Get("CurrentChip"))
                                 task.wait(1)
@@ -7271,6 +8416,32 @@ FunctionsHandler = {
 
         -- CollectDrops
 
+        -- [km38] Nhan dien qua roi o NHIEU kieu (user bao "ko thay di nhat trai"):
+        -- ten chua "Fruit" / Tool.ToolTip == "Blox Fruit" / co attribute OriginalName.
+        -- [km41] SUA LOC: GetAttributes() tra ve BANG HASH nen "ipairs" luon duyet 0 phan
+        -- -> khong bao gio bat duoc attribute nao. Doi sang pairs va cham tiep gia tri.
+        function IsFruitDrop(obj)
+            local ok, res = pcall(function()
+                if type(obj) ~= "table" or not obj:IsA("Instance") then return false end
+                if string.find(string.lower(obj.Name), "fruit") then return true end
+                if obj:IsA("Tool") then
+                    local tip = string.lower(tostring(obj.ToolTip or ""))
+                    if string.find(tip, "fruit") then return true end
+                end
+                local okA, attrs = pcall(function() return obj:GetAttributes() end)
+                if okA and type(attrs) == "table" then
+                    for k, v in pairs(attrs) do
+                        if string.find(string.lower(tostring(k)), "fruit") or
+                            (type(v) == "string" and string.find(string.lower(v), "fruit")) then
+                            return true
+                        end
+                    end
+                end
+                return false
+            end)
+            return (ok and res) == true
+        end
+
         FunctionsHandler.CollectDrops:RegisterMethod(
             "Refresh",
             function()
@@ -7280,8 +8451,7 @@ FunctionsHandler = {
                     FruitNames[FruitIdToName(i)] = i
                 end
 
-                -- Chay uu tien so 1 nen PHAI khoa khoang cach: chi nec qua trong tam 250 studs
-                -- (neu khong no tween di xa / toi vuong void -> DEN MAN HINH)
+                -- Chay uu tien so 1 nen PHAI khoa khoang cach (qua o vo/duoi map -> den man hinh)
                 local Char = LocalPlayer and LocalPlayer.Character
                 local MyHrp = Char and Char:FindFirstChild("HumanoidRootPart")
                 if not MyHrp or not MyHrp:IsA("BasePart") then
@@ -7289,12 +8459,11 @@ FunctionsHandler = {
                 end
                 local MyPos = MyHrp.Position
 
-                local BestFruit, BestDist = nil, nil
+                local BestFruit, BestDist, FarFruit, FarDist = nil, nil, nil, nil
 
                 for _, Fruit in ipairs(workspace:GetChildren()) do
                     if
-                        string.find(Fruit.Name, "Fruit") and not Players:FindFirstChild(Fruit.Name) and
-                            Fruit:FindFirstChild("Handle") and
+                        IsFruitDrop(Fruit) and not Players:FindFirstChild(Fruit.Name) and
                             not FruitNames[tostring(Fruit)] and
                             not ScriptStorage.Backpack[FruitNameToId(tostring(Fruit))]
                      then
@@ -7303,15 +8472,46 @@ FunctionsHandler = {
                         end)
                         if okPos and typeof(FruitPos) == "Vector3" then
                             local dist = (FruitPos - MyPos).Magnitude
-                            -- Bo qua qua o qua cao/qua sau (void, duoi map)
-                            if dist <= 250 and (not BestDist or dist < BestDist) then
-                                BestFruit, BestDist = Fruit, dist
+                            -- [km41] Nang tu 250 -> 900 studs: qua roi cua boss/raid thuong
+                            -- roi cach xa chon dung dau, voi lai loc qua o duoi void (Y < -300).
+                            if FruitPos.Y > -300 then
+                                if dist <= 900 and (not BestDist or dist < BestDist) then
+                                    BestFruit, BestDist = Fruit, dist
+                                elseif not FarDist or dist < FarDist then
+                                    FarFruit, FarDist = Fruit, dist
+                                end
                             end
                         end
                     end
                 end
 
+                -- [km38] LAN DAU in danh sach vat the trong workspace de biet ten qua roi
+                -- la gi neu van khong nec duoc (day log nay cho dev).
+                if not FruitDropDumped then
+                    FruitDropDumped = true
+                    local names = {}
+                    pcall(function()
+                        for _, o in ipairs(workspace:GetChildren()) do
+                            if (o:IsA("Tool") or o:IsA("Model")) and not Players:FindFirstChild(o.Name) then
+                                local extra = o:IsA("Tool") and (" [" .. tostring(o.ToolTip) .. "]") or ""
+                                table.insert(names, o.Name .. extra)
+                                if #names >= 14 then break end
+                            end
+                        end
+                    end)
+                    print("[Drops] Tool/Model trong workspace: " ..
+                        (#names > 0 and table.concat(names, ", ") or "(khong co)"))
+                end
+
+                -- [km41] Co qua roi nhung ngoai tam 900 studs -> in ra de biet, khong im lang
+                if FarFruit and (not DropsFarTick or os.time() - DropsFarTick >= 30) then
+                    DropsFarTick = os.time()
+                    print("[Drops] Nhan dien qua roi \"" .. tostring(FarFruit.Name) .. "\" cach " ..
+                        tostring(math.floor(FarDist)) .. " studs (>900) -> bo qua")
+                end
+
                 if BestFruit then
+                    print("[Drops] Thay qua roi cach " .. tostring(math.floor(BestDist)) .. " studs: " .. tostring(BestFruit.Name))
                     FunctionsHandler.CollectDrops:Set("CurrentProgressLevel", BestFruit)
                     getgenv().anchored = true
                     return BestFruit
@@ -7330,8 +8530,24 @@ FunctionsHandler = {
                 FunctionsHandler.CollectDrops:Set("CurrentProgressLevel", nil)
                 if Fruit then
                     SetTask("MainTask", "Auto Collect Drop Items - " .. tostring(Fruit))
-                    getgenv().anchored = true  
-                    TweenController.Create(Fruit:GetModelCFrame())
+                    getgenv().anchored = true
+                    -- [km38] GetModelCFrame khong ton tai voi moi kieu vat the -> lay Pivot,
+                    -- va MO ANCHOR sau khi toi noi neu khong tim thay no nua.
+                    local okCf, cf = pcall(function()
+                        local r
+                        if type(Fruit.GetModelCFrame) == "function" then
+                            r = Fruit:GetModelCFrame()
+                        end
+                        if typeof(r) ~= "CFrame" then
+                            r = Fruit:GetPivot()
+                        end
+                        return r
+                    end)
+                    if okCf and typeof(cf) == "CFrame" then
+                        TweenController.Create(cf + Vector3.new(0, 3, 0))
+                    else
+                        getgenv().anchored = false
+                    end
                 else
                     if not FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call() and 
                        not FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call() then
@@ -7407,6 +8623,42 @@ FunctionsHandler = {
                         return Result
                     end
                     BossesOrder = GetResult()
+                    -- [km38] GetResult() co the tra ve bang RONG (RemoveList da loai het) ->
+                    -- BossesTask se khong bao gio thay boss nao. Giu ban goc de khoi phuc.
+                    if #BossesOrder == 0 then
+                        BossesOrder = {}
+                        for _, v in ipairs(BossesOrderBase or {}) do
+                            table.insert(BossesOrder, v)
+                        end
+                        print("[Boss] Danh sach boss bi loc het -> dung lai danh sach goc")
+                    end
+                    -- [km41] LY DO THAT user khong thay FAM BOSS: RemoveList mac dinh
+                    -- (IceAdmiralPassed=true, da mua Sharkman...) da LOAI HET 2 boss cua Sea 2 la
+                    -- "Awakened Ice Admiral" va "Tide Keeper", trong khi 5 boss con lai
+                    -- (Deandre/Urban/Diablo/Cake Prince/Soul Reaper) la boss Sea 3 -> o Sea 2
+                    -- khong bao gio co boss de danh. Nhop boss DUNG THEO SEA hien tai.
+                    SeaBossesByIndex = SeaBossesByIndex or {
+                        [1] = { "Seabeast" },
+                        [2] = { "Awakened Ice Admiral", "Tide Keeper" },
+                        [3] = { "Deandre", "Urban", "Diablo", "Cake Prince", "Soul Reaper" },
+                    }
+                    for _, bName in ipairs(SeaBossesByIndex[SeaIndex] or {}) do
+                        local have = false
+                        for _, have2 in ipairs(BossesOrder) do
+                            if have2 == bName then
+                                have = true
+                                break
+                            end
+                        end
+                        if not have then
+                            table.insert(BossesOrder, bName)
+                        end
+                    end
+                    if not SeaBossListDumped then
+                        SeaBossListDumped = true
+                        print("[Boss] (Sea " .. tostring(SeaIndex) .. ") boss se tim kiem: " ..
+                            table.concat(BossesOrder, ", "))
+                    end
                     if #DropItemData > 0 then 
                     for ItemName, ItemData in DropItemData do
                         if not ScriptStorage.Backpack[ItemName] and SeaIndex == ItemData.Sea then
@@ -7519,6 +8771,13 @@ FunctionsHandler = {
                     return
                 end
 
+                -- [km36] Refresh nay goi remote TalkTrevor that -> chi chay moi 10s
+                -- (truoc day chay moi tick -> spam log + spam remote)
+                if not TrevorRefreshTick or os.time() - TrevorRefreshTick < 10 then
+                    return false
+                end
+                TrevorRefreshTick = os.time()
+
                 if ScriptStorage.PlayerData.Level < 1100 then
                     return
                 end
@@ -7532,14 +8791,16 @@ FunctionsHandler = {
                 TrevorDebounce = os.time()
 
                 if not FunctionsHandler.Trevor:Get("IsCompleted") then
-                    print("Update IsCompleted")
-                    FunctionsHandler.Trevor:Set("IsCompleted", (Remotes.CommF_:InvokeServer("TalkTrevor", "1") == 0))
-                    print(
-                        "Update IsCompleted",
-                        FunctionsHandler.Trevor:Get("IsCompleted"),
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "1"),
-                        Remotes.CommF_:InvokeServer("TalkTrevor", "1") == 0
-                    )
+                    -- [km36] goi DUNG 1 lan TalkTrevor (truoc day goi 4 lan/lan chay)
+                    if not TrevorCheckTick or os.time() - TrevorCheckTick >= 30 then
+                        TrevorCheckTick = os.time()
+                        local okTV, respTV = pcall(function()
+                            return Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+                        end)
+                        FunctionsHandler.Trevor:Set("IsCompleted", (okTV and respTV == 0))
+                        print("[Trevor] TalkTrevor,1 -> " .. tostring(okTV and respTV or ("LOI:" .. tostring(respTV))) ..
+                            " | IsCompleted=" .. tostring(FunctionsHandler.Trevor:Get("IsCompleted")))
+                    end
                 end
 
                 return not FunctionsHandler.Trevor:Get("IsCompleted") and Fruit
@@ -8714,6 +9975,14 @@ FunctionsHandler = {
         -- ============ RANDOM TRAI (GACHA) + TỰ CẤT TRÁI VÀO KHO ============
         -- CatTraiVaoRuong: cất mọi Tool trái ác quỷ đang nằm tay/trong balo vào Treasure Inventory
         function CatTraiVaoRuong()
+            -- [km43] khi raid dung trai cui thi khong duoc tu cat trai (trait se bi lay lai lien)
+            if RaidUsesStoredFruits() then
+                if not CatTraiMutedLogged then
+                    CatTraiMutedLogged = true
+                    print("[Trai] [km43] TAT tu dong cat trai vao kho | RAID dang can trai cui")
+                end
+                return 0
+            end
             local Stored = 0
             local lp = game:GetService("Players").LocalPlayer
             if not (lp and Remotes and Remotes.CommF_) then
@@ -8739,6 +10008,9 @@ FunctionsHandler = {
                                     local blocked = (FruitStoreFail or {})[Name]
                                     if type(blocked) == "number" and blocked > os.time() then
                                         -- trái này đã cất thất bại gần đây, không gọi lại cho đỡ spam
+                                    elseif table.find(ScriptStorage.IgnoreStoreFruits, Name) or
+                                        Name == RaidFruitHoldName then
+                                        -- [km43] trai dang phuc vu RAID -> khong cat
                                     else
                                         if type(blocked) == "number" then
                                             FruitStoreFail[Name] = nil
@@ -8821,8 +10093,12 @@ FunctionsHandler = {
             if ok2 and not GachaRejected(resp2) then
                 return resp2, "RF/GachaNetworkRF"
             end
-            local Reason = "Cousin,Buy=" .. tostring(ok1 and resp1 or ("LOI:" .. tostring(resp1))) ..
-                " | GachaNetworkRF=" .. tostring(ok2 and resp2 or ("LOI:" .. tostring(resp2)))
+            -- [km36] phan biet "server tra ve nil/false" (TU CHOI) voi "pcall loi"
+            local function fmt(okv, v)
+                if not okv then return "LOI:" .. tostring(v) end
+                return "tra:" .. tostring(v)
+            end
+            local Reason = "Cousin,Buy=" .. fmt(ok1, resp1) .. " | GachaNetworkRF=" .. fmt(ok2, resp2)
             return nil, "ca 2 lenh", Reason
         end
 
@@ -8855,7 +10131,7 @@ FunctionsHandler = {
                 print("[RandomFruit] THAT BAI lan " .. tostring(RandomFruitFailCount) ..
                     " | " .. tostring(Reason) ..
                     " | Beli=" .. tostring(pd.Beli) .. " Fragments=" .. tostring(pd.Fragments) ..
-                    " Level=" .. tostring(pd.Level) .. " Sea=" .. tostring(rawget(_G, "SeaIndex")))
+                    " Level=" .. tostring(pd.Level) .. " Sea=" .. tostring(SeaIndex))
                 if RandomFruitFailCount >= 3 then
                     RandomFruitMutedUntil = os.time() + 900
                     RandomFruitFailCount = 0
@@ -8876,7 +10152,8 @@ FunctionsHandler = {
                 if type(AddPoint) == "function" then
                     pcall(AddPoint)
                 end
-                if Config.Items.AutoRandomFruit and not (RandomFruitMutedUntil and os.time() < RandomFruitMutedUntil) then
+                if Config.Items.AutoRandomFruit and not RaidUsesStoredFruits() and
+                    not (RandomFruitMutedUntil and os.time() < RandomFruitMutedUntil) then
                     pcall(RandomTraiTuXa)
                 end
                 task.wait(math.max(10, tonumber(Config.Items.RandomFruitInterval) or 60))
@@ -8891,6 +10168,14 @@ FunctionsHandler = {
                 pcall(SendData)
             end ]]
             local success, response = pcall(RefreshTasksData)
+            -- [km42] Thu/duy viec sang bien KHONG phu thuoc task nao giu tick (see SeaTravelTick)
+            if not _G.Stop then
+                local okST, errST = pcall(SeaTravelTick)
+                if not okST and not SeaTravelErrLogged then
+                    SeaTravelErrLogged = true
+                    print("[SeaTravel] LOI vong lap: " .. tostring(errST))
+                end
+            end
             -- Chỉ chạy MeleesController khi KHÔNG đang trong raid và KHÔNG đang làm Saber
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
             local isSaberOngoing = (type(IsSaberQuestActive) == "function" and IsSaberQuestActive()) or (CurrentTask == "Saber")
