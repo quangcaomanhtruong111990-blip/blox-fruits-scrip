@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 print("========================================")
-print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
+print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
 print("[Bocchi Hub] Initializing modules...")
 print("========================================")
 
@@ -113,6 +113,22 @@ do
     end
     if Config.Raid.MinLevel == nil then
         Config.Raid.MinLevel = 1000
+    end
+    -- [km45] cac buoc tho "check" (km44/45: quet HUD/server tha thuong hon)
+    if type(Config.Settings) ~= "table" then
+        Config.Settings = {}
+    end
+    local Km45Defaults = {
+        QuestTryGap = 8,        -- giay giua 2 lan goi StartQuest
+        QuestHudMemo = 3,       -- 3s HasActiveQuest moi quet HUD 1 lan
+        HudLabelMemo = 8,       -- 8s moi quet toan bo label PlayerGui
+        QuestProgressMemo = 4,  -- 4s moi doc lai dem "x/y"
+        EnemyCountMemo = 2,     -- 2s moi dem quai trong workspace.Enemies
+    }
+    for k, v in pairs(Km45Defaults) do
+        if Config.Settings[k] == nil then
+            Config.Settings[k] = v
+        end
     end
 end
 
@@ -639,7 +655,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "2TN"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2862,12 +2878,22 @@ ScriptStorage = {
         end
 
         -- [km41] "kiem tra 1 lan thoi": HasActiveQuest duoc goi trong vong farm
-        -- (task.wait(0.05) -> ~20 lan/giay) va moi lan la quet HUD. memo 0.35s.
-        function QuestManager.HasActiveQuest()
+        -- (task.wait(0.05) -> ~20 lan/giay) va moi lan la quet HUD.
+        -- [km45] memo 0.35s -> 3s: quet HUD spam lien tuc trong game de bi phat hien.
+        -- Goi HasActiveQuest(true) khi that su can ket qua moi ngay (sau khi nhan quest).
+        function QuestManager.HasActiveQuest(force)
             local ck = os.clock()
-            if ActiveQuestMemo and (ck - (ActiveQuestMemoTick or 0) < 0.35) then
+            local memoTtl = tonumber(Config and Config.Settings and Config.Settings.QuestHudMemo) or 3
+            if not force and ActiveQuestMemo and (ck - (ActiveQuestMemoTick or 0) < memoTtl) then
                 local m = ActiveQuestMemo
                 return m[1], m[2], m[3], m[4]
+            end
+            -- [km45] force (vua nhan quest xong) thi buoc HUD doc lai, vi HUD can den 8s
+            -- moi tu lam moi -> de nhat la UI dang hien nhiem vu that
+            if force then
+                QuestHudCacheTick = nil
+                GameHudLabelTick = nil
+                EnemyCountCacheTick = nil
             end
             local hasQuest = false
             local cleanTitle, rawTitle = nil, nil
@@ -3316,7 +3342,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 120
+            local Speed = (CurrentDist < 30) and 45 or 160
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -4528,7 +4554,7 @@ function PlayerInCombat()
     if InCombatCacheVal == nil then
         local okH, hud = pcall(function()
             if type(GameHudLabels) ~= "function" then return nil end
-            for _, lbl in ipairs(GameHudLabels(5)) do
+            for _, lbl in ipairs(GameHudLabels()) do
                 local low = string.lower(tostring(lbl.Text))
                 if string.find(low, "combat") or string.find(low, "chiến") then
                     return true
@@ -5190,7 +5216,7 @@ FunctionsHandler = {
                         " scan=" .. tostring(QuestUiLooksActive()) .. ") | " .. tostring(QuestId) .. "/" .. tostring(QuestIndex) ..
                         " mob=" .. tostring(MonName) .. " live=" .. tostring(MobLiveCount(MonName))
                 end
-                if not QuestStateLogTick or os.time() - QuestStateLogTick > 15 then
+                if not QuestStateLogTick or os.time() - QuestStateLogTick > 45 then
                     QuestStateLogTick = os.time()
                     print("[QuestState] " .. questStateLine())
                 end
@@ -5222,58 +5248,76 @@ FunctionsHandler = {
                     end
                 end
 
-                -- Chỉ khi CHƯA có nhiệm vụ (hoàn toàn không có Quest UI active) thì mới bay về NPC để nhận nhiệm vụ mới
+                -- [km45] NHAN NHIEM VU NGAY TAI BAI QUAI: khong bay len NPC nua.
+                -- Bay toi tan noi chi con duoc dung lam FALLBACK (QuestNeedsFlight) khi
+                -- server da tung tu choi lenh nhan tu xa cua chinh nhiem vu nay.
                 if not hasActiveQuest then
-                    -- Quét trực tiếp NPC model tại thời điểm hiện tại để luôn bay tới ngay trước mặt ông NPC
-                    local liveNpcVec = QuestManager:FindLiveNpc(QuestId, MonName)
-                    if liveNpcVec then
-                        NpcPosition = liveNpcVec
+                    QuestNeedsFlight = QuestNeedsFlight or {}
+                    -- [km45] Chi khi nao that su can bay moi scan tim NPC (scan ca game, dat lem)
+                    if QuestNeedsFlight[QuestId] == true then
+                        local liveNpcVec = QuestManager:FindLiveNpc(QuestId, MonName)
+                        if liveNpcVec then
+                            NpcPosition = liveNpcVec
+                        end
                     end
 
-                    if not NpcPosition then
-                        if MonName then
-                            SetTask("MainTask", "Level Farming | " .. MonName .. " | Khong tim thay NPC nhiem vu")
-                            SetTask("SubTask", questStateLine())
-                            print("[QuestState] KHONG CO VTRI NPC -> khong the nhan nhiem vu | " .. questStateLine())
-                            CombatController.Attack(MonName)
-                        end
-                        return
+                    local targetNpcVec = nil
+                    if NpcPosition then
+                        targetNpcVec = (typeof(NpcPosition) == "CFrame" and NpcPosition.Position)
+                            or (typeof(NpcPosition) == "Vector3" and NpcPosition)
+                            or nil
                     end
-                    local targetNpcVec = (typeof(NpcPosition) == "CFrame" and NpcPosition.Position) or (typeof(NpcPosition) == "Vector3" and NpcPosition) or Vector3.new(0, 0, 0)
+                    -- -1 = chua biet vi tri NPC van nhan duoc, khong can tim nua
+                    local distToNpc = (targetNpcVec and CaculateDistance(targetNpcVec)) or -1
+
+                    local canFly = (targetNpcVec ~= nil) and (QuestNeedsFlight[QuestId] == true)
+                    if canFly then
                     
-                    -- Tự động đi cổng lên Đảo Trời (Sky 2) hoặc Đảo Người Cá (Fishman) trong Sea 1
-                    if SeaIndex == 1 then
-                        local myChar = LocalPlayer.Character
-                        local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                        local myPos = myHrp and myHrp.Position
-                        if myPos then
-                            if targetNpcVec.Y > 4000 and myPos.Y < 2000 then
-                                pcall(function()
-                                    Remotes.CommF_:InvokeServer("requestEntrance", Vector3.new(-7894.62, 5545.49, -380.25))
-                                end)
-                                task.wait(0.5)
-                            elseif targetNpcVec.X > 50000 and myPos.X < 20000 then
-                                pcall(function()
-                                    Remotes.CommF_:InvokeServer("requestEntrance", Vector3.new(61163.85, 11.76, 1819.78))
-                                end)
-                                task.wait(0.5)
+                        -- Fallback (chi dung sau khi server tu choi nhan tu xa): di cổng lên
+                        -- Đảo Trời (Sky 2) / Đảo Người Cá (Fishman) roi bay toi tan noi NPC.
+                        if SeaIndex == 1 then
+                            local myChar = LocalPlayer.Character
+                            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                            local myPos = myHrp and myHrp.Position
+                            if myPos then
+                                if targetNpcVec.Y > 4000 and myPos.Y < 2000 then
+                                    pcall(function()
+                                        Remotes.CommF_:InvokeServer("requestEntrance", Vector3.new(-7894.62, 5545.49, -380.25))
+                                    end)
+                                    task.wait(0.5)
+                                elseif targetNpcVec.X > 50000 and myPos.X < 20000 then
+                                    pcall(function()
+                                        Remotes.CommF_:InvokeServer("requestEntrance", Vector3.new(61163.85, 11.76, 1819.78))
+                                    end)
+                                    task.wait(0.5)
+                                end
                             end
                         end
+                        TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
+                        SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Bay toi NPC nhiem vu")
+                        SetTask("SubTask", questStateLine() .. " | cach NPC " .. tostring(math.floor(distToNpc)) .. "m")
+                        if distToNpc > 14 then
+                            if MonName then CombatController.Attack(MonName) end
+                            return
+                        end
+                    else
+                        -- [km45] NHAN TU CHOO: dung ngay tai bai quai, khong di dau ca
+                        SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Nhan nhiem vu tai bai quai")
+                        SetTask("SubTask", questStateLine())
                     end
 
-                    -- [km31] PHAI DEN TAN NOI MOI NHAN DUOC NHIEM VU: remote "StartQuest" bi server
-                    -- tu choi khi nhan tu xa (ban hien tai goi "Instant at Mob Area" -> khong nhan,
-                    -- trong khi ban cu van nhan). Nay bay toi dung truoc mat NPC roi moi goi lenh.
-                    TweenController.Create(targetNpcVec + Vector3.new(0, 5, 3))
-                    local distToNpc = CaculateDistance(targetNpcVec)
-                    SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") .. " | Bay toi NPC nhiem vu")
-                    SetTask("SubTask", questStateLine() .. " | cach NPC " .. tostring(math.floor(distToNpc)) .. "m")
-                    if distToNpc > 14 then
+                    LevelFarmTTL = 0
+
+                    -- [km45] GOI StartQuest THA THUONG (it nhat QuestTryGap giay/lan) de
+                    -- khong spam remote lien tuc; trong luc cho thi VAN danh quai.
+                    local questTryGap = tonumber(Config and Config.Settings and Config.Settings.QuestTryGap) or 8
+                    local nowTry = os.clock()
+                    if getgenv().LastStartQuestAt and (nowTry - getgenv().LastStartQuestAt < questTryGap) then
+                        if MonName then CombatController.Attack(MonName) end
                         return
                     end
+                    getgenv().LastStartQuestAt = nowTry
 
-                    task.wait(1)
-                    LevelFarmTTL = 0
                     if QuestId and QuestIndex then
                         local okStart, startResp = pcall(function()
                             return QuestManager.StartQuest(QuestId, QuestIndex)
@@ -5286,15 +5330,24 @@ FunctionsHandler = {
                             or (type(startResp) == "table" and (startResp.Success == false or startResp.Error ~= nil))
                         getgenv().DynamicQuestGracePeriod = rejected and 10 or 25
                         getgenv().LastQuestClaimTick = tick()
+                        -- [km45] Bi tu choi khi nhan tu bai quai -> danh dau nhiem vu nay de
+                        -- LAN SAU moi bay toi tan noi NPC; cac nhiem vu khac van nhan tai cho.
+                        if rejected then
+                            QuestNeedsFlight[QuestId] = true
+                            print("[QuestState] " .. tostring(QuestId) .. " bi tu choi khi nhan tu xa -> lan sau bay toi NPC")
+                        else
+                            QuestNeedsFlight[QuestId] = nil
+                        end
                         print("[QuestState] StartQuest " .. tostring(QuestId) .. "," .. tostring(QuestIndex) ..
-                            " (cach NPC " .. tostring(math.floor(distToNpc)) .. "m) -> " ..
+                            " (" .. (distToNpc >= 0 and ("cach NPC " .. tostring(math.floor(distToNpc)) .. "m") or "tai bai quai") ..
+                            ") -> " ..
                             (okStart and ("tra:" .. tostring(startResp)) or ("LOI:" .. tostring(startResp))) ..
                             (rejected and " | bi tu choi" or " | server khong tu choi -> an han 25s cho UI, fam tiep"))
                         local startTimeout = (Config and Config.Settings and tonumber(Config.Settings.QuestStartTimeout)) or 2.0
                         local waitQuest = tick() + startTimeout
                         repeat
-                            task.wait(0.1)
-                            hasActiveQuest = QuestManager.HasActiveQuest()
+                            task.wait(0.5)
+                            hasActiveQuest = QuestManager.HasActiveQuest(true)
                         until hasActiveQuest or tick() > waitQuest
                         if not hasActiveQuest then
                             if not rejected then
@@ -5350,7 +5403,9 @@ FunctionsHandler = {
                         if _G.Stop then break end
 
                         -- KIỂM TRA ĐÃ TIẾP CẬN BÃI QUÁI HAY CHƯA (Tránh nhận nhầm quest khi đang bay đường dài)
-                        if not hasArrivedAtMob then
+                        -- [km45] scan ca folder Enemies -> chi quet 1 lan / 2s thay vi 20 lan/giay
+                        if not hasArrivedAtMob and (not ArriveScanTick or os.clock() - ArriveScanTick >= 2) then
+                            ArriveScanTick = os.clock()
                             local isNear = false
                             if targetMobPos and CaculateDistance(targetMobPos) <= 350 then
                                 isNear = true
@@ -5434,7 +5489,7 @@ FunctionsHandler = {
                         -- [km29] LOAI QUAI MUC TIEU KHONG CO TRONG SERVER NAY (chon nham quai sea khac,
                         -- bai quai bi stream an) -> thoat vong farm de chon lai muc tieu,
                         -- thay vi dung im bay di bay lai moi 0.05s.
-                        if not LiveMobCheckTick or os.clock() - LiveMobCheckTick > 1 then
+                        if not LiveMobCheckTick or os.clock() - LiveMobCheckTick > 2 then
                             LiveMobCheckTick = os.clock()
                             local liveMob = false
                             pcall(function()
@@ -7196,7 +7251,7 @@ FunctionsHandler = {
         -- TextButton, TextBox).
         function GameHudLabels(ttl)
             local now = os.clock()
-            if GameHudLabelCache and GameHudLabelTick and (now - GameHudLabelTick < (ttl or 5)) then
+            if GameHudLabelCache and GameHudLabelTick and (now - GameHudLabelTick < (tonumber(ttl) or tonumber(Config and Config.Settings and Config.Settings.HudLabelMemo) or 8)) then
                 return GameHudLabelCache
             end
             GameHudLabelTick = now
@@ -7285,16 +7340,17 @@ FunctionsHandler = {
         -- Tra: curKills, maxKills, title, label  (nil neu HUD khong co panel nhiem vu)
         -- [km41] Co dem "x/y" du coi LA DANG CO NHIEM VU, khong bat buoc phai tim ra chu
         -- "Defeat..." gan no nua (truoc day khong co chu -> tra ve nil -> van q=false).
+        -- [km45] memo 1s -> 4s (config: Config.Settings.QuestProgressMemo)
         function QuestProgressFromHud()
             local now = os.clock()
-            if QuestHudCacheTick and (now - QuestHudCacheTick < 1) then
+            if QuestHudCacheTick and (now - QuestHudCacheTick < (tonumber(Config and Config.Settings and Config.Settings.QuestProgressMemo) or 4)) then
                 local c = QuestHudCache
                 return c[1], c[2], c[3]
             end
             QuestHudCacheTick = now
             local bestC, bestT, bestTitle, bestLbl = nil, nil, nil, nil
             local xySeen = {}
-            for _, lbl in ipairs(GameHudLabels(5)) do
+            for _, lbl in ipairs(GameHudLabels()) do
                 local c, t = ParseQuestXY(lbl.Text)
                 if c and t and t >= 2 and t <= 60 and c <= t then
                     table.insert(xySeen, lbl.Text)
@@ -7311,7 +7367,7 @@ FunctionsHandler = {
             if not bestLbl and not QuestHudEmptyDumped then
                 QuestHudEmptyDumped = true
                 print("[QuestUi] KHONG tim thay dem x/y nao trong HUD game. So label quet duoc = " ..
-                    tostring(#GameHudLabels(5)))
+                    tostring(#GameHudLabels()))
             end
             QuestHudCache = { bestC, bestT, bestTitle }
             return bestC, bestT, bestTitle, bestLbl
@@ -7328,7 +7384,7 @@ FunctionsHandler = {
                 -- [km38] Quet HUD cua CHINH GAME (moi ScreenGui trong PlayerGui, tru GUI cua hub).
                 -- Build nay panel "Defeat 8 Water Fighters / 0/8" khong nam duoi PlayerGui.Main
                 -- nen km29 (chi doc PlayerGui.Main) khong thay gi -> HasActiveQuest = false.
-                for _, d in ipairs(GameHudLabels(5)) do
+                for _, d in ipairs(GameHudLabels()) do
                     local t = d.Text
                     local low = string.lower(t)
                     if string.find(low, "efeat") or string.find(low, "wan") or string.find(low, "jeremy")
@@ -7381,9 +7437,10 @@ FunctionsHandler = {
         -- luu vao map ten->solan. Truoc day moi lan goi (questStateLine + doi muc tieu +
         -- PickLiveSeaMob vet nhiem vu) la quet lai toan bo -> scheduler ~20 tick/s nen
         -- quet den ~40 lan/giay.
+        -- [km45] 0.5s -> 2s: quet lien tuc bi coi la dau hieu bot.
         function LiveEnemyCounts(ttl)
             local now = os.clock()
-            if EnemyCountCache and EnemyCountCacheTick and (now - EnemyCountCacheTick < (ttl or 0.5)) then
+            if EnemyCountCache and EnemyCountCacheTick and (now - EnemyCountCacheTick < (tonumber(ttl) or tonumber(Config and Config.Settings and Config.Settings.EnemyCountMemo) or 2)) then
                 return EnemyCountCache
             end
             EnemyCountCacheTick = now
@@ -7709,7 +7766,9 @@ FunctionsHandler = {
                 -- nen vong lap do boss chay moi tick (~20/s) -> ket qua cu 1 GIAY.
                 local ck = os.clock()
                 local Boss
-                if not BossScanCache or (ck - (BossScanTick or 0) >= 1) then
+                -- [km45] BAN CU dieu kien `not BossScanCache` khi chua co boss => quet lai MOI TICK
+                -- (~20 lan/giay). Nay chi theo thoi gian: 3 lan/giay la du.
+                if (not BossScanTick) or (ck - BossScanTick >= 3) then
                     BossScanTick = ck
                     for _, BossName in ipairs(BossesOrder) do
                         if not (BossSkipUntil and BossSkipUntil[BossName] and
