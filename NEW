@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 print("========================================")
-print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
+print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
 print("[Bocchi Hub] Initializing modules...")
 print("========================================")
 
@@ -80,22 +80,26 @@ Config =
                 AutoEatFruit = 1,
                 Eatlist = {},
                 -- Random trai (gacha) + tu dong cat trai vao Treasure Inventory
-                -- [km43] TAT mac dinh: khi RAID can trai cui thi khong duoc cat nguoc lai vao kho
-                AutoRandomFruit = false,
+                -- [km47] BAT LAI (km43 tat lam no ngung gacha han). Van an toan vi tu km47:
+                -- trai KHONG PHAI TRAANG ma roi vao balo se duoc cat nguoc vao kho lien.
+                AutoRandomFruit = true,
                 RandomFruitInterval = 60,
             },
             -- [km43] Lay trai cui trong KHO DO ra de RAID lay Fragments
             Raid = {
                 UseStoredFruits = true, -- false = quay lai luong trai tu dong cu (gacha + tu cat kho)
                 MinLevel = 1000,        -- [km43] Raid mo som hon (truoc day hard-code 1100 chan Lv 1070)
+                WhiteFruits = {},       -- [km47] them ten trai TRANG thieu vao day (vi du {"Paw-Paw"})
+                OnlyWhiteFruits = true, -- [km47] false = cho dung lai trai gia re < 1M nhu cu
             },
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
                 QuestGracePeriod = 25,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
                 QuestStartTimeout = 1.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
-                QuestGoneDelay = 20,       -- Thời gian chờ UI ẩn trước khi xác nhận hết quest (để nhận lại ngay)
+                QuestGoneDelay = 2,        -- [km46] 20s -> 2s: UI mat nhiem vu 2s la nhan lai ngay (truoc day danh them 3-4 con nua moi nhan)
                 MinFarmDuration = 2.5,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
+                QuestDoneLookahead = true,  -- [km46] gan xong (con 1 con) -> buoc HUD doc lai lien
             }
 }
 
@@ -114,6 +118,18 @@ do
     if Config.Raid.MinLevel == nil then
         Config.Raid.MinLevel = 1000
     end
+    -- [km47] key moi -> Config cu chua co, phai bu
+    if type(Config.Raid.WhiteFruits) ~= "table" then
+        Config.Raid.WhiteFruits = {}
+    end
+    if Config.Raid.OnlyWhiteFruits == nil then
+        Config.Raid.OnlyWhiteFruits = true
+    end
+    -- [km47] AutoRandomFruit = false la do km43 tat (khong phai ban tu tat) -> bat lai gacha.
+    -- (Tat qua GUI van con dung trong lan chay do; chi phai bat lai GUI sau khi inject lại.)
+    if Config.Items.AutoRandomFruit == false then
+        Config.Items.AutoRandomFruit = true
+    end
     -- [km45] cac buoc tho "check" (km44/45: quet HUD/server tha thuong hon)
     if type(Config.Settings) ~= "table" then
         Config.Settings = {}
@@ -130,6 +146,15 @@ do
             Config.Settings[k] = v
         end
     end
+    -- [km46] PHAI EP LAI: Config co the la ban CU (getgenv song qua lan re-inject) nen
+    -- QuestGoneDelay = 20 cua ban cu van con nguyen -> script danh them vai con quai moi nhan lai quest.
+    -- Chi doi dung gia tri cu 20 -> khong lo ghi de gia tri ban tu dat.
+    if tonumber(Config.Settings.QuestGoneDelay) == 20 then
+        Config.Settings.QuestGoneDelay = 2
+    end
+    if Config.Settings.QuestDoneLookahead == nil then
+        Config.Settings.QuestDoneLookahead = true
+    end
 end
 
 function RaidUsesStoredFruits()
@@ -139,15 +164,66 @@ function RaidUsesStoredFruits()
     return Config.Raid.UseStoredFruits ~= false
 end
 
--- Danh sach trai "cui" (duoi 1M Bel, dung de RAID)
-TraiCuiTen = {
-    "Rocket-Rocket", "Spin-Spin", "Blade-Blade", "Chop-Chop", "Spring-Spring",
-    "Bomb-Bomb", "Smoke-Smoke", "Spike-Spike", "Flame-Flame", "Falcon-Falcon",
-    "Ice-Ice", "Sand-Sand", "Dark-Dark", "Diamond-Diamond", "Light-Light",
-    "Rubber-Rubber", "Barrier-Barrier", "Ghost-Ghost", "Magma-Magma", "Quake-Quake",
-    "Stone-Stone", "Steel-Steel", "Mark-Mark", "Bloom-Bloom", "Bird-Bird",
-    "Candle-Candle", "Claws-Claws", "Elevator-Elevator", "Muffler-Muffler", "Paw-Paw",
+-- [km47] Mac dinh = true: raid chi duoc dung trai TRANG (Common)
+function RaidChiDungTraiTrang()
+    if type(Config) ~= "table" or type(Config.Raid) ~= "table" then
+        return true
+    end
+    return Config.Raid.OnlyWhiteFruits ~= false
+end
+
+-- [km47] RAID CHỈ DÙNG TRÁI TRẮNG (Common). Trái XANH (Uncommon/Rare), TÍM (Legendary),
+-- ĐỎ (Mythical) = để nguyên trong kho, KHÔNG lấy ra, KHÔNG mở raid bằng nó nữa.
+-- (km43 để cả Magma/Quake/Ghost/Barrier/Rubber... vào danh sách "cùi" -> ăn mất trái xịn)
+-- Thiếu trái trắng nào thì thêm tên vào Config.Raid.WhiteFruits, không cần sửa chỗ khác.
+TraiTrangMacDinh = {
+    "Kilo-Kilo", "Bone-Bone", "Rocket-Rocket", "Spin-Spin", "Chop-Chop", "Blast-Blast",
+    "Spring-Spring", "Cube-Cube", "Sword-Sword", "Ice-Ice", "Door-Door", "Dark-Dark",
+    "Light-Light", "Sand-Sand", "Blade-Blade", "Falcon-Falcon",
 }
+TraiCuiTen = TraiTrangMacDinh
+
+local function NormTenTrai(s)
+    local t = string.gsub(string.lower(tostring(s or "")), "[^%a0-9]", "")
+    -- "Rocket Fruit" / "Rocket-Rocket" / "Rocket" cung ra "rocket"
+    t = string.gsub(t, "fruit$", "")
+    return t
+end
+
+function TraiLoaiTrang(ten)
+    if type(ten) ~= "string" or ten == "" then
+        return false
+    end
+    local them = (Config and Config.Raid and Config.Raid.WhiteFruits) or {}
+    if not TraiTrangSet or TraiTrangSetN ~= #them then
+        local t = {}
+        for _, n in ipairs(TraiTrangMacDinh) do
+            -- "Rocket-Rocket" -> can "rocket" (ten trong balo/thuong chi la "Rocket Fruit")
+            local base = NormTenTrai(string.match(tostring(n), "^([^-]+)") or n)
+            if base ~= "" then
+                t[base] = true
+            end
+        end
+        for _, n in ipairs(them) do
+            local base = NormTenTrai(string.match(tostring(n), "^([^-]+)") or n)
+            if base ~= "" then
+                t[base] = true
+            end
+        end
+        TraiTrangSet = t
+        TraiTrangSetN = #them
+    end
+    local k = NormTenTrai(ten)
+    if k == "" then
+        return false
+    end
+    for base in pairs(TraiTrangSet) do
+        if string.sub(k, 1, #base) == base then
+            return true
+        end
+    end
+    return false
+end
 
 -- Lieat ke trai dang nam trong kho: thu Data.Fruits (client) roi toi remote getInventoryFruits
 function TraiTrongKho(luc)
@@ -293,6 +369,19 @@ function LayTraiKhoRa(tenTrai)
     return Got ~= nil
 end
 
+-- [km47] dem trai TRANG trong kho ( RAID chi dung loai nay)
+function DemTraiTrangTrongKho()
+    local n = 0
+    pcall(function()
+        for _, F in ipairs(TraiTrongKho()) do
+            if TraiLoaiTrang(F.Name) then
+                n = n + 1
+            end
+        end
+    end)
+    return n
+end
+
 -- Lan luot thu tung trai cui cho toi khi lay duoc 1 trai ra kho
 function TimTraiCuiTrongKho()
     if not RaidUsesStoredFruits() then
@@ -306,14 +395,27 @@ function TimTraiCuiTrongKho()
     end
     KhoTraiLastTry = os.clock()
 
+    -- [km47] CHI lay trai TRANG. Danh sach kho lay duoc thi loc bang TraiLoaiTrang;
+    -- nguon nao khong co ten thi thu cu soa dung danh sach trai trang mac dinh.
     local candidates = {}
+    local traiKhoKhac = {}
     for _, F in ipairs(TraiTrongKho(true)) do
-        table.insert(candidates, F.Name)
+        if TraiLoaiTrang(F.Name) then
+            table.insert(candidates, F.Name)
+        else
+            table.insert(traiKhoKhac, tostring(F.Name))
+        end
     end
-    if #candidates == 0 then
+    if #candidates == 0 and #traiKhoKhac == 0 then
         for _, Ten in ipairs(TraiCuiTen) do
             table.insert(candidates, Ten)
         end
+    end
+    if #candidates == 0 and os.time() - (KhoTraiNoWhiteLogged or 0) > 120 then
+        KhoTraiNoWhiteLogged = os.time()
+        print("[KhoTrai] TRONG KHO KHONG CO TRAI TRANG nao -> khong raid (giu trai xanh/tim/do). " ..
+            "Trai trong kho: " .. table.concat(traiKhoKhac, ", "))
+        print("[KhoTrai] thay trai trang thieu thi them vao Config.Raid.WhiteFruits")
     end
 
     local HighTen = {"Kitsune", "Dragon", "Leopard", "Spirit", "Control", "Venom", "Shadow", "Dough", "T-Rex",
@@ -655,7 +757,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "3TNNB"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1733,12 +1835,19 @@ ScriptStorage = {
                                 end
                                 LocalPlayer.Character:FindFirstChild(Child.Name).EatRemote:InvokeServer()
                             end
-                            -- [km43] RAID dang can trai cui -> TAT viec TU CAT TRAI o day, neu
-                            -- khong thi lay duoc ra kho la bi nhiet nguoc lai vao kho ngay
-                            if RaidUsesStoredFruits() then
+                            -- [km47] o day CHI giu lai trai TRANG (de mo RAID); trai xanh/tim/do
+                            -- roi vao balo thi van cat nguoc vao kho cho an toan.
+                            local tenTraiVuaCo = nil
+                            pcall(function()
+                                tenTraiVuaCo = Child:GetAttribute("OriginalName") or Child.Name
+                            end)
+                            if RaidChiDungTraiTrang() and TraiLoaiTrang(tenTraiVuaCo) then
                                 return
                             end
-                            if RaidFruitHoldUntil and os.time() < RaidFruitHoldUntil then
+                            -- [km43] trai RAID dang giu -> khong cat lai (chi dung ten nay,
+                            -- truoc day chan theo THOI GIAN nen moi trai khac cung bi keep o day)
+                            if RaidFruitHoldName and tostring(tenTraiVuaCo) == tostring(RaidFruitHoldName)
+                                and RaidFruitHoldUntil and os.time() < RaidFruitHoldUntil then
                                 return
                             end
                             local StoreResult =
@@ -5141,7 +5250,11 @@ FunctionsHandler = {
                 end
 
                 -- 1. Kiểm tra xem hiện tại đã có nhiệm vụ đang chạy hay chưa
-                local hasActiveQuest, curKills, maxKills, activeTitle = QuestManager.HasActiveQuest()
+                -- [km46] ForceNextQuestCheck = vua xong nhiem vu -> buoc HUD doc lai NGAY (bo memo 3s
+                -- va cache HUD 8s) de nhan nhiem vu moi lien thay vi danh them vai con nua
+                local forceQ = getgenv().ForceNextQuestCheck == true
+                getgenv().ForceNextQuestCheck = nil
+                local hasActiveQuest, curKills, maxKills, activeTitle = QuestManager.HasActiveQuest(forceQ)
                 local rawHasQuest = hasActiveQuest
 
                 -- [km29] Nhiem vu chinh da xong (UI khong con dem tien do) -> xoa co che
@@ -5332,11 +5445,20 @@ FunctionsHandler = {
                         getgenv().LastQuestClaimTick = tick()
                         -- [km45] Bi tu choi khi nhan tu bai quai -> danh dau nhiem vu nay de
                         -- LAN SAU moi bay toi tan noi NPC; cac nhiem vu khac van nhan tai cho.
+                        -- [km46] Chi bay sau LAN TU CHOI THU 2: lan dau co the chi vi server chua
+                        -- kip ghi nhan nhiem vu cu da xong (nhan de bi bao "da co nhiem vu").
                         if rejected then
-                            QuestNeedsFlight[QuestId] = true
-                            print("[QuestState] " .. tostring(QuestId) .. " bi tu choi khi nhan tu xa -> lan sau bay toi NPC")
+                            QuestRejectSeen = QuestRejectSeen or {}
+                            if (QuestRejectSeen[QuestId] or 0) >= 1 then
+                                QuestNeedsFlight[QuestId] = true
+                                print("[QuestState] " .. tostring(QuestId) .. " tu choi lan 2 tu xa -> lan sau bay toi NPC")
+                            else
+                                QuestRejectSeen[QuestId] = 1
+                                print("[QuestState] " .. tostring(QuestId) .. " bi tu choi lan 1 khi nhan tu xa -> thu tai cho them 1 lan")
+                            end
                         else
                             QuestNeedsFlight[QuestId] = nil
+                            if QuestRejectSeen then QuestRejectSeen[QuestId] = nil end
                         end
                         print("[QuestState] StartQuest " .. tostring(QuestId) .. "," .. tostring(QuestIndex) ..
                             " (" .. (distToNpc >= 0 and ("cach NPC " .. tostring(math.floor(distToNpc)) .. "m") or "tai bai quai") ..
@@ -5438,13 +5560,25 @@ FunctionsHandler = {
                             if curMelee and curMastery and curMastery >= reqMastery then
                                 print("[Mastery Complete] Võ " .. tostring(curMelee) .. " đã đủ Mastery (" .. tostring(curMastery) .. "/" .. tostring(reqMastery) .. ") -> Dừng farm ngay để nhận võ tiếp theo!")
                                 pcall(function() QuestManager.AbandonQuest() end)
+                                -- [km46] Huy quest de doi vo -> cho phep nhan nhiem vu moi lien sau do
+                                getgenv().LastStartQuestAt = nil
+                                getgenv().ForceNextQuestCheck = true
                                 task.wait(0.2)
                                 break
                             end
                         end
 
                         -- KIỂM TRA TIẾN ĐỘ NHIỆM VỤ:
-                        local isQuestActive, currentKills, totalKills = QuestManager.HasActiveQuest()
+                        -- [km46] Gan xong (con <=1 con theo dem lan cu) -> buoc HUD doc lai, nhung
+                        -- toi da 1 LAN/GIAY (vong farm chay 20 tick/giay, ep moi tick = spam HUD).
+                        local sapXong = (lastTotalKills and lastCurKills) and (lastTotalKills - lastCurKills <= 1)
+                            and (not Config or not Config.Settings or Config.Settings.QuestDoneLookahead ~= false)
+                        local buocDoc = false
+                        if sapXong and (not LastHudForceTick or os.clock() - LastHudForceTick >= 1) then
+                            LastHudForceTick = os.clock()
+                            buocDoc = true
+                        end
+                        local isQuestActive, currentKills, totalKills = QuestManager.HasActiveQuest(buocDoc)
 
                         if isQuestActive then
                             noQuestGoneSince = nil -- Quest vẫn đang hoạt động, reset bộ đếm thời gian
@@ -5455,6 +5589,10 @@ FunctionsHandler = {
                                 if currentKills >= totalKills then
                                     getgenv().LastQuestClaimTick = nil
                                     getgenv().DynamicQuestGracePeriod = nil
+                                    -- [km46] XONG NHIEM VU -> nhan lai LIEN TUC: xoa het lenh cho
+                                    getgenv().LastStartQuestAt = nil
+                                    getgenv().ForceNextQuestCheck = true
+                                    print("[QuestState] XONG NHIEM VU " .. tostring(currentKills) .. "/" .. tostring(totalKills) .. " -> nhan nhiem vu moi lien")
                                     task.wait(0.1)
                                     break
                                 end
@@ -5480,6 +5618,10 @@ FunctionsHandler = {
                                     elseif (os.clock() - noQuestGoneSince >= questGoneDelay) and (farmingElapsed >= minFarmDuration) then
                                         getgenv().LastQuestClaimTick = nil
                                         getgenv().DynamicQuestGracePeriod = nil
+                                        -- [km46] UI mat = xong nhiem vu -> cho phep nhan lai NGAY
+                                        getgenv().LastStartQuestAt = nil
+                                        getgenv().ForceNextQuestCheck = true
+                                        print("[QuestState] UI nhiem vu da mat " .. tostring(questGoneDelay) .. "s -> nhan nhiem vu moi lien")
                                         break -- Thực sự đã hoàn thành nhiệm vụ!
                                     end
                                 end
@@ -7990,7 +8132,9 @@ FunctionsHandler = {
                             local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
                             -- [km43] price == 0 = nguon danh sach chi co TEN (Data.Fruits) khong co
                             -- gia -> van dung duoc de raid, mien khong phai trai xep hang cao
-                            if (isTrash or (price > 0 and price < 1000000) or price == 0) and not isHighTier and not isEatList then
+                            -- [km47] them dieu kien TRAI TRANG (khong dung trai xanh/tim/do de raid)
+                            if (isTrash or (price > 0 and price < 1000000) or price == 0) and not isHighTier and not isEatList
+                                and (not RaidChiDungTraiTrang() or TraiLoaiTrang(rawName)) then
                                 Fruit.Type = "Blox Fruit"
                                 return Fruit
                             end
@@ -8028,7 +8172,8 @@ FunctionsHandler = {
                                 end
                             end
                             local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
-                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList then
+                            if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList
+                                and (not RaidChiDungTraiTrang() or TraiLoaiTrang(rawName)) then
                                 return Fruit
                             end
                         end
@@ -8058,7 +8203,8 @@ FunctionsHandler = {
                                 break
                             end
                         end
-                        if not isHighTier then
+                        -- [km47] trai vat ly trong balo CUNG phai trai trang moi duoc dung raid
+                        if not isHighTier and (not RaidChiDungTraiTrang() or TraiLoaiTrang(toolName)) then
                             return { Name = toolName, Type = "Blox Fruit", IsPhysical = true }
                         end
                     end
@@ -8216,13 +8362,15 @@ FunctionsHandler = {
             end
             if not RaidFruit and Beli >= 100000 and (not RaidWaitLogTick or os.time() - RaidWaitLogTick > 60) then
                 RaidWaitLogTick = os.time()
-                local soTraiKho, soTool = 0, 0
+                local soTraiKho, soTool, soTraiTrang = 0, 0, 0
                 pcall(function()
                     soTraiKho = #TraiTrongKho()
+                    soTraiTrang = DemTraiTrangTrongKho()
                     soTool = DemTraiVatLy()
                 end)
                 print("[RaidCheck] chua co trai cui | kho liet ke duoc " .. tostring(soTraiKho) ..
-                    " trai, balo co " .. tostring(soTool) .. " tool trai -> fam + nhat trai, con " ..
+                    " trai (TRANG: " .. tostring(soTraiTrang) .. ", chi dung trai trang), balo co " ..
+                    tostring(soTool) .. " tool trai -> fam + nhat trai, con " ..
                     math.max(0, 1200 - (os.time() - RaidNoFruitSince)) .. "s nua moi mua chip bang Bel")
             end
             
@@ -10034,13 +10182,13 @@ FunctionsHandler = {
         -- ============ RANDOM TRAI (GACHA) + TỰ CẤT TRÁI VÀO KHO ============
         -- CatTraiVaoRuong: cất mọi Tool trái ác quỷ đang nằm tay/trong balo vào Treasure Inventory
         function CatTraiVaoRuong()
-            -- [km43] khi raid dung trai cui thi khong duoc tu cat trai (trait se bi lay lai lien)
-            if RaidUsesStoredFruits() then
-                if not CatTraiMutedLogged then
-                    CatTraiMutedLogged = true
-                    print("[Trai] [km43] TAT tu dong cat trai vao kho | RAID dang can trai cui")
-                end
-                return 0
+            -- [km47] DAO NGUOC km43: trai TRANG giu lai balo de RAID, con trai XANH/TIM/DO
+            -- thi cat nguoc vao kho lien de khong ai dung mat duoc.
+            local chiCatTraiKhacTrang = RaidUsesStoredFruits() and RaidChiDungTraiTrang()
+            if not CatTraiModeLogged then
+                CatTraiModeLogged = true
+                print("[Trai] [km47] Cat vao kho: " .. (chiCatTraiKhacTrang and
+                    "CHI cat trai KHAC trang (giu trai trang cho RAID)" or "tat ca"))
             end
             local Stored = 0
             local lp = game:GetService("Players").LocalPlayer
@@ -10060,7 +10208,9 @@ FunctionsHandler = {
                                 (okTip and tip == "Blox Fruit")
                             if isFruit then
                                 local Name = original or tostring(Item.Name)
-                                if Config and Config.Items and table.find(Config.Items.Eatlist or {}, Name) then
+                                if (chiCatTraiKhacTrang and TraiLoaiTrang(Name)) then
+                                    -- [km47] trai trang -> GIU LAI balo de mo RAID
+                                elseif Config and Config.Items and table.find(Config.Items.Eatlist or {}, Name) then
                                     -- để trái trong Eatlist nằm lại cho luồng tự ăn
                                     print("[Trai] Bo qua (Eatlist): " .. Name)
                                 else
@@ -10192,17 +10342,40 @@ FunctionsHandler = {
                     " | Beli=" .. tostring(pd.Beli) .. " Fragments=" .. tostring(pd.Fragments) ..
                     " Level=" .. tostring(pd.Level) .. " Sea=" .. tostring(SeaIndex))
                 if RandomFruitFailCount >= 3 then
-                    RandomFruitMutedUntil = os.time() + 900
+                    -- [km48] Gacha ban nay CO THE dang trong 2h hoi chieu (khong phai sai lenh),
+                    -- nen nghi TANG DAN 15p -> 30p -> 2h thay vi quay lai moi 60s vo ich.
+                    RandomFruitBackoff = math.min((RandomFruitBackoff or 900) * 2, 7200)
+                    RandomFruitMutedUntil = os.time() + RandomFruitBackoff
                     RandomFruitFailCount = 0
-                    print("[RandomFruit] dung quay 15 phut vi bi server tu choi 3 lan")
-                    alert("Random trai", "Server tu choi 3 lan, nghi 15 phut. " .. string.sub(tostring(Reason), 1, 60))
+                    local phut = math.floor(RandomFruitBackoff / 60)
+                    print("[RandomFruit] dung quay " .. phut .. " phut (bi tu choi 3 lan) | " ..
+                        "nguyen nhan thuong la 2h hoi chieu hoac thieu Beli/Fragments -> thu lai luc " ..
+                        os.date("%H:%M", RandomFruitMutedUntil))
+                    alert("Random trai", "Server tu choi 3 lan, nghi " .. phut ..
+                        " phut (co the do 2h hoi chieu). " .. string.sub(tostring(Reason), 1, 60))
                 end
                 return
             end
             RandomFruitFailCount = 0
+            RandomFruitBackoff = 900
             -- Trái vừa ra nằm trong balo -> cất ngay vào kho
             CatTraiVaoRuong()
             alert("Random trai", "Da quay qua (" .. tostring(Source) .. "): " .. string.sub(Text, 1, 60))
+        end
+
+        -- [km48] Goi tay khi can: RandomTraiNgay() (bo het thoi gian nghi, quay lien)
+        function RandomTraiNgay()
+            RandomFruitMutedUntil = nil
+            RandomFruitFailCount = 0
+            RandomFruitBackoff = 900
+            print("[RandomFruit] RandomTraiNgay -> quay lien khong cho nghi")
+            task.spawn(function()
+                local ok, err = pcall(RandomTraiTuXa)
+                if not ok then
+                    print("[RandomFruit] LOI: " .. tostring(err))
+                end
+            end)
+            return true
         end
 
         task.spawn(function()
@@ -10211,8 +10384,21 @@ FunctionsHandler = {
                 if type(AddPoint) == "function" then
                     pcall(AddPoint)
                 end
-                if Config.Items.AutoRandomFruit and not RaidUsesStoredFruits() and
-                    not (RandomFruitMutedUntil and os.time() < RandomFruitMutedUntil) then
+                -- [km47] BO dieu kien "not RaidUsesStoredFruits()" cua km43 -> gacha chay lai binh thuong
+                -- [km48] LUC NING CUNG PHAI IN RA, neu khong nguoi dung chi thay "ko thấy gacha"
+                if Config.Items.AutoRandomFruit == false then
+                    if not RandomFruitRestLogged or os.time() - RandomFruitRestLogged > 600 then
+                        RandomFruitRestLogged = os.time()
+                        print("[RandomFruit] dang BI TAT (Config.Items.AutoRandomFruit=false / tat trong GUI)")
+                    end
+                elseif RandomFruitMutedUntil and os.time() < RandomFruitMutedUntil then
+                    if not RandomFruitRestLogged or os.time() - RandomFruitRestLogged > 600 then
+                        RandomFruitRestLogged = os.time()
+                        print("[RandomFruit] dang nghi den " .. os.date("%H:%M", RandomFruitMutedUntil) ..
+                            " (con " .. math.floor((RandomFruitMutedUntil - os.time()) / 60) ..
+                            " phut) | muon quay ngay thi goi: RandomTraiNgay()")
+                    end
+                else
                     pcall(RandomTraiTuXa)
                 end
                 task.wait(math.max(10, tonumber(Config.Items.RandomFruitInterval) or 60))
