@@ -95,9 +95,9 @@ Config =
             Settings = {
                 StayInSea2UntilHaveDarkFragments = false,
                 ["Fragments"] = 5000,
-                QuestGracePeriod = 25,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
+                QuestGracePeriod = 30,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
                 QuestStartTimeout = 1.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
-                QuestGoneDelay = 5,        -- [km46] 20s -> 2s: UI mat nhiem vu 2s la nhan lai ngay (truoc day danh them 3-4 con nua moi nhan)
+                QuestGoneDelay = 10,        -- [km46] 20s -> 2s: UI mat nhiem vu 2s la nhan lai ngay (truoc day danh them 3-4 con nua moi nhan)
                 MinFarmDuration = 2.5,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
                 QuestDoneLookahead = true,  -- [km46] gan xong (con 1 con) -> buoc HUD doc lai lien
             }
@@ -763,7 +763,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.19 (SEA 3 ANTI-KICK & NO-HOP)"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
