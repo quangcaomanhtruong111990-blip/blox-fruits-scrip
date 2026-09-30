@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 print("========================================")
-print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
+print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km57 | [Godhuman] CHECK DIEU KIEN TRUOC KHI DI FAM: (1) GodhumanOwnedNow() tim vo Godhuman o MOI noi (Character/Backpack theo TEN DOI KHONG dau cach, ScriptStorage.Tools, ScriptStorage.Melees, HUD game) -> da co la THOI fam, khong con doi ten Tool 'Godhuman' chang; (2) mo [Godhuman] in DAY DU: da mo khoa chua + 4 nguyen lieu (kem co bao [KHONG DOC DUOC] hay khong) + mastery 5 vo + Beli + Frags + ket luan, 60s/lan; (3) NEU khong nguon nao doc duoc nguyen lieu -> DUNG VONG FAM NGUYEN LIEU MUON (fam Fish Tail ca ngay cung khong xong) va bao ly do tren SubTask; (4) cong bat tay Config.Settings.GodhumanAlreadyOwned=true = 'acc nay da co Godhuman' de tat ca buoc Godhuman | km56 | [NPC tu] phan biet 2 kieu NPC tra loi theo file 'KIEM TRA VO OK' cua ban: SO = mua duoc/khong duoc tien (bo qua 10 phut), CHU (string) = chinh game yeu cau them (vi du chua dua Fire Essence) -> CHI bo qua 3 phut va IN NGuyen do len SubTask, khong bi phong top 10 phut oam; log [MeleeCheck] <vo> | <NPC> tra loi: [ly do] | km55 | [KhoLieu] NAP SO NGUYEN LIEU vao ScriptStorage.InvDebugCache (GetItemCount buoc 1b da doc bang nay nen KHONG phai sua no): 15s/lan, thu 3 nguon = LocalPlayer.Data -> remote kho (chi do 1 lan/inject, lenh nao tra table thi nho lai) -> chu trong PlayerGui khi ban MO KHO Stash; chi ghi so >0, ten khop tuyen doi khong spaced ('FishTail42'/'FishTail'+'42'), GUI hub bi loai; chi chay khi bat AutoFullyMelees/Godhuman; log [KhoLieu] <ten> = <so> (nguon: ...) hoac [KhoLieu] CHUA DOC DUOC: ... | km54 | [Sabi / Dragon Claw] VO NAY KHONG ban bang 'BuyDragonClaw' -> lenh check tra ve khac 1 nen cu cho la NPC tu roi bo ve, khong bao gio goi lenh nhan that (Bay toi Sabi ma ko nhan). Nay: bang MeleeAltClaim chi ra lenh nhan rieng cho tung vo (Dragon Claw = BlackbeardReward,'DragonClaw','2'), den NPC la GOI THANG lenh do TRUOC, khong bi check 'Buy<vo>' chan lai; log [MeleeCheck] Dragon Claw ... van goi lenh nhan | km53 | [Godhuman] GetMeleeMastery + CheckGodhumanProgress (duong GO 5 VO + nhan Godhuman da mo khoa) bay gio doc bang [Vo HUD] cua game: 5 vo phu (Superhuman/Death Step/Electric Claw/Sharkman Karate/Dragon Talon) cat trong kho van duoc tinh mastery 400, Godhuman co trong HUD = da mo khoa; nguon cu chi nhin Tool trong Character/Backpack nen luc nao cung bao thieu vo va fam khong bao gio xong | km52 | [Vo HUD] DOC DONG MASTERY CUA GAME (PlayerGui, 'Dark Step: 405 | Electro: 407 | ...') 10s/lan de biet CHINH XAC dang co vo nao + mastery bao nhieu, khong can equip Tool va khong goi remote; nguon nay nap cho GetPlayerMeleeMastery + MeleeIsOwned; GUI cua hub bi loai khoi bua doc | km51 | [Vo check] MOI LAN: in CA 10 VO (XONG / CO / KO + mastery + action) 1 phut/lan de thay no nghi gi; luu y cho den luc nay: 'CO/KO' chi nhan duoc khi Tool cua vo nam trong Character/Backpack hoac da tung thay trong lan chay nay | km50 | TU DOI SERVER MOI 15 PHUT (TimHop): dung __ServerBrowser cua game de teleport, khong dung TeleportService; chay background moi 5s kiem tra dong ho, den gio ma dang giua raid/Trevor thi cho 30s; muon tat: Config.Settings.AutoTimHop=false, doi gio: Config.Settings.HopEveryMin=15; log [Hop] (... du 15 phut, tranh Security kick 267) -> ServerBrowser(N server...) -> lenh teleport tra ve: ok | KHONG CON code dem nguyen lieu km49 (da revert ve km48) | km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
 print("[Bocchi Hub] Initializing modules...")
 print("========================================")
 
@@ -97,7 +97,7 @@ Config =
                 ["Fragments"] = 5000,
                 QuestGracePeriod = 25,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
                 QuestStartTimeout = 1.0,    -- Thời gian chờ UI sau khi gửi lệnh StartQuest
-                QuestGoneDelay = 2,        -- [km46] 20s -> 2s: UI mat nhiem vu 2s la nhan lai ngay (truoc day danh them 3-4 con nua moi nhan)
+                QuestGoneDelay = 5,        -- [km46] 20s -> 2s: UI mat nhiem vu 2s la nhan lai ngay (truoc day danh them 3-4 con nua moi nhan)
                 MinFarmDuration = 2.5,      -- Thời gian farm tối thiểu trước khi kiểm tra hoàn thành quest
                 QuestDoneLookahead = true,  -- [km46] gan xong (con 1 con) -> buoc HUD doc lai lien
             }
@@ -140,6 +140,12 @@ do
         HudLabelMemo = 8,       -- 8s moi quet toan bo label PlayerGui
         QuestProgressMemo = 4,  -- 4s moi doc lai dem "x/y"
         EnemyCountMemo = 2,     -- 2s moi dem quai trong workspace.Enemies
+        HopEveryMin = 15,       -- [km50] moi 15 phut doi server 1 lan (0 = tat)
+        AutoTimHop = true,      -- [km50] tat = true/false
+        -- [km57] Nhan tay: "acc nay DA CO Godhuman" -> script ngung het buoc fam
+        -- nguyen lieu / mastery / Beli cho Godhuman (khong co cach nao khac de kiem
+        -- tra chu quyen vo khi Tool khong nam trong balo).
+        GodhumanAlreadyOwned = false,
     }
     for k, v in pairs(Km45Defaults) do
         if Config.Settings[k] == nil then
@@ -757,7 +763,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sanglove v1.19 (SEA 3 ANTI-KICK & NO-HOP)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3633,11 +3639,183 @@ ScriptStorage = {
             return foundCount
         end
 
+        -- ============ [km55] DOC SO NGUYEN LIEU TUGUI GAME (KHONG sua GetItemCount) ============
+        -- GetItemCount buoc 1b da doc ScriptStorage.InvDebugCache, o day chi THEM nguon nap
+        -- du lieu vao bang do: (1) LocalPlayer.Data, (2) CommF_ lenh thu kho, (3) chu trong
+        -- PlayerGui (kho Stash). Chi ghi so > 0, ten khop CHINH XAC, GUI cua hub bi loai tru.
+        MaterialCompact = function(s)
+            return string.gsub(string.lower(tostring(s or "")), "[^%a0-9]", "")
+        end
+        MaterialCacheLog = MaterialCacheLog or {}
+        MaterialRemoteCmd = MaterialRemoteCmd or nil
+        MaterialCacheTick = MaterialCacheTick or 0
+        function RefreshMaterialCache(force)
+            if not force and (os.clock() - MaterialCacheTick) < 15 then return end
+            MaterialCacheTick = os.clock()
+            ScriptStorage = ScriptStorage or {}
+            ScriptStorage.InvDebugCache = ScriptStorage.InvDebugCache or {}
+            local want = {}
+            for _, mat in ipairs(GodhumanMaterialsList or {}) do
+                want[mat.Name] = MaterialCompact(mat.Name)
+            end
+            local got, src = {}, {}
+
+            -- Nguon 1: LocalPlayer.Data (chi lay Value/Number/IntValue co TEN = ten vat pham)
+            pcall(function()
+                local data = game:GetService("Players").LocalPlayer:FindFirstChild("Data")
+                if not data then return end
+                for _, d in ipairs(data:GetDescendants()) do
+                    for name, key in pairs(want) do
+                        if not got[name] and MaterialCompact(d.Name) == key then
+                            local v = d:FindFirstChild("Value") and d.Value.Value or nil
+                            local num = tonumber(v)
+                            if num and num > 0 then
+                                got[name] = num
+                                src[name] = "Data"
+                            end
+                        end
+                    end
+                end
+            end)
+
+            -- Nguon 2: remote kho - THAM MO 1 LAN/inject (4 lenh deu da bi do nil o ban nay),
+            -- lenh nao tra ve table thi nho lai de nhung lan sau chi goi dung 1 lenh.
+            local conThieu = false
+            for name in pairs(want) do
+                if not got[name] then
+                    conThieu = true
+                    break
+                end
+            end
+            if conThieu then
+                pcall(function()
+                    local rem = game:GetService("ReplicatedStorage").Remotes.CommF_
+                    local cmds = {}
+                    if MaterialRemoteCmd then
+                        table.insert(cmds, MaterialRemoteCmd)
+                    elseif not MaterialRemoteProbed then
+                        MaterialRemoteProbed = true
+                        cmds = { "getInventoryMaterials", "getMaterials", "Materials", "getInventory" }
+                    end
+                    for _, cmd in ipairs(cmds) do
+                        local okR, res = pcall(function() return rem:InvokeServer(cmd) end)
+                        if okR and type(res) == "table" then
+                            MaterialRemoteCmd = cmd
+                            for k, v in pairs(res) do
+                                local vName = (type(v) == "table" and (v.Name or v.Item)) or (type(k) == "string" and k) or nil
+                                local num = (type(v) == "number" and v) or (type(v) == "table" and tonumber(v.Count or v.Amount or v.Value)) or nil
+                                for name2, key in pairs(want) do
+                                    if not got[name2] and vName and MaterialCompact(vName) == key and num and num > 0 then
+                                        got[name2] = num
+                                        src[name2] = "Remote:" .. tostring(cmd)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+
+            -- Nguon 3: chu trong PlayerGui (hang stokhoa Stash) - chi khi 2 nguon tren thua
+            local soThua = 0
+            for name in pairs(want) do
+                if not got[name] then soThua = soThua + 1 end
+            end
+            if soThua > 0 then
+                pcall(function()
+                    local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                    if not pg then return end
+                    local dem = 0
+                    for _, lbl in ipairs(pg:GetDescendants()) do
+                        if dem > 500 then break end
+                        dem = dem + 1
+                        local isText = false
+                        pcall(function() isText = lbl:IsA("GuiText") end)
+                        if isText then
+                            local txt = nil
+                            pcall(function() txt = lbl.Text end)
+                            if type(txt) == "string" and #txt > 2 and #txt < 90 then
+                                local sg = nil
+                                pcall(function() sg = lbl:FindFirstAncestorOfClass("ScreenGui") end)
+                                local gname = string.lower(tostring(sg and sg.Name or ""))
+                                if gname ~= "cyndraldev" and string.find(gname, "bocchi", 1, true) == nil
+                                    and string.find(gname, "hub", 1, true) == nil then
+                                    local compact = MaterialCompact(txt)
+                                    for name, key in pairs(want) do
+                                        if not got[name] then
+                                            -- "Fish Tail 42" / "Fish Tail (42)" -> so dinh
+                                            -- ngay sau ten trong cung 1 dong chu
+                                            local num = tonumber(string.match(compact, "^" .. key .. "(%d+)$"))
+                                            -- "Fish Tail" rieng + "42" o nhan benh canh
+                                            if not num and compact == key then
+                                                for _, sib in ipairs((lbl.Parent and lbl.Parent:GetChildren()) or {}) do
+                                                    if sib ~= lbl then
+                                                        local st = nil
+                                                        pcall(function()
+                                                            if sib:IsA("GuiText") then st = sib.Text end
+                                                        end)
+                                                        local n2 = tonumber(string.match(tostring(st), "^%s*(%d+)%s*$"))
+                                                        if n2 then
+                                                            num = n2
+                                                            break
+                                                        end
+                                                    end
+                                                end
+                                            end
+                                            if num and num > 0 then
+                                                got[name] = num
+                                                src[name] = "HUD"
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+
+            for name, num in pairs(got) do
+                ScriptStorage.InvDebugCache[name] = num
+                if MaterialCacheLog[name] ~= num then
+                    MaterialCacheLog[name] = num
+                    print("[KhoLieu] " .. name .. " = " .. num .. " (nguon: " .. tostring(src[name]) .. ")")
+                end
+            end
+            -- Bao cao khi KHONG doc duoc (2 phut/lan) de biet nguon nao ton tai tren ban nay
+            if soThua > 0 then
+                MaterialMissLogTick = MaterialMissLogTick or 0
+                if os.clock() - MaterialMissLogTick > 120 then
+                    MaterialMissLogTick = os.clock()
+                    local ds, rs = {}, {}
+                    for _, mat in ipairs(GodhumanMaterialsList or {}) do
+                        if not got[mat.Name] then table.insert(ds, mat.Name) end
+                    end
+                    print("[KhoLieu] CHUA DOC DUOC: " .. table.concat(ds, ", ") ..
+                        " | Data=" .. (tostring(ScriptStorage.InvDebugCache[GodhumanMaterialsList[1].Name] or "trong")) ..
+                        " | Remote=" .. tostring(MaterialRemoteCmd or "khong lenh nao tra table") ..
+                        " (mo kho Stash roi cho 15s)")
+                end
+            end
+            return got
+        end
+
+        -- [km55] Dong ho nap bang nguyen lieu: chi chay khi bat chuong Go Toan Bo / Godhuman
+        task.spawn(function()
+            task.wait(12)
+            while true do
+                task.wait(15)
+                if (Config.Items and Config.Items.AutoFullyMelees) or GodHumanFlag then
+                    pcall(RefreshMaterialCache)
+                end
+            end
+        end)
+
         function GetMeleeMastery(mName)
             if not mName then return 0 end
             local curPlayer = game.Players.LocalPlayer
             local char = curPlayer and curPlayer.Character
-            local bp = curPlayer and curPlayer:FindFirstChild("Backpack")
+            local bp = curPlayer and (curPlayer:FindFirstChild("Backpack") or (char and char:FindFirstChild("Backpack")))
             local tool = (char and char:FindFirstChild(mName)) or (bp and bp:FindFirstChild(mName))
             if tool then
                 local lvlObj = tool:FindFirstChild("Level")
@@ -3651,7 +3829,72 @@ ScriptStorage = {
             if ScriptStorage and ScriptStorage.Melees and tonumber(ScriptStorage.Melees[mName]) then
                 return tonumber(ScriptStorage.Melees[mName]) or 0
             end
+            -- [km53] GetMeleeMastery (dùng riêng cho Godhuman) cũng phải đọc được dòng
+            -- mastery trên HUD game, nếu không thì 5 võ phụ cất trong kho luôn = 0.
+            if type(ReadMeleeMasteryHud) == "function" then
+                local hudVal = 0
+                pcall(function()
+                    local canon = (type(ToCanonicalMeleeName) == "function") and ToCanonicalMeleeName(mName) or mName
+                    hudVal = tonumber(ReadMeleeMasteryHud()[canon or mName]) or 0
+                end)
+                if hudVal > 0 then
+                    if ScriptStorage and ScriptStorage.Melees then
+                        ScriptStorage.Melees[ToCanonicalMeleeName and ToCanonicalMeleeName(mName) or mName] = hudVal
+                    end
+                    return hudVal
+                end
+            end
             return 0
+        end
+
+        -- [km57] Tim vo Godhuman o BAT CU dau: Character / Backpack / ScriptStorage.Tools /
+        -- ScriptStorage.Melees (mo rong: moi key co ten "khong dau cach" = godhuman), HUD game,
+        -- va cong them cong bat tay cua nguoi dung (Config.Settings.GodhumanAlreadyOwned).
+        function GodhumanNameMatch(nm)
+            local c = string.gsub(string.lower(tostring(nm or "")), "[^%a0-9]", "")
+            return c == "godhuman"
+        end
+        function GodhumanOwnedNow()
+            if Config and Config.Settings and Config.Settings.GodhumanAlreadyOwned then
+                return true, "ban da bat tay (GodhumanAlreadyOwned=true)"
+            end
+            local ok, res = pcall(function()
+                local lp = game:GetService("Players").LocalPlayer
+                local char = lp and lp.Character
+                local bp = lp and (lp:FindFirstChild("Backpack") or (char and char:FindFirstChild("Backpack")))
+                for _, holder in ipairs({ char, bp }) do
+                    if holder then
+                        for _, t in ipairs(holder:GetChildren()) do
+                            if GodhumanNameMatch(t.Name) and t:IsA("Tool") then
+                                return true, "Tool " .. t.Name
+                            end
+                        end
+                    end
+                end
+                if ScriptStorage and ScriptStorage.Tools then
+                    for k in pairs(ScriptStorage.Tools) do
+                        if GodhumanNameMatch(k) then return true, "ScriptStorage.Tools." .. tostring(k) end
+                    end
+                end
+                if ScriptStorage and ScriptStorage.Melees then
+                    for k, v in pairs(ScriptStorage.Melees) do
+                        if GodhumanNameMatch(k) and tonumber(v) and tonumber(v) > 0 then
+                            return true, "ScriptStorage.Melees." .. tostring(k)
+                        end
+                    end
+                end
+                if type(ReadMeleeMasteryHud) == "function" then
+                    local hud = ReadMeleeMasteryHud()
+                    for k, v in pairs(hud or {}) do
+                        if GodhumanNameMatch(k) then
+                            return true, "HUD game (" .. tostring(k) .. ": " .. tostring(v) .. ")"
+                        end
+                    end
+                end
+                return false, nil
+            end)
+            if ok then return res end
+            return false, nil
         end
 
         function CheckGodhumanProgress()
@@ -3670,10 +3913,12 @@ ScriptStorage = {
             -- 0. Check xem đã sở hữu Godhuman chưa
             local curPlayer = game.Players.LocalPlayer
             local char = curPlayer and curPlayer.Character
-            local bp = curPlayer and curPlayer:FindFirstChild("Backpack")
-            if (char and char:FindFirstChild("Godhuman")) or (bp and bp:FindFirstChild("Godhuman")) or (ScriptStorage and ScriptStorage.Melees and ScriptStorage.Melees["Godhuman"]) then
+            local bp = curPlayer and (curPlayer:FindFirstChild("Backpack") or (char and char:FindFirstChild("Backpack")))
+            -- [km57] Dung GodhumanOwnedNow() (tim duong doi ten, khong so cu "Godhuman")
+            local ownedNow, ownedWhy = GodhumanOwnedNow()
+            if ownedNow then
                 status.Unlocked = true
-                status.SummaryText = "Godhuman đã mở khóa thành công!"
+                status.SummaryText = "Godhuman đã mở khóa thành công! (" .. tostring(ownedWhy) .. ")"
                 return status
             end
 
@@ -3740,6 +3985,29 @@ ScriptStorage = {
                     table.insert(details, "Thiếu Frags (" .. status.CurFragments .. "/5,000)")
                 end
                 status.SummaryText = table.concat(details, " | ")
+            end
+
+            -- [km57] IN HET DIEU KIEN TRUOC KHI QUYET DINH DI FAM (60s/lan) de ca hai
+            -- cung thay no nghi gi, va phat hien "nguyen lieu khong doc duoc" (khac 0 that).
+            GodhumanDumpTick = GodhumanDumpTick or 0
+            if os.clock() - GodhumanDumpTick > 60 then
+                GodhumanDumpTick = os.clock()
+                local nl, vo = {}, {}
+                for _, mat in ipairs(GodhumanMaterialsList) do
+                    local c = GetItemCount(mat.Name)
+                    local doc = MaterialCacheLog and MaterialCacheLog[mat.Name]
+                    table.insert(nl, mat.Name .. " " .. c .. "/" .. mat.Req ..
+                        (doc and "" or " [KHONG DOC DUOC]"))
+                end
+                for _, mName in ipairs(GodhumanMeleesList) do
+                    table.insert(vo, mName .. " " .. GetMeleeMastery(mName))
+                end
+                print("[Godhuman] da mo khoa: " .. tostring(status.Unlocked) ..
+                    " | NL: " .. table.concat(nl, ", ") ..
+                    " | 5 vo: " .. table.concat(vo, ", ") ..
+                    " | Beli " .. status.CurBeli .. "/5000000" ..
+                    " | Frags " .. status.CurFragments .. "/5000" ..
+                    " | => " .. tostring(status.SummaryText))
             end
 
             return status
@@ -5042,7 +5310,27 @@ FunctionsHandler = {
                     local ghStatus = CheckGodhumanProgress()
                     if not ghStatus.Unlocked then
                         -- THIẾU NGUYÊN LIỆU (Ưu tiên farm ở Sea 3)
-                        if #ghStatus.MissingMaterials > 0 then
+                        -- [km57] Neu KHONG nguon nao doc duoc bat cu nguyen lieu nao (Data /
+                        -- remote kho / chu trong Stash deu im lang) thi fam ca ngay cung khong
+                        -- bao gio "du 20" -> dung vong lap fam muon, in ly do ra SubTask.
+                        local coNLDocDuoc = false
+                        for _, mat in ipairs(ghStatus.MissingMaterials) do
+                            if MaterialCacheLog and MaterialCacheLog[mat.Name] then
+                                coNLDocDuoc = true
+                                break
+                            end
+                        end
+                        if #ghStatus.MissingMaterials > 0 and not coNLDocDuoc then
+                            SetTask("MainTask", "Godhuman | khong doc duoc nguyen lieu")
+                            SetTask("SubTask", "Mo kho Stash de [KhoLieu] doc so, neu van khong thay " ..
+                                "thi bat GodhumanAlreadyOwned=true (da co vo) hoac [Vo check] de fam vo khac")
+                            GodhumanBlindTick = GodhumanBlindTick or 0
+                            if os.clock() - GodhumanBlindTick > 60 then
+                                GodhumanBlindTick = os.clock()
+                                print("[Godhuman] KHONG doc duoc so nguyen lieu -> THOI fam nguyen lieu " ..
+                                    "(fam " .. tostring(ghStatus.MissingMaterials[1].Name) .. " se khong bao gio xong)")
+                            end
+                        elseif #ghStatus.MissingMaterials > 0 then
                             local targetMat = nil
                             for _, mat in ipairs(ghStatus.MissingMaterials) do
                                 if mat.Sea == SeaIndex then
@@ -6104,6 +6392,75 @@ FunctionsHandler = {
             return MeleeCanonicalNames[name] or name
         end
 
+        -- ============ [km52] DOC DONG MASTERY TREN HUD CUA GAME DE BIET CO VO THAT ============
+        -- Vo da mua neu KHONG equip nam trong Character/Backpack thi GetPlayerMeleeTool
+        -- khong thay => mastery doc ra 0 => script tuong chua co vo (nguoi choi thi thay
+        -- HUD game ghi ro "Dark Step: 405 | Water Kung-fu: 401 | Electro: 407 | ...").
+        -- Day la nguon THAT hien tren man hinh, khong phai goi remote nao ca.
+        MeleeHudMastery = MeleeHudMastery or {}
+        MeleeHudMasteryTick = MeleeHudMasteryTick or 0
+
+        local function MeleeHudKey(s)
+            local t = string.gsub(tostring(s or ""), "^%s*(.-)%s*$", "%1")
+            return string.lower(string.gsub(t, "[^%a0-9]", ""))
+        end
+
+        function ReadMeleeMasteryHud()
+            local now = os.clock()
+            if (now - MeleeHudMasteryTick) < 10 then return MeleeHudMastery end
+            MeleeHudMasteryTick = now
+
+            local found = {}
+            pcall(function()
+                local lp = game:GetService("Players").LocalPlayer
+                local pg = lp and (lp:FindFirstChild("PlayerGui") or lp:WaitForChild("PlayerGui", 5))
+                if not pg then return end
+                for _, lbl in ipairs(pg:GetDescendants()) do
+                    local isText = false
+                    pcall(function() isText = lbl:IsA("GuiText") end)
+                    if isText then
+                        local txt = nil
+                        pcall(function() txt = lbl.Text end)
+                        if type(txt) == "string" and #txt > 4 and string.find(txt, ":", 1, true) then
+                            local sg = nil
+                            pcall(function() sg = lbl:FindFirstAncestorOfClass("ScreenGui") end)
+                            local gname = string.lower(tostring(sg and sg.Name or ""))
+                            -- GUI cua hub cung co cho "Black Leg: 401" -> bo qua de khong
+                            -- doc lai chinh gia tri sai cua no (vong tron thong tin)
+                            if gname ~= "cyndraldev"
+                                and string.find(gname, "bocchi", 1, true) == nil
+                                and string.find(gname, "hub", 1, true) == nil then
+                                for rawName, rawVal in string.gmatch(txt, "([%a][%a%s%'%-]*):%s*(%d+)") do
+                                    local key = MeleeHudKey(rawName)
+                                    local val = tonumber(rawVal)
+                                    if val and #key > 2 then
+                                        for styleName, aliases in pairs(MeleeToolAliases) do
+                                            for _, al in ipairs(aliases) do
+                                                if MeleeHudKey(al) == key then
+                                                    if not found[styleName] or found[styleName] < val then
+                                                        found[styleName] = val
+                                                    end
+                                                    break
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+
+            for styleName, val in pairs(found) do
+                if MeleeHudMastery[styleName] ~= val then
+                    MeleeHudMastery[styleName] = val
+                    print("[Vo HUD] " .. styleName .. " = " .. val .. " (doc tu HUD game)")
+                end
+            end
+            return MeleeHudMastery
+        end
+
         function GetPlayerMeleeTool(meleeName)
             local canon = ToCanonicalMeleeName(meleeName)
             local aliases = MeleeToolAliases[canon] or {meleeName}
@@ -6147,6 +6504,15 @@ FunctionsHandler = {
                 if cachedCanon and cachedCanon > 0 then
                     return cachedCanon
                 end
+            end
+
+            -- [km52] nguon 3: dong mastery tren HUD game (van thay du vo da cat vao kho)
+            local hudVal = tonumber(ReadMeleeMasteryHud()[ToCanonicalMeleeName(meleeName) or meleeName])
+            if hudVal and hudVal > 0 then
+                if ScriptStorage and ScriptStorage.Melees then
+                    ScriptStorage.Melees[ToCanonicalMeleeName(meleeName) or meleeName] = hudVal
+                end
+                return hudVal
             end
 
             return 0
@@ -6291,6 +6657,17 @@ FunctionsHandler = {
             ["Electric Claw"] = {Sea = 3, CFrame = CFrame.new(-245, 331, -3300), Npc = "Previous Hero"},
             ["Dragon Talon"] = {Sea = 3, CFrame = CFrame.new(-5410, 314, -2600), Npc = "Uzoth"},
             ["Godhuman"] = {Sea = 3, CFrame = CFrame.new(-2864, 45, -8378), Npc = "Ancient Monk"},
+        }
+
+        -- [km54] Mo so vo KHONG ban bang lenh "Buy<TenVo>" -> remote check "Buy<id>, true"
+        -- tra ve nil/khac 1, doan check cu coi la NPC tu roi bo ve, khong bao gio goi lenh
+        -- nhan that. Vo nao nam o day thi den NPC la goi thang lenh nay truoc.
+        MeleeAltClaim = {
+            ["Dragon Claw"] = {
+                label = "BlackbeardReward/DragonClaw/2",
+                args = {"BlackbeardReward", "DragonClaw", "2"},
+                why = "Dragon Claw (Hoi Tho Rong) o day nay mua qua Sabi bang BlackbeardReward, khong phai BuyDragonClaw"
+            },
         }
 
         -- ==================== [km24] NPC O DAY LA DUNG, KHONG TIN BANG "Sea" CUNG ====================
@@ -6703,10 +7080,13 @@ FunctionsHandler = {
             local t = MeleeDenied and MeleeDenied[name]
             return (t ~= nil) and (os.time() - t) < MeleeDenySeconds
         end
-        function MeleeDeny(name, why)
+        function MeleeDeny(name, why, so)
             MeleeDenied = MeleeDenied or {}
-            MeleeDenied[name] = os.time()
-            print("[MeleeCheck] TAM BO QUA " .. tostring(name) .. " trong " .. MeleeDenySeconds .. "s: " .. tostring(why))
+            -- [km56] so = so giay bo qua (mac dinh 10 phut). Luu thoi diem "gia" de
+            -- MeleeIsDenied tu het hieu dung sau so giay do.
+            local secs = tonumber(so) or MeleeDenySeconds
+            MeleeDenied[name] = os.time() - (MeleeDenySeconds - secs)
+            print("[MeleeCheck] TAM BO QUA " .. tostring(name) .. " trong " .. secs .. "s: " .. tostring(why))
         end
 
         function MeleeIsOwned(name)
@@ -6714,6 +7094,9 @@ FunctionsHandler = {
                 if GetPlayerMeleeTool(name) then return true end
                 local m = ScriptStorage and ScriptStorage.Melees and ScriptStorage.Melees[name]
                 if m and tonumber(m) and tonumber(m) > 0 then return true end
+                -- [km52] HUD game ghi "Ten Vo: 400" => da mua that, du da cat vo vao kho
+                local hv = tonumber(ReadMeleeMasteryHud()[ToCanonicalMeleeName(name) or name])
+                if hv and hv > 0 then return true end
                 return false
             end)
             return (ok and res) == true
@@ -6724,12 +7107,15 @@ FunctionsHandler = {
         --   ev.first = vo dau tien trong chuoi CON THIEU (de bao ly do)
         function EvalMeleeTarget()
             local first, pickBuy, pickFarm = nil, nil, nil
+            local all = {}
             for _, name in ipairs(MeleeChain) do
                 local md = MeleePrices and MeleePrices[name]
                 local req = (md and md.NextLevelRequirement) or 400
                 local mastery = 0
                 pcall(function() mastery = GetPlayerMeleeMastery(name) end)
-                if mastery < req then
+                if mastery >= req then
+                    table.insert(all, name .. "=XONG(" .. mastery .. ")")
+                else
                     local info = MeleeNpcInfo[name]
                     local sea = (info and info.Sea) or 0
                     local owned = MeleeIsOwned(name)
@@ -6774,13 +7160,21 @@ FunctionsHandler = {
                             entry.reason = "du dieu kien -> den " .. entry.npc .. " check tan noi"
                         end
                     end
+                    table.insert(all, name .. "=" .. (owned and "CO" or "KO") .. " " .. mastery .. "/" .. req
+                        .. " [" .. entry.action .. (entry.action == "npc_absent" and ("|" .. entry.npc) or "") .. "]")
                     if not first then first = entry end
                     if entry.action == "buy" and not pickBuy then pickBuy = entry end
                     if entry.action == "farm" and not pickFarm then pickFarm = entry end
                 end
             end
+            -- [km51] In toan bo 10 vo 1 phut/lan de hai nguoi cung thay no nghi gi
+            MeleeCheckDumpTick = MeleeCheckDumpTick or 0
+            if os.clock() - MeleeCheckDumpTick > 60 then
+                MeleeCheckDumpTick = os.clock()
+                print("[Vo check] " .. table.concat(all, " | "))
+            end
             if not first then return nil end
-            return { pick = pickBuy or pickFarm, first = first }
+            return { pick = pickBuy or pickFarm, first = first, all = all }
         end
 
         FunctionsHandler.MeleesController:RegisterMethod(
@@ -7144,7 +7538,33 @@ FunctionsHandler = {
                 MeleeBuyable[targetMelee] = (okC and resC == 1)
                 print("[MeleeCheck] tai NPC " .. tostring(targetInfo.Npc) .. " | Buy" .. tostring(mId) .. " check = " .. tostring(resC) .. " (" .. typeof(resC) .. ")")
 
-                if not MeleeBuyable[targetMelee] then
+                -- [km54] Dragon Claw (Sabi) khong mua bang "BuyDragonClaw": check = nil -> cu
+                -- bi coi la NPC tu. Vo nao co lenh nhan rieng trong MeleeAltClaim thi van tien hanh.
+                local altClaim = (type(MeleeAltClaim) == "table") and MeleeAltClaim[targetMelee] or nil
+                if not MeleeBuyable[targetMelee] and altClaim then
+                    print("[MeleeCheck] " .. targetMelee .. " | Buy" .. tostring(mId) .. " check = " ..
+                        tostring(resC) .. " (khac 1) nhung vo nay nhan bang [" .. altClaim.label ..
+                        "] -> van goi lenh nhan tai " .. tostring(targetInfo.Npc))
+                end
+
+                -- [km56] File "KIEM TRA VO OK" cua ban cho thay: khi NPC tra ve CHU (string)
+                -- thi do la ly do chinh game noi (Dragon Talon: chua dua Fire Essence...),
+                -- KHONG phai "ong nay khong ban vo" -> chi bo qua 3 phut roi thu lai.
+                if not MeleeBuyable[targetMelee] and not altClaim and okC and type(resC) == "string" then
+                    print("[MeleeCheck] " .. targetMelee .. " | " .. tostring(targetInfo.Npc) ..
+                        " tra loi: \"" .. tostring(resC) .. "\"")
+                    MeleeDeny(targetMelee, "NPC bao: " .. tostring(resC), 180)
+                    SetTask("MainTask", "[km56] Melee | " .. targetMelee .. " | " .. tostring(targetInfo.Npc) .. " yeu cau them")
+                    SetTask("SubTask", "Game bao: " .. tostring(resC) .. " -> bo qua 3 phut, fam tiep")
+                    ScriptStorage.IsGettingMelee = false
+                    if FunctionsHandler.LevelFarm and FunctionsHandler.LevelFarm.Methods and FunctionsHandler.LevelFarm.Methods.Start then
+                        pcall(function() FunctionsHandler.LevelFarm.Methods.Start:Call() end)
+                    end
+                    MeleeEvalTick = 0
+                    return
+                end
+
+                if not MeleeBuyable[targetMelee] and not altClaim then
                     -- [km23] NPC tu -> cach ly 10 phut de khong bay lai ong nay lien tuc
                     MeleeDeny(targetMelee, "server tra " .. tostring(resC) .. " khi den tan noi " .. tostring(targetInfo.Npc))
                     SetTask("MainTask", "[km34] Melee | " .. targetMelee .. " | " .. tostring(targetInfo.Npc) .. " tu (ma " .. tostring(resC) .. ")")
@@ -7173,17 +7593,21 @@ FunctionsHandler = {
                     return GetPlayerMeleeTool(targetMelee)
                 end
 
-                existingTool = claimMelee("Buy" .. mId, function()
-                    return Remotes.CommF_:InvokeServer("Buy" .. mId)
-                end)
+                -- [km54] thu lenh nhan dac biet cua vo nay TRUOC (Dragon Claw -> BlackbeardReward)
+                existingTool = nil
+                if altClaim then
+                    existingTool = claimMelee(altClaim.label, function()
+                        return Remotes.CommF_:InvokeServer(table.unpack(altClaim.args))
+                    end)
+                end
+                if not existingTool then
+                    existingTool = claimMelee("Buy" .. mId, function()
+                        return Remotes.CommF_:InvokeServer("Buy" .. mId)
+                    end)
+                end
                 if not existingTool then
                     existingTool = claimMelee("Buy" .. mId .. ",1", function()
                         return Remotes.CommF_:InvokeServer("Buy" .. mId, 1)
-                    end)
-                end
-                if not existingTool and targetMelee == "Dragon Claw" then
-                    existingTool = claimMelee("BlackbeardReward/DragonClaw/2", function()
-                        return Remotes.CommF_:InvokeServer("BlackbeardReward", "DragonClaw", "2")
                     end)
                 end
                 print("[MeleeCheck] LENH NHAN " .. targetMelee .. " tai " .. tostring(targetInfo.Npc) ..
@@ -9699,6 +10123,112 @@ FunctionsHandler = {
                 return alert("Serverhop", "Couldn't find a server.")
             end
         end
+
+        -- ======================= [km50] TỰ ĐỔI SERVER SAU 15 PHÚT =======================
+        -- Ban nay chay lau la nhan "Mat ket noi: Security kick, please rejoin. (Ma Loi: 267)".
+        -- Cua rang 15 phut doi server 1 lan thi chua kip bi phat hien.
+        -- TimHop khong dung TeleportService (hay bi chan), ma dung chinh __ServerBrowser
+        -- cua game de teleport -> giong luc ban bam hop thu cong trong menu.
+        TimHopLastAt = os.time()
+        TimHopRetryAt = 0
+
+        function TimHop(Reason)
+            local cur = game.JobId
+            local picked, how = nil, nil
+
+            -- Nguon 1: danh sach server cua chinh game (khong can HTTP, chay duoc tren DT)
+            pcall(function()
+                local Servers = GetServers() or {}
+                local best, bestCnt = nil, 999
+                local n = 0
+                for jobId, info in pairs(Servers) do
+                    if type(jobId) == "string" and jobId ~= "" and jobId ~= cur then
+                        n = n + 1
+                        local cnt = 0
+                        if type(info) == "table" then cnt = tonumber(info.Count) or 0 else cnt = tonumber(info) or 0 end
+                        if cnt < bestCnt then
+                            best, bestCnt = jobId, cnt
+                        end
+                    end
+                end
+                if best then
+                    picked = best
+                    how = "ServerBrowser(" .. n .. " server, it nguoi nhat = " .. bestCnt .. ")"
+                end
+            end)
+
+            -- Nguon 2: HTTP public servers (PC executor moi duoc)
+            if not picked then
+                pcall(function()
+                    local req = game:HttpGet(
+                        "https://games.roblox.com/v1/games/" ..
+                            game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=true"
+                    )
+                    local body = nil
+                    pcall(function()
+                        body = game:GetService("HttpService"):JSONDecode(req)
+                    end)
+                    for _, v in ipairs((type(body) == "table" and body.data) or {}) do
+                        if type(v) == "table" and type(v.id) == "string" and v.id ~= cur and tonumber(v.playing) then
+                            picked = v.id
+                            how = "HttpGet"
+                            break
+                        end
+                    end
+                end)
+            end
+
+            if not picked then
+                TimHopRetryAt = os.time() + 300
+                print("[Hop] KHONG tim duoc server nao de doi | " .. tostring(Reason) .. " | thu lai sau 5 phut")
+                return false
+            end
+
+            print("[Hop] (" .. tostring(Reason) .. ") -> " .. tostring(how) .. " | JobId=" .. tostring(picked))
+            local okk, res = pcall(function()
+                local browser = game:GetService("ReplicatedStorage"):FindFirstChild("__ServerBrowser")
+                if not browser then return "khong co __ServerBrowser" end
+                browser:InvokeServer("teleport", picked)
+                return "ok"
+            end)
+            print("[Hop] lenh teleport tra ve: " .. tostring(okk) .. " " .. tostring(res))
+            return true
+        end
+
+        task.spawn(function()
+            task.wait(20)
+            while not _G.Stop do
+                local gapMin = tonumber(Config and Config.Settings and Config.Settings.HopEveryMin) or 15
+                local nowT = os.time()
+                if (Config.Settings.AutoTimHop ~= false) and gapMin > 0
+                    and (nowT - TimHopLastAt >= gapMin * 60)
+                    and (nowT >= TimHopRetryAt) then
+                    local busy = false
+                    pcall(function()
+                        if FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess") then
+                            busy = true
+                        end
+                        if FunctionsHandler.Trevor and FunctionsHandler.Trevor:Get("IsLoadingFruit") then
+                            busy = true
+                        end
+                    end)
+                    if busy then
+                        print("[Hop] den " .. gapMin .. " phut nhung dang giua raid/Trevor -> cho 30s")
+                        TimHopRetryAt = nowT + 30
+                    else
+                        TimHopLastAt = nowT
+                        pcall(function()
+                            SetTask("SubTask", "Doi server sau " .. gapMin .. " phut (tranh kick 267)...")
+                        end)
+                        pcall(TimHop, "du " .. gapMin .. " phut, tranh Security kick 267")
+                        print("[Hop] LUU Y: doi server xong la script DUNG chay (server moi = Luau moi). " ..
+                            "Phai bat 'Auto-execute / tu inject' trong executor va luu file nay vao danh sach " ..
+                            "script cua no, neu khong thi phai bam chay lai tay sau moi lan hop.")
+                    end
+                end
+                task.wait(5)
+            end
+        end)
 
 
 
