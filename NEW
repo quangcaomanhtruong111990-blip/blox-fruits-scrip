@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 print("========================================")
-print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
+print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD km49 | DEM NGUYEN LIEU DA THAT: GetItemCount bay gio doc LocalPlayer.Data (so/attrs/chuoi 'Ten-42;' hoac JSON) + remote 'getInventoryMaterials' (thu 1 lan/inject, nho lenh nao dung) + nhan trong PlayerGui => [KhoLieu] <ten> = <so> (nguon: ...) va [InvDebug][km49] Data (...): in cau truc Data 1 lan, [InvDebug][km49] CommF_,<lenh> -> <kqua>; tru day luc nao cung 'Fish Tail (0/20)' du Stash co 42 cai | km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
 print("[Bocchi Hub] Initializing modules...")
 print("========================================")
 
@@ -757,7 +757,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TNNB"
+        NameHub.Text = 3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3506,11 +3506,327 @@ ScriptStorage = {
             "Dragon Talon"
         }
 
+        -- ================= [km49] DEM NGUYEN LIEU (Fish Tail, Magma Ore, ...) =================
+        -- Tu khi game blop "getInventory" (tra ve nil), GetItemCount khong con nguon nao de dem
+        -- nguyen lieu => UI luc nao cung hien "Fish Tail (0/20)" du Stash da co 42 cai.
+        -- Doan nay quet 3 nguon that cua client:
+        --   (A) LocalPlayer.Data  (Data.Beli / Data.Fragments da chay ok nen kha nang o day)
+        --   (B) lenh remote doc kho (getInventoryMaterials ...), thu 1 lan/inject va nho lenh dung
+        --   (C) label trong PlayerGui khi bang Stash / Treasure Inventory duoc mo
+        -- Ket qua ghi vao MaterialStashCache (bang RIENG). km15: tuyet doi khong ghi
+        -- ScriptStorage.Backpack vi nhieu task doc no de nghi "da co item roi".
+        MaterialStashCache = MaterialStashCache or {}
+        MaterialStashNames = MaterialStashNames or {}
+        MaterialWatch = MaterialWatch or {}
+        MaterialStashTick = MaterialStashTick or 0
+        MaterialStashUiTick = MaterialStashUiTick or 0
+        MaterialStashDumped = MaterialStashDumped or false
+        MaterialRemoteProbed = MaterialRemoteProbed or false
+        MaterialRemoteCmd = MaterialRemoteCmd or nil
+        MaterialLogTick = MaterialLogTick or {}
+
+        local function NormMatKey(s)
+            local t = string.gsub(tostring(s or ""), "^%s*(.-)%s*$", "%1")
+            return string.lower(string.gsub(t, "%s+", ""))
+        end
+
+        function TrackMaterialName(name)
+            local key = NormMatKey(name)
+            if #key < 3 then return nil end
+            MaterialWatch[key] = tostring(name)
+            return key
+        end
+
+        local function MatKeyMatches(key, want)
+            if key == want then return true end
+            if #key < 5 or #want < 5 then return false end
+            return (string.find(key, want, 1, true) ~= nil) or (string.find(want, key, 1, true) ~= nil)
+        end
+
+        local function WatchedKey(name)
+            local key = NormMatKey(name)
+            if #key < 3 then return nil end
+            for wk in pairs(MaterialWatch) do
+                if MatKeyMatches(key, wk) then return wk end
+            end
+            return nil
+        end
+
+        local function ParseMatBlob(raw, feed)
+            if type(raw) ~= "string" or #raw < 3 then return end
+            for nm, v in string.gmatch(raw, '"([^"]+)"%s*:%s*"?(%d+)"?') do
+                feed(nm, tonumber(v), "Data:json")
+            end
+            for seg in string.gmatch(raw, "[^;|]+") do
+                local nm, v = string.match(seg, "^%s*(.-)%s*[%-:=,]%s*(%d+)%s*$")
+                if nm and v then
+                    nm = string.gsub(nm, '"', "")
+                    if #nm > 1 then feed(nm, tonumber(v), "Data:string") end
+                end
+            end
+        end
+
+        function RefreshMaterialStash(force)
+            local now = os.clock()
+            if force ~= true and MaterialStashTick > 0 and (now - MaterialStashTick) < 15 then return end
+            MaterialStashTick = now
+
+            local lp = game:GetService("Players").LocalPlayer
+            if not lp then return end
+
+            local acc = {}
+            local authority = false
+
+            local function feed(name, cnt, src)
+                cnt = tonumber(cnt)
+                local wk = WatchedKey(name)
+                if not wk or not cnt or cnt < 0 then return false end
+                cnt = math.floor(cnt)
+                if acc[wk] and acc[wk].c >= cnt then return true end
+                acc[wk] = { n = MaterialWatch[wk] or tostring(name), c = cnt, s = tostring(src) }
+                return true
+            end
+
+            local function takeTable(tbl, src)
+                if type(tbl) ~= "table" then return false end
+                local got = false
+                for k, v in pairs(tbl) do
+                    if type(k) == "string" then
+                        if type(v) == "number" then
+                            if feed(k, v, src) then got = true end
+                        elseif type(v) == "table" then
+                            if feed(k, tonumber(v.Count or v.Value or v.Amount or v.Quantity), src) then got = true end
+                        end
+                    elseif type(v) == "table" then
+                        local nm = v.Name or v.Item or v.Material
+                        if type(nm) == "string" then
+                            if feed(nm, tonumber(v.Count or v.Value or v.Amount or v.Quantity), src) then got = true end
+                        end
+                    end
+                end
+                return got
+            end
+
+            -- (A) LocalPlayer.Data
+            local data = lp:FindFirstChild("Data")
+            pcall(function()
+                if not data then return end
+                local function walk(obj, depth, path)
+                    for _, c in ipairs(obj:GetChildren()) do
+                        local cv = nil
+                        pcall(function() cv = c.Value end)
+                        if type(cv) == "number" then
+                            if feed(c.Name, cv, "Data." .. path) then authority = true end
+                        elseif type(cv) == "string" then
+                            if tonumber(cv) then feed(c.Name, tonumber(cv), "Data." .. path) end
+                            if string.find(cv, "%d") then ParseMatBlob(cv, feed) end
+                        end
+                        if type(c.GetAttributes) == "function" then
+                            local okk, attrs = pcall(function() return c:GetAttributes() end)
+                            if okk and type(attrs) == "table" then
+                                for ak, av in pairs(attrs) do
+                                    local ank = NormMatKey(ak)
+                                    if (ank == "count" or ank == "amount" or ank == "quantity" or ank == "value") and type(av) == "number" then
+                                        feed(c.Name, av, "Attr." .. path)
+                                    end
+                                end
+                            end
+                        end
+                        if depth < 3 then
+                            local low = string.lower(tostring(c.Name))
+                            local isBox = typeof(c) == "Folder"
+                                or string.find(low, "material", 1, true) ~= nil
+                                or string.find(low, "stash", 1, true) ~= nil
+                                or string.find(low, "invent", 1, true) ~= nil
+                            if isBox and #c:GetChildren() > 0 then
+                                walk(c, depth + 1, path .. "." .. c.Name)
+                            end
+                        end
+                    end
+                end
+                walk(data, 1, "Data")
+            end)
+
+            -- Lay 1 lan/inject: in ca cau truc Data de F9 tra loi duoc nguon nao dung
+            if not MaterialStashDumped then
+                MaterialStashDumped = true
+                pcall(function()
+                    if not data then
+                        print("[InvDebug][km49] LocalPlayer KHONG co folder Data")
+                        return
+                    end
+                    local kids = {}
+                    for _, c in ipairs(data:GetChildren()) do
+                        local val = ""
+                        pcall(function()
+                            if type(c.Value) == "string" then
+                                val = string.sub(c.Value, 1, 70)
+                            elseif type(c.Value) == "number" then
+                                val = tostring(c.Value)
+                            end
+                        end)
+                        local nk = 0
+                        pcall(function() nk = #c:GetChildren() end)
+                        table.insert(kids, c.Name .. "[" .. typeof(c) .. "]" .. (nk > 0 and ("{" .. nk .. "con}") or "") .. "=" .. val)
+                    end
+                    print("[InvDebug][km49] Data (" .. #kids .. "): " .. table.concat(kids, " || "))
+                end)
+            end
+
+            -- (B) Remote doc kho
+            pcall(function()
+                local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+                local comm = remotes and remotes:FindFirstChild("CommF_")
+                if not comm then
+                    print("[InvDebug][km49] khong thay Remotes.CommF_")
+                    return
+                end
+                if not MaterialRemoteProbed then
+                    MaterialRemoteProbed = true
+                    for _, cmd in ipairs({ "getInventoryMaterials", "getInventoryMaterial", "getMaterialInventory", "Materials" }) do
+                        local okk, resp = pcall(function() return comm:InvokeServer(cmd) end)
+                        local desc = "LOI"
+                        if not okk then
+                            desc = "LOI: " .. tostring(resp)
+                        elseif type(resp) == "table" then
+                            local n = 0
+                            for _ in pairs(resp) do n = n + 1 end
+                            desc = "bang(" .. n .. ")"
+                            if MaterialRemoteCmd == nil and takeTable(resp, "remote:" .. cmd) then
+                                MaterialRemoteCmd = cmd
+                            end
+                        else
+                            desc = tostring(resp)
+                        end
+                        print("[InvDebug][km49] CommF_," .. cmd .. " -> " .. desc)
+                    end
+                end
+                if MaterialRemoteCmd then
+                    local okk, resp = pcall(function() return comm:InvokeServer(MaterialRemoteCmd) end)
+                    if okk and type(resp) == "table" then
+                        takeTable(resp, "remote:" .. MaterialRemoteCmd)
+                        authority = true
+                    end
+                end
+            end)
+
+            -- (C) Label trong PlayerGui (chi khi con thieu ten moi quet, 30s/lan)
+            local missing = {}
+            for wk, wn in pairs(MaterialWatch) do
+                if not acc[wk] then table.insert(missing, { k = wk, n = wn }) end
+            end
+            if #missing > 0 and (now - MaterialStashUiTick) > 30 then
+                MaterialStashUiTick = now
+                pcall(function()
+                    local pg = lp:FindFirstChild("PlayerGui")
+                    if not pg then return end
+                    local function numFromText(s)
+                        if type(s) ~= "string" then return nil end
+                        local m = string.match(s, "^%s*(%d[%d%,%.]*)%s*$")
+                        if not m then return nil end
+                        m = string.gsub(m, ",", "")
+                        m = string.gsub(m, "%.", "")
+                        return tonumber(m)
+                    end
+                    local function grabNear(obj)
+                        local best = nil
+                        local function consider(v)
+                            local n = numFromText(v)
+                            if n and n > 0 and (not best or n > best) then best = n end
+                        end
+                        local parent = obj.Parent
+                        for hop = 1, 2 do
+                            if parent then
+                                for _, s in ipairs(parent:GetChildren()) do
+                                    consider(s.Text)
+                                    for _, g in ipairs(s:GetChildren()) do consider(g.Text) end
+                                end
+                                parent = parent.Parent
+                            end
+                        end
+                        return best
+                    end
+                    local hits = 0
+                    for _, d in ipairs(pg:GetDescendants()) do
+                        if hits > 40 then break end
+                        local cand = nil
+                        local dn = NormMatKey(d.Name)
+                        if #dn >= 5 then
+                            for _, m in ipairs(missing) do
+                                -- [km49] UI thi CHI duoc khop chinh xac ten (khong dung kieu "chua
+                                -- co" de tranh nhan 'Godhuman Farm | Fish Tail (0/20)' cua chinh
+                                -- GUI hub bi dem thanh nguyen lieu)
+                                if dn == m.k then cand = m break end
+                            end
+                        end
+                        if not cand then
+                            local isText = false
+                            pcall(function() isText = d:IsA("GuiText") end)
+                            if isText then
+                                local tx = nil
+                                pcall(function() tx = d.Text end)
+                                local tn = NormMatKey(tx)
+                                if #tn >= 5 then
+                                    for _, m in ipairs(missing) do
+                                        if tn == m.k then cand = m break end
+                                    end
+                                end
+                            end
+                        end
+                        if cand then
+                            local sg = nil
+                            pcall(function() sg = d:FindFirstAncestorOfClass("ScreenGui") end)
+                            local guiname = string.lower(tostring(sg and sg.Name or ""))
+                            if guiname ~= "cyndraldev"
+                                and string.find(guiname, "bocchi", 1, true) == nil
+                                and string.find(guiname, "hub", 1, true) == nil then
+                                local n = grabNear(d)
+                                if n then
+                                    feed(cand.n, n, "UI:" .. d:GetFullName())
+                                    hits = hits + 1
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+
+            for wk, wn in pairs(MaterialWatch) do
+                local e = acc[wk]
+                if e then
+                    MaterialStashCache[wk] = e.c
+                    MaterialStashNames[wk] = e.n
+                    if not MaterialLogTick[wk] or (os.clock() - MaterialLogTick[wk]) > 300 then
+                        MaterialLogTick[wk] = os.clock()
+                        print("[KhoLieu] " .. e.n .. " = " .. e.c .. "  (nguon: " .. e.s .. ")")
+                    end
+                elseif authority then
+                    MaterialStashCache[wk] = 0
+                    MaterialStashNames[wk] = wn
+                end
+            end
+        end
+
+        -- [km49] Liet ke san 4 nguyen lieu Godhuman de lan quet dau tien dem duoc ca 4 ten,
+        -- khong phai cho tung ten goi GetItemCount (15s/lan) moi biet den no.
+        for _, m in ipairs(GodhumanMaterialsList) do TrackMaterialName(m.Name) end
+
         local InvDeepDumped = false
         function GetItemCount(itemName)
             if not itemName then return 0 end
             local searchName = string.lower(string.gsub(tostring(itemName), "^%s*(.-)%s*$", "%1"))
             local searchCompact = string.gsub(searchName, "%s+", "")
+
+            -- [km49] Nguyen lieu nam trong STASH (kho luu tru) chu khong phai balo, ma getInventory
+            -- cua ban nay da tra ve nil => phai tu doc Data / remote / label.
+            do
+                local wk = TrackMaterialName(itemName)
+                if wk then
+                    RefreshMaterialStash()
+                    local st = tonumber(MaterialStashCache[wk])
+                    if st and st > 0 then return st end
+                end
+            end
 
             -- [km13] Deep discovery da chuyen xuong block throttle ben duoi (noi chac chan chay)
 
