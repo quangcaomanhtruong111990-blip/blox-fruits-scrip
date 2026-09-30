@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 print("========================================")
-print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD FC1 | FC1 = CAC QUANG NHAN NHIEM VU XA HON (user: 'đánh chưa xong nhiệm vụ đã nhận nhiệm vụ mới'): (1) QuestGoneDelay 2s -> 15s (UI phai bien mat LIEN TUC 15s moi duoc coi la xong nhiem vu; truoc day 2s nen HUD tam doc khong ra la no nhan cai moi, mat tien do giua chung), (2) MinFarmDuration 2.5s -> 25s (phai dung fam tai bai quai it nhat 25s), (3) nhanh 'UI mat' KHONG con xoa LastStartQuestAt -> con phai cho them QuestTryGap 8s truoc khi goi StartQuest tiep, (4) ep qua Config CU (getgenv song qua lan re-inject): moi gia tri <=5s bi nang len 15s/25s, ban tu dat lon hon thi giu nguyen - muon cho dai hon nua thi doi 2 so trong Config.Settings. Log nhan biet: [QuestState] UI nhiem vu da mat 15s + da fam 30s -> nhan nhiem vu moi sau 8s nua | km57 = [Godhuman] CHECK DIEU KIEN TRUOC KHI DI FAM: (1) GodhumanOwnedNow() tim vo Godhuman o MOI noi (Character/Backpack theo TEN DOI KHONG dau cach, ScriptStorage.Tools, ScriptStorage.Melees, HUD game) -> da co la THOI fam, khong con doi ten Tool 'Godhuman' chang; (2) mo [Godhuman] in DAY DU: da mo khoa chua + 4 nguyen lieu (kem co bao [KHONG DOC DUOC] hay khong) + mastery 5 vo + Beli + Frags + ket luan, 60s/lan; (3) NEU khong nguon nao doc duoc nguyen lieu -> DUNG VONG FAM NGUYEN LIEU MUON (fam Fish Tail ca ngay cung khong xong) va bao ly do tren SubTask; (4) cong bat tay Config.Settings.GodhumanAlreadyOwned=true = 'acc nay da co Godhuman' de tat ca buoc Godhuman | km56 | [NPC tu] phan biet 2 kieu NPC tra loi theo file 'KIEM TRA VO OK' cua ban: SO = mua duoc/khong duoc tien (bo qua 10 phut), CHU (string) = chinh game yeu cau them (vi du chua dua Fire Essence) -> CHI bo qua 3 phut va IN NGuyen do len SubTask, khong bi phong top 10 phut oam; log [MeleeCheck] <vo> | <NPC> tra loi: [ly do] | km55 | [KhoLieu] NAP SO NGUYEN LIEU vao ScriptStorage.InvDebugCache (GetItemCount buoc 1b da doc bang nay nen KHONG phai sua no): 15s/lan, thu 3 nguon = LocalPlayer.Data -> remote kho (chi do 1 lan/inject, lenh nao tra table thi nho lai) -> chu trong PlayerGui khi ban MO KHO Stash; chi ghi so >0, ten khop tuyen doi khong spaced ('FishTail42'/'FishTail'+'42'), GUI hub bi loai; chi chay khi bat AutoFullyMelees/Godhuman; log [KhoLieu] <ten> = <so> (nguon: ...) hoac [KhoLieu] CHUA DOC DUOC: ... | km54 | [Sabi / Dragon Claw] VO NAY KHONG ban bang 'BuyDragonClaw' -> lenh check tra ve khac 1 nen cu cho la NPC tu roi bo ve, khong bao gio goi lenh nhan that (Bay toi Sabi ma ko nhan). Nay: bang MeleeAltClaim chi ra lenh nhan rieng cho tung vo (Dragon Claw = BlackbeardReward,'DragonClaw','2'), den NPC la GOI THANG lenh do TRUOC, khong bi check 'Buy<vo>' chan lai; log [MeleeCheck] Dragon Claw ... van goi lenh nhan | km53 | [Godhuman] GetMeleeMastery + CheckGodhumanProgress (duong GO 5 VO + nhan Godhuman da mo khoa) bay gio doc bang [Vo HUD] cua game: 5 vo phu (Superhuman/Death Step/Electric Claw/Sharkman Karate/Dragon Talon) cat trong kho van duoc tinh mastery 400, Godhuman co trong HUD = da mo khoa; nguon cu chi nhin Tool trong Character/Backpack nen luc nao cung bao thieu vo va fam khong bao gio xong | km52 | [Vo HUD] DOC DONG MASTERY CUA GAME (PlayerGui, 'Dark Step: 405 | Electro: 407 | ...') 10s/lan de biet CHINH XAC dang co vo nao + mastery bao nhieu, khong can equip Tool va khong goi remote; nguon nay nap cho GetPlayerMeleeMastery + MeleeIsOwned; GUI cua hub bi loai khoi bua doc | km51 | [Vo check] MOI LAN: in CA 10 VO (XONG / CO / KO + mastery + action) 1 phut/lan de thay no nghi gi; luu y cho den luc nay: 'CO/KO' chi nhan duoc khi Tool cua vo nam trong Character/Backpack hoac da tung thay trong lan chay nay | km50 | TU DOI SERVER MOI 15 PHUT (TimHop): dung __ServerBrowser cua game de teleport, khong dung TeleportService; chay background moi 5s kiem tra dong ho, den gio ma dang giua raid/Trevor thi cho 30s; muon tat: Config.Settings.AutoTimHop=false, doi gio: Config.Settings.HopEveryMin=15; log [Hop] (... du 15 phut, tranh Security kick 267) -> ServerBrowser(N server...) -> lenh teleport tra ve: ok | KHONG CON code dem nguyen lieu km49 (da revert ve km48) | km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
+print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD FC2 | FC2 = KHONG CON MAT TIEN DO NHIEM VU KIỂU '7/8 -> nhan cai moi 0/8' (user: 'con quai cuoi cung van bi'): them memo getgenv().QuestProgMemo luu {cur,total,mob,id} moi lan HUD doc duoc x/y va con hieu luc 90s ke tu LAN DOC GAN NHAT; khi HasActiveQuest doc HUD khong ra (ban nay UI tieng Viet + bai quai bi stream an nen that thuong) ma memo van bao 'x < y' thi (1) NHANH NHAN NHIEM VU bi chet tum lai - van danh dung con quai cua nhiem vu cu, MainTask ghi 'Chua xong nhiem vu (7/8) -> khong nhan cai moi', (2) QUICK HUY QUEST DOI VO (AutoFullyMelees du mastery) bi HOAN LAI den khi nhiem vu xong that, log [Mastery Complete] ... NHUNG nhiem vu 7/8 chua xong. Memo tu xoa khi x >= y (xong that) hoac sau 90s khong doc duoc thong tin nao (thiet bi khong bi khoa). | FC1 = CAC QUANG NHAN NHIEM VU XA HON (user: 'đánh chưa xong nhiệm vụ đã nhận nhiệm vụ mới'): (1) QuestGoneDelay 2s -> 15s (UI phai bien mat LIEN TUC 15s moi duoc coi la xong nhiem vu; truoc day 2s nen HUD tam doc khong ra la no nhan cai moi, mat tien do giua chung), (2) MinFarmDuration 2.5s -> 25s (phai dung fam tai bai quai it nhat 25s), (3) nhanh 'UI mat' KHONG con xoa LastStartQuestAt -> con phai cho them QuestTryGap 8s truoc khi goi StartQuest tiep, (4) ep qua Config CU (getgenv song qua lan re-inject): moi gia tri <=5s bi nang len 15s/25s, ban tu dat lon hon thi giu nguyen - muon cho dai hon nua thi doi 2 so trong Config.Settings. Log nhan biet: [QuestState] UI nhiem vu da mat 15s + da fam 30s -> nhan nhiem vu moi sau 8s nua | km57 = [Godhuman] CHECK DIEU KIEN TRUOC KHI DI FAM: (1) GodhumanOwnedNow() tim vo Godhuman o MOI noi (Character/Backpack theo TEN DOI KHONG dau cach, ScriptStorage.Tools, ScriptStorage.Melees, HUD game) -> da co la THOI fam, khong con doi ten Tool 'Godhuman' chang; (2) mo [Godhuman] in DAY DU: da mo khoa chua + 4 nguyen lieu (kem co bao [KHONG DOC DUOC] hay khong) + mastery 5 vo + Beli + Frags + ket luan, 60s/lan; (3) NEU khong nguon nao doc duoc nguyen lieu -> DUNG VONG FAM NGUYEN LIEU MUON (fam Fish Tail ca ngay cung khong xong) va bao ly do tren SubTask; (4) cong bat tay Config.Settings.GodhumanAlreadyOwned=true = 'acc nay da co Godhuman' de tat ca buoc Godhuman | km56 | [NPC tu] phan biet 2 kieu NPC tra loi theo file 'KIEM TRA VO OK' cua ban: SO = mua duoc/khong duoc tien (bo qua 10 phut), CHU (string) = chinh game yeu cau them (vi du chua dua Fire Essence) -> CHI bo qua 3 phut va IN NGuyen do len SubTask, khong bi phong top 10 phut oam; log [MeleeCheck] <vo> | <NPC> tra loi: [ly do] | km55 | [KhoLieu] NAP SO NGUYEN LIEU vao ScriptStorage.InvDebugCache (GetItemCount buoc 1b da doc bang nay nen KHONG phai sua no): 15s/lan, thu 3 nguon = LocalPlayer.Data -> remote kho (chi do 1 lan/inject, lenh nao tra table thi nho lai) -> chu trong PlayerGui khi ban MO KHO Stash; chi ghi so >0, ten khop tuyen doi khong spaced ('FishTail42'/'FishTail'+'42'), GUI hub bi loai; chi chay khi bat AutoFullyMelees/Godhuman; log [KhoLieu] <ten> = <so> (nguon: ...) hoac [KhoLieu] CHUA DOC DUOC: ... | km54 | [Sabi / Dragon Claw] VO NAY KHONG ban bang 'BuyDragonClaw' -> lenh check tra ve khac 1 nen cu cho la NPC tu roi bo ve, khong bao gio goi lenh nhan that (Bay toi Sabi ma ko nhan). Nay: bang MeleeAltClaim chi ra lenh nhan rieng cho tung vo (Dragon Claw = BlackbeardReward,'DragonClaw','2'), den NPC la GOI THANG lenh do TRUOC, khong bi check 'Buy<vo>' chan lai; log [MeleeCheck] Dragon Claw ... van goi lenh nhan | km53 | [Godhuman] GetMeleeMastery + CheckGodhumanProgress (duong GO 5 VO + nhan Godhuman da mo khoa) bay gio doc bang [Vo HUD] cua game: 5 vo phu (Superhuman/Death Step/Electric Claw/Sharkman Karate/Dragon Talon) cat trong kho van duoc tinh mastery 400, Godhuman co trong HUD = da mo khoa; nguon cu chi nhin Tool trong Character/Backpack nen luc nao cung bao thieu vo va fam khong bao gio xong | km52 | [Vo HUD] DOC DONG MASTERY CUA GAME (PlayerGui, 'Dark Step: 405 | Electro: 407 | ...') 10s/lan de biet CHINH XAC dang co vo nao + mastery bao nhieu, khong can equip Tool va khong goi remote; nguon nay nap cho GetPlayerMeleeMastery + MeleeIsOwned; GUI cua hub bi loai khoi bua doc | km51 | [Vo check] MOI LAN: in CA 10 VO (XONG / CO / KO + mastery + action) 1 phut/lan de thay no nghi gi; luu y cho den luc nay: 'CO/KO' chi nhan duoc khi Tool cua vo nam trong Character/Backpack hoac da tung thay trong lan chay nay | km50 | TU DOI SERVER MOI 15 PHUT (TimHop): dung __ServerBrowser cua game de teleport, khong dung TeleportService; chay background moi 5s kiem tra dong ho, den gio ma dang giua raid/Trevor thi cho 30s; muon tat: Config.Settings.AutoTimHop=false, doi gio: Config.Settings.HopEveryMin=15; log [Hop] (... du 15 phut, tranh Security kick 267) -> ServerBrowser(N server...) -> lenh teleport tra ve: ok | KHONG CON code dem nguyen lieu km49 (da revert ve km48) | km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
 print("[Bocchi Hub] Initializing modules...")
 print("========================================")
 
@@ -775,7 +775,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "1TN"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5241,6 +5241,49 @@ FunctionsHandler = {
             end
         )
 
+        -- ============ [FC2] GIU TIEN DO NHIEM VU (7/8 khong bi thay bang 0/8) ============
+        -- Nguyen nhan: HasActiveQuest() doc HUD ban nay THAT THUONG (UI tieng Viet, bai quai bi
+        -- stream an), nen luc doc ra 7/8, luc doc khong ra gi -> cac nhanh "khong co nhiem vu"
+        -- ben duoi lai goi StartQuest moi = xoa nhiem vu dang danh (user: "con quai cuoi cung
+        -- van bi, vi du 7/8 la no nhan lai nhiem vu moi 0/8").
+        -- Nay luu lai tien do x/y vua doc duoc: con x < y va memo con hieu luc (90s ke tu lan
+        -- doc gan nhat) thi TUYET DOI khong nhan nhiem vu moi va khong AbandonQuest.
+        function GhiTienDoNhiemVu(cur, total, mob, questId)
+            cur, total = tonumber(cur), tonumber(total)
+            if not cur or not total or total <= 0 then
+                return
+            end
+            if cur >= total then
+                getgenv().QuestProgMemo = nil
+                return
+            end
+            local m = getgenv().QuestProgMemo
+            if type(m) ~= "table" then
+                m = {}
+            end
+            m.cur, m.total = cur, total
+            m.mob = mob or m.mob
+            m.id = questId or m.id
+            m.hetLuc = os.time() + 90
+            getgenv().QuestProgMemo = m
+        end
+
+        function QuestGiuTienDo()
+            local m = getgenv().QuestProgMemo
+            if type(m) ~= "table" then
+                return false
+            end
+            if os.time() > (tonumber(m.hetLuc) or 0) then
+                getgenv().QuestProgMemo = nil
+                return false
+            end
+            if (tonumber(m.cur) or 0) >= (tonumber(m.total) or 0) then
+                getgenv().QuestProgMemo = nil
+                return false
+            end
+            return true, m
+        end
+
         -- Level Farm
 
         FunctionsHandler.LevelFarm:RegisterMethod(
@@ -5661,10 +5704,31 @@ FunctionsHandler = {
                     end
                 end
 
+                -- [FC2] Luu lai tien do x/y vua doc duoc (neu doc ra) de biet nhiem vu CHUA xong.
+                GhiTienDoNhiemVu(curKills, maxKills, MonName, QuestId)
+
                 -- [km45] NHAN NHIEM VU NGAY TAI BAI QUAI: khong bay len NPC nua.
                 -- Bay toi tan noi chi con duoc dung lam FALLBACK (QuestNeedsFlight) khi
                 -- server da tung tu choi lenh nhan tu xa cua chinh nhiem vu nay.
                 if not hasActiveQuest then
+                    -- [FC2] HUD luc doc luc khong ra: neu van con memo "x < y" (90s gan nhat) thi
+                    -- NHIEM VU CHUA XONG -> khong duoc phep nhan cai moi, cu tiep tuc danh dung
+                    -- con quai cua no (day chinh la loi "7/8 bi nhan lai thanh 0/8").
+                    local giu, memoTd = QuestGiuTienDo()
+                    if giu then
+                        if memoTd.mob and memoTd.mob ~= "" then
+                            MonName = memoTd.mob
+                        end
+                        SetTask("MainTask", "Level Farming | " .. tostring(MonName or "Enemy") ..
+                            " | Chua xong nhiem vu (" .. tostring(memoTd.cur) .. "/" .. tostring(memoTd.total) .. ") -> khong nhan cai moi")
+                        SetTask("SubTask", questStateLine() .. " | memo " .. tostring(memoTd.id) .. " con " ..
+                            tostring(math.max(0, (tonumber(memoTd.hetLuc) or 0) - os.time())) .. "s")
+                        if MonName then
+                            CombatController.Attack(MonName)
+                        end
+                        return
+                    end
+
                     QuestNeedsFlight = QuestNeedsFlight or {}
                     -- [km45] Chi khi nao that su can bay moi scan tim NPC (scan ca game, dat lem)
                     if QuestNeedsFlight[QuestId] == true then
@@ -5759,6 +5823,9 @@ FunctionsHandler = {
                         else
                             QuestNeedsFlight[QuestId] = nil
                             if QuestRejectSeen then QuestRejectSeen[QuestId] = nil end
+                            -- [FC2] VUA NHAN NHIEM VU MOI -> memo cu (cua nhiem vu truoc) vo nghia,
+                            -- de tien do 0/8 cua nhiem vu moi duoc ghi lai tu dau.
+                            getgenv().QuestProgMemo = nil
                         end
                         print("[QuestState] StartQuest " .. tostring(QuestId) .. "," .. tostring(QuestIndex) ..
                             " (" .. (distToNpc >= 0 and ("cach NPC " .. tostring(math.floor(distToNpc)) .. "m") or "tai bai quai") ..
@@ -5858,13 +5925,28 @@ FunctionsHandler = {
                         if not isSaberOngoing and Config.Items.AutoFullyMelees and type(GetCurrentMeleeMastery) == "function" then
                             local curMelee, curMastery, reqMastery = GetCurrentMeleeMastery()
                             if curMelee and curMastery and curMastery >= reqMastery then
-                                print("[Mastery Complete] Võ " .. tostring(curMelee) .. " đã đủ Mastery (" .. tostring(curMastery) .. "/" .. tostring(reqMastery) .. ") -> Dừng farm ngay để nhận võ tiếp theo!")
-                                pcall(function() QuestManager.AbandonQuest() end)
-                                -- [km46] Huy quest de doi vo -> cho phep nhan nhiem vu moi lien sau do
-                                getgenv().LastStartQuestAt = nil
-                                getgenv().ForceNextQuestCheck = true
-                                task.wait(0.2)
-                                break
+                                -- [FC2] Nhiem vu dang danh CHUA xong (memo x < y) -> KHONG huy quest
+                                -- de doi vo ngay; de no xong cai roi huy cung duoc (day la mot trong
+                                -- 2 loi "7/8 bi nhan lai thanh 0/8").
+                                local giuTd, memoTd2 = QuestGiuTienDo()
+                                if giuTd then
+                                    if not MasteryAbandonWaitLog or os.time() - MasteryAbandonWaitLog > 30 then
+                                        MasteryAbandonWaitLog = os.time()
+                                        print("[Mastery Complete] Vo " .. tostring(curMelee) .. " da du mastery (" ..
+                                            tostring(curMastery) .. "/" .. tostring(reqMastery) .. ") NHUNG nhiem vu " ..
+                                            tostring(memoTd2.cur) .. "/" .. tostring(memoTd2.total) ..
+                                            " chua xong -> danh xong roi moi huy quest doi vo")
+                                    end
+                                else
+                                    print("[Mastery Complete] Võ " .. tostring(curMelee) .. " đã đủ Mastery (" .. tostring(curMastery) .. "/" .. tostring(reqMastery) .. ") -> Dừng farm ngay để nhận võ tiếp theo!")
+                                    pcall(function() QuestManager.AbandonQuest() end)
+                                    -- [km46] Huy quest de doi vo -> cho phep nhan nhiem vu moi lien sau do
+                                    getgenv().LastStartQuestAt = nil
+                                    getgenv().ForceNextQuestCheck = true
+                                    getgenv().QuestProgMemo = nil
+                                    task.wait(0.2)
+                                    break
+                                end
                             end
                         end
 
@@ -5885,6 +5967,8 @@ FunctionsHandler = {
                             if currentKills and totalKills and totalKills > 0 then
                                 lastCurKills = currentKills
                                 lastTotalKills = totalKills
+                                -- [FC2] lam tuoi memo tien do (90s) -> biet nhiem vu van chua xong
+                                GhiTienDoNhiemVu(currentKills, totalKills, MonName, QuestId)
                                 -- Nếu đã đủ 100% số lượng quái yêu cầu (vd: 8/8) -> Hoàn thành nhiệm vụ!
                                 if currentKills >= totalKills then
                                     getgenv().LastQuestClaimTick = nil
