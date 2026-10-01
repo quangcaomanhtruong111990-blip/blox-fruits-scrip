@@ -34,7 +34,7 @@ pcall(function()
 end)
 
 print("========================================")
-print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD FC12 | FC12 = SAI HINH GOI RegisterHit DA DUOC XAC MINH bang remote spy cua chinh script emerald: ho gui FireServer(Enemies.<mob>.Head, {{don_vi, don_vi.Head}, ...}) - PHAN TU THU 2 CUA MOI CAP LA HEAD, con hub minh nhom HumanoidRootPart vao cho do -> server v30 cham vung trung o nen tinh la trung = 0 sat thuong. Lenh RegisterAttack thi GANG HET (ho cung FireServer(0)). Nay: (1) kieu 1 = dung y hinh emerald (Head + {{quai, Head}}), (2) Arg[1] lay Head cua CON QUAI GAN NHAT thay vi lay dai dien ngau nhien cua pairs(), (3) tu xoay probe thanh 3 kieu 1 -> 2 -> 3 -> 1 (kieu 2 = HRP,1 kieu 'DANH QUAI TU XA', kieu 3 = hinh cu {{quai, HRP}}), ep kieu: Config.Settings.KieuGuiDanh = 1/2/3, 0 = tu do, (4) TAT buoc Remotes.Validator (log spy cua emerald KHONG co lenh Validator nao ma van ra 110 sat thuong -> buoc FC9 them la thua; ep lai bat buoc vi getgenv giu Config cu), (5) log [FC8] Da gui cu danh bay gio in CA TEN kieu dang chay. Van CHUA co trong script: lenh [Invoke] 'seed' ma emerald goi ngay truoc moi RegisterAttack - grep toan bo file tren Desktop khong thay file nao goi, day la handshake rieng cua ho nen minh khong tu che. | FC11 = (1) TAB THONG BAO NGAY TRONG GAME: may ban la GIA LAP -> khong bam F9, khong doc console, nen moi dong [FC8]/[FC9]/[FC10]/[FC8c] bay gio hien o bang 'LOG SCRIPT' goc trai (keo duoc), dong lap lai gom thanh '> noi dung x148', co nut COPY (setclipboard/nhieu kieu, neu executor khong ho tro thi nut bao KHONG va ban chup man hinh giup minh), nut AN va nut MO LOG; hang doi duoc giu lai 120 dong dau tien de khong bi mat dong [FC8c] luc moi inject. (2) BO CaptureController() trong vong bam chuot danh: lenh CAT CHUOT cua ban hoan toan (user bao 'no chan click chuot minh luon'), chi con ClickButton1 mo. | FC10 = NGUYEN NHAN HITBOT DANG LA HINH GOI RegisterHit: cung acc Lv 87-89 nam don nay, script khac (Blox Fruit emerald) van ra 110 sat thuong tren cung con Desert Officer -> khong phai loi acc, khong phai thieu vo. Hub goi FireServer(Head, {{quai,HRP},...}) con script chay duoc thi goi FireServer(HumanoidRootPart, 1). Nay TU DO THONG: theo doi mau con quai GA N NHAT, mau giam = chot kieu dang dung (in [FC10] Kieu gui N CO sat thuong), 12 cu danh khong giam mau = troi sang kieu con lai (in [FC10] ... thu kieu N), 40 cu danh khong giam nua = mo chot va do lai; muon ep kieu nao: Config.Settings.KieuGuiDanh = 1 (Head+danh sach) hoac 2 (HRP,1), 0 = tu do. Them: Head khong con la dieu kien chan cu danh (mob nao thieu Head thi dung HRP), va ban kinh tim quai de danh tu 65 -> 150 studs (Config.Settings.BanKinhDanhVo), log [FC8] bay gio in ca kieu gui. | FC9 = TIM SAO CHEU CUA SCRIPT KHAC (god human.lua + file 'DAM QUAN TU XA') MA HITBOT KHONG BAO GIO CO SAT THUONG: (1) FastAttackLoop bay gio BAM CHUOT THAT VirtualUser:CaptureController + ClickButton1 moi 0.1s de CHINH TOOL CUA GAME danh M1 (script cu chi FireServer RegisterAttack/RegisterHit tay, server v30 co the bo qua), tat: Config.Settings.BamChuThat=false; (2) danh LIEN TUC 1.5s sau lan duoc yeu cau (_G.FastAttackTick) thay vi chi khi _G.FastAttack == os.time() (2 goi khac giay la mat nhip); (3) goi Remotes.Validator:FireServer(math.floor(tick()*1e7)) CHEN GIUA RegisterAttack va RegisterHit nhu file 'DAM QUAN TU XA' van dung, tat: Config.Settings.ValidatorTruocKhiDanh=false; (4) TU CAM VO (ToolTip Melee/Sword) khi nhan vat trong tay, vi ClickButton1 vo nghia neu chang cam Tool, tat: TuCamVoKhiTrongTay=false. Log nhan biet: [FC9] Dang bam chuot that ... / [FC9] Da cam vo '<ten>' ... / [FC9] Da goi Remotes.Validator ... hoac [FC9] Remotes.Validator KHONG ton tai. | FC8c = HITBOT CO THE KHONG GUI DUOC CU DANH VU TU DAU: remote tim kieu FindFirstChild('RE/RegisterAttack') ngay tren Modules.Net (la ModuleScript nen khong chua Instance) -> Rat co the RegisterAttack/RegisterHit = nil tu dau, va toan bo nam trong pcall nen im lang. Nay tim theo 5 cach (path -> ten truc tiep -> folder RE -> moi folder con -> GetDescendants) tren Net/Modules/ReplicatedStorage, neu van nil thi require Modules.Net va goi Net:RemoteEvent(ten), va THU LAI moi 15s khi dang danh (game Replicate muon sau inject). Log nhan biet: [FC8c] RegisterAttack = <duong dan> | RegisterHit = <duong dan> | Net = ... (in 1 lan luc inject, 'TIM KHONG THAY' = day la nguyen sat thuong = 0) va [FC8c] Tim lai duoc remote | FC8b = CaoDoDanh ve 20 (neu Config cu == 3 tu ep len 20) + log [FC8] ly do khong gui duoc cu danh (Tool dang cam / RegisterAttack co hay MAT / so muc tieu); FC8 = nhanh 'Fast Farming Sky Island' CHI dung tu Lv 450-700 (truoc day ep acc Lv 87 di danh Shanda Lv 475 = chon sai bai quai, quai cap cao hon thi khong co sat thuong); FC4 = THEM QUEST CON THIEU: Sea1Quests co them PrisonerQuest (Lv 190-249 - truoc day khoang nay KY gap nen het quest la dung chan); Sea3Quests co them SubmergedQuest1 + SubmergedQuest2 (Lv 2550-2625, nam duoi nuoc nhung TweenController da co canh Y < -1500 la bay toi tau ngam truoc nen di chuyen duoc); BlacklistedQuestIds luc khoi chi con 5 id cu gia tri 1 = khong chan gi ca (comment giai thich). Log [FC4] | FC5 = VO KHONG CON CHIEM TICK KHI CHIN CAY MASTERY: MeleesController.Refresh tra FALSE khi hanh dong = farm (da co vo, dang danh them mastery) va goi EquipMeleeForMastery(name) equip dung vo do (toi da 1 lan/60s/voi, log [FC5]) roi de tick cho LevelFarm fam; chi giu tick khi co hanh dong that (buy / farm_fragments / farm_beli / farm_prereq) | FC6 = WATCHDOG CHONG DUNG YEN TOAN CUC: Fc6Watchdog chay moi tick ngay sau Start, neu hon 25s ma khong co nhAT danh moi (getgenv().Fc6LastAttack cap nhat trong CombatController.Attack) VA cung khong di chuyen qua 12 studs thi ep LevelFarm.Methods.Start:Call() di fam tiep; bang mien chen Fc6NoForce (RaidController, PirateRaid, Trevor, Yama, Tushita, SoulGuitar, SecondSeaPuzzle, ThirdSeaPuzzle, ColosseumPuzzle, Saber, ExpRedeem, CollectDrops) CHI in canh bao len SubTask chu khong chen ngan, vi do la nhung chuoi bat-dap/puzzle ma chen vao giua chung la hong chuoi; mien chen khi dang trong raid hoac Trevor dang mo trai. Log [FC6] | FC7 = THU TU TASK RIENG CHO TUNG SEA (TaskGroupOrder, goi RebuildTasksOrder(SeaIndex) luc inject + moi lan DetectSeaIndex doi sea): Sea1 = Drops > Quests > Bosses > Rewards > Combat > Utility > Melee > LevelUp | Sea2 = Drops > Quests > Combat > Bosses > Rewards > Utility > Melee > LevelUp | Sea3 = Drops > Combat > Bosses > Quests > Rewards > Utility > Melee > LevelUp; tu dong them vao CUOI moi task nam ngoai TaskGroups de KHONG bi mat chuc nang (in [FC7] CANH BAO). EvoRace CO Y khong dua vao lich chay: Start cua no co vong while not ScriptStorage.Tools['Flower i'] do task.wait() end = dung yen vo tan neu khong thu duoc hoa. Log [FC7] Thu tu task cua Sea N: ... | FC3 | FC3 = (1) THOI CHI LAI Them 1 ti nua: QuestGoneDelay 15s -> 25s, MinFarmDuration 25s -> 40s, memo tien do nhiem vu 90s -> 120s (ep qua Config CU: moi gia tri <=20s / <=30s bi nang len 25/40, ban dat lon hon thi giu nguyen); (2) HET DUNG YEN KHI THIEU VO (user: 'check toi vo dragon talon, chua du diem de nhan la no dung yen o do luon ko chi di fam'): MeleesController.DA CO TOOL trong balo truoc day chi equip roi RETURN trong khi no van giu tick -> LevelFarm khong bao gio duoc chay = dung yen vo tan; nay equip xong bao LevelFarm di fam ngay, va LevelFarm neu CHANG co nhiem vu dang chay lan chang co ten quai nao tu bang nhiem vu (MonName=nil) thi lay 1 loai quai THAT SU dang co mat trong server (PickLiveSeaMob) va danh - van lam du dieu kien vo: mastery + level + nguyen lieu + Beli, log [FC3]. | FC2 = KHONG CON MAT TIEN DO NHIEM VU KIỂU '7/8 -> nhan cai moi 0/8' (user: 'con quai cuoi cung van bi'): them memo getgenv().QuestProgMemo luu {cur,total,mob,id} moi lan HUD doc duoc x/y va con hieu luc 90s ke tu LAN DOC GAN NHAT; khi HasActiveQuest doc HUD khong ra (ban nay UI tieng Viet + bai quai bi stream an nen that thuong) ma memo van bao 'x < y' thi (1) NHANH NHAN NHIEM VU bi chet tum lai - van danh dung con quai cua nhiem vu cu, MainTask ghi 'Chua xong nhiem vu (7/8) -> khong nhan cai moi', (2) QUICK HUY QUEST DOI VO (AutoFullyMelees du mastery) bi HOAN LAI den khi nhiem vu xong that, log [Mastery Complete] ... NHUNG nhiem vu 7/8 chua xong. Memo tu xoa khi x >= y (xong that) hoac sau 90s khong doc duoc thong tin nao (thiet bi khong bi khoa). | FC1 = CAC QUANG NHAN NHIEM VU XA HON (user: 'đánh chưa xong nhiệm vụ đã nhận nhiệm vụ mới'): (1) QuestGoneDelay 2s -> 15s (UI phai bien mat LIEN TUC 15s moi duoc coi la xong nhiem vu; truoc day 2s nen HUD tam doc khong ra la no nhan cai moi, mat tien do giua chung), (2) MinFarmDuration 2.5s -> 25s (phai dung fam tai bai quai it nhat 25s), (3) nhanh 'UI mat' KHONG con xoa LastStartQuestAt -> con phai cho them QuestTryGap 8s truoc khi goi StartQuest tiep, (4) ep qua Config CU (getgenv song qua lan re-inject): moi gia tri <=5s bi nang len 15s/25s, ban tu dat lon hon thi giu nguyen - muon cho dai hon nua thi doi 2 so trong Config.Settings. Log nhan biet: [QuestState] UI nhiem vu da mat 15s + da fam 30s -> nhan nhiem vu moi sau 8s nua | km57 = [Godhuman] CHECK DIEU KIEN TRUOC KHI DI FAM: (1) GodhumanOwnedNow() tim vo Godhuman o MOI noi (Character/Backpack theo TEN DOI KHONG dau cach, ScriptStorage.Tools, ScriptStorage.Melees, HUD game) -> da co la THOI fam, khong con doi ten Tool 'Godhuman' chang; (2) mo [Godhuman] in DAY DU: da mo khoa chua + 4 nguyen lieu (kem co bao [KHONG DOC DUOC] hay khong) + mastery 5 vo + Beli + Frags + ket luan, 60s/lan; (3) NEU khong nguon nao doc duoc nguyen lieu -> DUNG VONG FAM NGUYEN LIEU MUON (fam Fish Tail ca ngay cung khong xong) va bao ly do tren SubTask; (4) cong bat tay Config.Settings.GodhumanAlreadyOwned=true = 'acc nay da co Godhuman' de tat ca buoc Godhuman | km56 | [NPC tu] phan biet 2 kieu NPC tra loi theo file 'KIEM TRA VO OK' cua ban: SO = mua duoc/khong duoc tien (bo qua 10 phut), CHU (string) = chinh game yeu cau them (vi du chua dua Fire Essence) -> CHI bo qua 3 phut va IN NGuyen do len SubTask, khong bi phong top 10 phut oam; log [MeleeCheck] <vo> | <NPC> tra loi: [ly do] | km55 | [KhoLieu] NAP SO NGUYEN LIEU vao ScriptStorage.InvDebugCache (GetItemCount buoc 1b da doc bang nay nen KHONG phai sua no): 15s/lan, thu 3 nguon = LocalPlayer.Data -> remote kho (chi do 1 lan/inject, lenh nao tra table thi nho lai) -> chu trong PlayerGui khi ban MO KHO Stash; chi ghi so >0, ten khop tuyen doi khong spaced ('FishTail42'/'FishTail'+'42'), GUI hub bi loai; chi chay khi bat AutoFullyMelees/Godhuman; log [KhoLieu] <ten> = <so> (nguon: ...) hoac [KhoLieu] CHUA DOC DUOC: ... | km54 | [Sabi / Dragon Claw] VO NAY KHONG ban bang 'BuyDragonClaw' -> lenh check tra ve khac 1 nen cu cho la NPC tu roi bo ve, khong bao gio goi lenh nhan that (Bay toi Sabi ma ko nhan). Nay: bang MeleeAltClaim chi ra lenh nhan rieng cho tung vo (Dragon Claw = BlackbeardReward,'DragonClaw','2'), den NPC la GOI THANG lenh do TRUOC, khong bi check 'Buy<vo>' chan lai; log [MeleeCheck] Dragon Claw ... van goi lenh nhan | km53 | [Godhuman] GetMeleeMastery + CheckGodhumanProgress (duong GO 5 VO + nhan Godhuman da mo khoa) bay gio doc bang [Vo HUD] cua game: 5 vo phu (Superhuman/Death Step/Electric Claw/Sharkman Karate/Dragon Talon) cat trong kho van duoc tinh mastery 400, Godhuman co trong HUD = da mo khoa; nguon cu chi nhin Tool trong Character/Backpack nen luc nao cung bao thieu vo va fam khong bao gio xong | km52 | [Vo HUD] DOC DONG MASTERY CUA GAME (PlayerGui, 'Dark Step: 405 | Electro: 407 | ...') 10s/lan de biet CHINH XAC dang co vo nao + mastery bao nhieu, khong can equip Tool va khong goi remote; nguon nay nap cho GetPlayerMeleeMastery + MeleeIsOwned; GUI cua hub bi loai khoi bua doc | km51 | [Vo check] MOI LAN: in CA 10 VO (XONG / CO / KO + mastery + action) 1 phut/lan de thay no nghi gi; luu y cho den luc nay: 'CO/KO' chi nhan duoc khi Tool cua vo nam trong Character/Backpack hoac da tung thay trong lan chay nay | km50 | TU DOI SERVER MOI 15 PHUT (TimHop): dung __ServerBrowser cua game de teleport, khong dung TeleportService; chay background moi 5s kiem tra dong ho, den gio ma dang giua raid/Trevor thi cho 30s; muon tat: Config.Settings.AutoTimHop=false, doi gio: Config.Settings.HopEveryMin=15; log [Hop] (... du 15 phut, tranh Security kick 267) -> ServerBrowser(N server...) -> lenh teleport tra ve: ok | KHONG CON code dem nguyen lieu km49 (da revert ve km48) | km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
+print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD FC4 | FC4 = THEM QUEST CON THIEU: Sea1Quests co them PrisonerQuest (Lv 190-249 - truoc day khoang nay KY gap nen het quest la dung chan); Sea3Quests co them SubmergedQuest1 + SubmergedQuest2 (Lv 2550-2625, nam duoi nuoc nhung TweenController da co canh Y < -1500 la bay toi tau ngam truoc nen di chuyen duoc); BlacklistedQuestIds luc khoi chi con 5 id cu gia tri 1 = khong chan gi ca (comment giai thich). Log [FC4] | FC5 = VO KHONG CON CHIEM TICK KHI CHIN CAY MASTERY: MeleesController.Refresh tra FALSE khi hanh dong = farm (da co vo, dang danh them mastery) va goi EquipMeleeForMastery(name) equip dung vo do (toi da 1 lan/60s/voi, log [FC5]) roi de tick cho LevelFarm fam; chi giu tick khi co hanh dong that (buy / farm_fragments / farm_beli / farm_prereq) | FC6 = WATCHDOG CHONG DUNG YEN TOAN CUC: Fc6Watchdog chay moi tick ngay sau Start, neu hon 25s ma khong co nhAT danh moi (getgenv().Fc6LastAttack cap nhat trong CombatController.Attack) VA cung khong di chuyen qua 12 studs thi ep LevelFarm.Methods.Start:Call() di fam tiep; bang mien chen Fc6NoForce (RaidController, PirateRaid, Trevor, Yama, Tushita, SoulGuitar, SecondSeaPuzzle, ThirdSeaPuzzle, ColosseumPuzzle, Saber, ExpRedeem, CollectDrops) CHI in canh bao len SubTask chu khong chen ngan, vi do la nhung chuoi bat-dap/puzzle ma chen vao giua chung la hong chuoi; mien chen khi dang trong raid hoac Trevor dang mo trai. Log [FC6] | FC7 = THU TU TASK RIENG CHO TUNG SEA (TaskGroupOrder, goi RebuildTasksOrder(SeaIndex) luc inject + moi lan DetectSeaIndex doi sea): Sea1 = Drops > Quests > Bosses > Rewards > Combat > Utility > Melee > LevelUp | Sea2 = Drops > Quests > Combat > Bosses > Rewards > Utility > Melee > LevelUp | Sea3 = Drops > Combat > Bosses > Quests > Rewards > Utility > Melee > LevelUp; tu dong them vao CUOI moi task nam ngoai TaskGroups de KHONG bi mat chuc nang (in [FC7] CANH BAO). EvoRace CO Y khong dua vao lich chay: Start cua no co vong while not ScriptStorage.Tools['Flower i'] do task.wait() end = dung yen vo tan neu khong thu duoc hoa. Log [FC7] Thu tu task cua Sea N: ... | FC3 | FC3 = (1) THOI CHI LAI Them 1 ti nua: QuestGoneDelay 15s -> 25s, MinFarmDuration 25s -> 40s, memo tien do nhiem vu 90s -> 120s (ep qua Config CU: moi gia tri <=20s / <=30s bi nang len 25/40, ban dat lon hon thi giu nguyen); (2) HET DUNG YEN KHI THIEU VO (user: 'check toi vo dragon talon, chua du diem de nhan la no dung yen o do luon ko chi di fam'): MeleesController.DA CO TOOL trong balo truoc day chi equip roi RETURN trong khi no van giu tick -> LevelFarm khong bao gio duoc chay = dung yen vo tan; nay equip xong bao LevelFarm di fam ngay, va LevelFarm neu CHANG co nhiem vu dang chay lan chang co ten quai nao tu bang nhiem vu (MonName=nil) thi lay 1 loai quai THAT SU dang co mat trong server (PickLiveSeaMob) va danh - van lam du dieu kien vo: mastery + level + nguyen lieu + Beli, log [FC3]. | FC2 = KHONG CON MAT TIEN DO NHIEM VU KIỂU '7/8 -> nhan cai moi 0/8' (user: 'con quai cuoi cung van bi'): them memo getgenv().QuestProgMemo luu {cur,total,mob,id} moi lan HUD doc duoc x/y va con hieu luc 90s ke tu LAN DOC GAN NHAT; khi HasActiveQuest doc HUD khong ra (ban nay UI tieng Viet + bai quai bi stream an nen that thuong) ma memo van bao 'x < y' thi (1) NHANH NHAN NHIEM VU bi chet tum lai - van danh dung con quai cua nhiem vu cu, MainTask ghi 'Chua xong nhiem vu (7/8) -> khong nhan cai moi', (2) QUICK HUY QUEST DOI VO (AutoFullyMelees du mastery) bi HOAN LAI den khi nhiem vu xong that, log [Mastery Complete] ... NHUNG nhiem vu 7/8 chua xong. Memo tu xoa khi x >= y (xong that) hoac sau 90s khong doc duoc thong tin nao (thiet bi khong bi khoa). | FC1 = CAC QUANG NHAN NHIEM VU XA HON (user: 'đánh chưa xong nhiệm vụ đã nhận nhiệm vụ mới'): (1) QuestGoneDelay 2s -> 15s (UI phai bien mat LIEN TUC 15s moi duoc coi la xong nhiem vu; truoc day 2s nen HUD tam doc khong ra la no nhan cai moi, mat tien do giua chung), (2) MinFarmDuration 2.5s -> 25s (phai dung fam tai bai quai it nhat 25s), (3) nhanh 'UI mat' KHONG con xoa LastStartQuestAt -> con phai cho them QuestTryGap 8s truoc khi goi StartQuest tiep, (4) ep qua Config CU (getgenv song qua lan re-inject): moi gia tri <=5s bi nang len 15s/25s, ban tu dat lon hon thi giu nguyen - muon cho dai hon nua thi doi 2 so trong Config.Settings. Log nhan biet: [QuestState] UI nhiem vu da mat 15s + da fam 30s -> nhan nhiem vu moi sau 8s nua | km57 = [Godhuman] CHECK DIEU KIEN TRUOC KHI DI FAM: (1) GodhumanOwnedNow() tim vo Godhuman o MOI noi (Character/Backpack theo TEN DOI KHONG dau cach, ScriptStorage.Tools, ScriptStorage.Melees, HUD game) -> da co la THOI fam, khong con doi ten Tool 'Godhuman' chang; (2) mo [Godhuman] in DAY DU: da mo khoa chua + 4 nguyen lieu (kem co bao [KHONG DOC DUOC] hay khong) + mastery 5 vo + Beli + Frags + ket luan, 60s/lan; (3) NEU khong nguon nao doc duoc nguyen lieu -> DUNG VONG FAM NGUYEN LIEU MUON (fam Fish Tail ca ngay cung khong xong) va bao ly do tren SubTask; (4) cong bat tay Config.Settings.GodhumanAlreadyOwned=true = 'acc nay da co Godhuman' de tat ca buoc Godhuman | km56 | [NPC tu] phan biet 2 kieu NPC tra loi theo file 'KIEM TRA VO OK' cua ban: SO = mua duoc/khong duoc tien (bo qua 10 phut), CHU (string) = chinh game yeu cau them (vi du chua dua Fire Essence) -> CHI bo qua 3 phut va IN NGuyen do len SubTask, khong bi phong top 10 phut oam; log [MeleeCheck] <vo> | <NPC> tra loi: [ly do] | km55 | [KhoLieu] NAP SO NGUYEN LIEU vao ScriptStorage.InvDebugCache (GetItemCount buoc 1b da doc bang nay nen KHONG phai sua no): 15s/lan, thu 3 nguon = LocalPlayer.Data -> remote kho (chi do 1 lan/inject, lenh nao tra table thi nho lai) -> chu trong PlayerGui khi ban MO KHO Stash; chi ghi so >0, ten khop tuyen doi khong spaced ('FishTail42'/'FishTail'+'42'), GUI hub bi loai; chi chay khi bat AutoFullyMelees/Godhuman; log [KhoLieu] <ten> = <so> (nguon: ...) hoac [KhoLieu] CHUA DOC DUOC: ... | km54 | [Sabi / Dragon Claw] VO NAY KHONG ban bang 'BuyDragonClaw' -> lenh check tra ve khac 1 nen cu cho la NPC tu roi bo ve, khong bao gio goi lenh nhan that (Bay toi Sabi ma ko nhan). Nay: bang MeleeAltClaim chi ra lenh nhan rieng cho tung vo (Dragon Claw = BlackbeardReward,'DragonClaw','2'), den NPC la GOI THANG lenh do TRUOC, khong bi check 'Buy<vo>' chan lai; log [MeleeCheck] Dragon Claw ... van goi lenh nhan | km53 | [Godhuman] GetMeleeMastery + CheckGodhumanProgress (duong GO 5 VO + nhan Godhuman da mo khoa) bay gio doc bang [Vo HUD] cua game: 5 vo phu (Superhuman/Death Step/Electric Claw/Sharkman Karate/Dragon Talon) cat trong kho van duoc tinh mastery 400, Godhuman co trong HUD = da mo khoa; nguon cu chi nhin Tool trong Character/Backpack nen luc nao cung bao thieu vo va fam khong bao gio xong | km52 | [Vo HUD] DOC DONG MASTERY CUA GAME (PlayerGui, 'Dark Step: 405 | Electro: 407 | ...') 10s/lan de biet CHINH XAC dang co vo nao + mastery bao nhieu, khong can equip Tool va khong goi remote; nguon nay nap cho GetPlayerMeleeMastery + MeleeIsOwned; GUI cua hub bi loai khoi bua doc | km51 | [Vo check] MOI LAN: in CA 10 VO (XONG / CO / KO + mastery + action) 1 phut/lan de thay no nghi gi; luu y cho den luc nay: 'CO/KO' chi nhan duoc khi Tool cua vo nam trong Character/Backpack hoac da tung thay trong lan chay nay | km50 | TU DOI SERVER MOI 15 PHUT (TimHop): dung __ServerBrowser cua game de teleport, khong dung TeleportService; chay background moi 5s kiem tra dong ho, den gio ma dang giua raid/Trevor thi cho 30s; muon tat: Config.Settings.AutoTimHop=false, doi gio: Config.Settings.HopEveryMin=15; log [Hop] (... du 15 phut, tranh Security kick 267) -> ServerBrowser(N server...) -> lenh teleport tra ve: ok | KHONG CON code dem nguyen lieu km49 (da revert ve km48) | km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
 print("[Bocchi Hub] Initializing modules...")
 print("========================================")
 
@@ -150,31 +150,9 @@ do
         -- [FC6 review] Khi LevelFarm khong doc duoc ten quai tu bang cap do thi van danh
         -- con quai GAN NHAT trong khoang nay (studs) thay vi dung cho "No Mob Found".
         KhoangTimQuaiKhiKhongCoTen = 1500,
-        -- [FC8b] Do cao cua nhan vat khi dung danh quai (studs). DA THUI: 3 lam nhan vat
-        -- roi chet o bai cao ma van khong co sat thuong -> giu nguyen 20 nhu build cu.
+        -- [FC8b] Do cao cua nhan vat khi dung danh quai (studs). 3 = ngang que de server
+        -- cong nhan cu danh; dat 20 = bay phao tren dau nhu cac build cu.
         CaoDoDanh = 20,
-        -- [FC9] BAM CHUOT THAT: god human.lua (ban chay duoc) ngoai RegisterAttack/RegisterHit
-        -- con goi VirtualUser:ClickButton1 MOI VONG -> Chinh Tool cua game danh M1, dung nam
-        -- lenh cua game nen server ban. Bat = 0.1s/nhip bam that + keo dai danh 1.5s sau
-        -- lan duoc yeu cau (thay vi chi danh khi _G.FastAttack == os.time()).
-        BamChuThat = true,
-        -- [FC9] File 'DANH QUAI TU XA' goi Remotes.Validator:FireServer(math.floor(tick()*1e7))
-        -- NGAY GIUA RegisterAttack va RegisterHit.
-        -- [FC12] TAT: spy log cua script emerald (VAN RA SAT THUONG) khong co lenh Validator
-        -- nao ca -> buoc nay thua. Do getgenv giu Config cu, phai ep lai o duoi.
-        ValidatorTruocKhiDanh = false,
-        -- [FC9] Tu cam vo khi tay khong (ClickButton1 khong co tac dung neu chang cam Tool nao)
-        TuCamVoKhiTrongTay = true,
-        -- [FC10] Ban kinh tim quai de danh (studs). Cu dinh = 65 rat hep: file 'DANH QUAI TU
-        -- XA' chay ban kinh 150 va van ra sat thuong, nen nay lay 150.
-        BanKinhDanhVo = 150,
-        -- [FC10] Tu doi hinh goi RegisterHit neu khong ra sat thuong:
-        -- [FC12] 3 kieu, tu xoay 1 -> 2 -> 3 -> 1 khi mau khong giam:
-        -- 1 = FireServer(Head, {{quai, quai.Head}, ...})  <-- emerald dung kieu NAY (spy)
-        -- 2 = FireServer(HRP, 1) kieu file 'DANH QUAI TU XA'
-        -- 3 = FireServer(Head, {{quai, quai.HRP}, ...}) kieu hub cu truoc FC12
-        -- Dat 1/2/3 de ep qua tu do; 0 = de tu do chay.
-        KieuGuiDanh = 0,
     }
     for k, v in pairs(Km45Defaults) do
         if Config.Settings[k] == nil then
@@ -200,246 +178,7 @@ do
     if Config.Settings.QuestDoneLookahead == nil then
         Config.Settings.QuestDoneLookahead = true
     end
-    -- [FC8b] Ban FC8b da dat CaoDoDanh = 3 (xuong ngang que) -> bi roi chet o bai cao ma
-    -- van khong co sat thuong. Config cu van con gia tri 3 (getgenv song qua lan re-inject)
-    -- nen chi ep LAI DUNG so 3 do ve 20; ban tu dat gia tri khac thi giu nguyen.
-    if tonumber(Config.Settings.CaoDoDanh) == 3 then
-        Config.Settings.CaoDoDanh = 20
-    end
-    -- [FC12] EP LAI BAT BUOC: getgenv song qua lan re-inject nen Config cu van giu
-    -- ValidatorTruocKhiDanh = true cua ban FC9. Script emerald khong goi Validator ma van
-    -- ra sat thuong -> bo buoc nay cho giong het. Muon bat lai thi doi false -> true o day.
-    Config.Settings.ValidatorTruocKhiDanh = false
-    -- [FC12] EP KIEU 1 = DUNG Y HINH EMERALD (Head + {{quai, Head}}) DE LAN TEST NAY LA
-    -- THU DUNG MOT HINH, khong bi probe troi sang kieu khac sau 1.2s va lam log roi mat.
-    -- Muon de tu do xoay 3 kieu thi doi 1 -> 0 o day (hoac dat KieuGuiDanh = 2/3 de thu kieu khac).
-    Config.Settings.KieuGuiDanh = 1
 end
-
--- =====================================================================
--- [FC11] TAB THONG BAO TRONG GAME
--- May cua ban la GIA LAP -> khong bam duoc F9, khong doc duoc console.
--- Moi dong [FC8] / [FC9] / [FC10] / [FC8c] bay gio hien NGAY TREN MAN
--- HINH o goc trai, dong lap lai bi gom thanh "... x148".
--- Nut COPY chep het log (dan ra day cho minh), nut AN thu gon lai.
--- Goi BocchiLog(text) thay cho print() khi can ban nhin thay.
--- =====================================================================
-BocchiLogQueue = {}
-BocchiLogRows = {}
-BocchiLogTimes = {}
-BocchiLogOrder = {}
-BocchiLogList = nil
-BocchiLogGui = nil
-
-function BocchiLog(text)
-    text = tostring(text)
-    print(text)
-    pcall(function()
-        if #text > 210 then text = string.sub(text, 1, 210) .. "..." end
-        if not BocchiLogList then
-            BocchiLogQueue[#BocchiLogQueue + 1] = text
-            if #BocchiLogQueue > 120 then table.remove(BocchiLogQueue, 1) end
-            return
-        end
-        local row = BocchiLogRows[text]
-        if row then
-            local n = (BocchiLogTimes[text] or 1) + 1
-            BocchiLogTimes[text] = n
-            row.Text = "> " .. text .. "   x" .. tostring(n)
-            return
-        end
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, -8, 0, 13)
-        lbl.AutomaticSize = Enum.AutomaticSize.Y
-        lbl.BackgroundTransparency = 1
-        lbl.Font = Enum.Font.Code
-        lbl.TextSize = 12
-        lbl.TextWrapped = true
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.TextColor3 = Color3.fromRGB(185, 255, 200)
-        lbl.Text = "> " .. text
-        lbl.Parent = BocchiLogList
-        BocchiLogRows[text] = lbl
-        BocchiLogTimes[text] = 1
-        BocchiLogOrder[#BocchiLogOrder + 1] = text
-        while #BocchiLogOrder > 70 do
-            local oldText = table.remove(BocchiLogOrder, 1)
-            local oldRow = BocchiLogRows[oldText]
-            BocchiLogRows[oldText] = nil
-            BocchiLogTimes[oldText] = nil
-            if oldRow then pcall(function() oldRow:Destroy() end) end
-        end
-        pcall(function() BocchiLogList.CanvasPosition = Vector2.new(0, math.huge) end)
-    end)
-end
-
-local function BocchiLogMakeBtn(txt, x, wBtn, color)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0, wBtn, 0, 20)
-    b.Position = UDim2.new(0, x, 0, 23)
-    b.BackgroundColor3 = color or Color3.fromRGB(26, 38, 30)
-    b.TextColor3 = Color3.fromRGB(220, 255, 230)
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 12
-    b.Text = txt
-    b.AutoButtonColor = true
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 4)
-    c.Parent = b
-    return b
-end
-
-function BocchiLogCopy()
-    local out = {}
-    for _, t in ipairs(BocchiLogOrder) do
-        out[#out + 1] = string.format("%s   x%d", t, BocchiLogTimes[t] or 1)
-    end
-    local s = table.concat(out, "\n")
-    if s == "" then s = "(chua co dong nao - cho script danh vai giay)" end
-    local okc
-    for _, fname in ipairs({ "setclipboard", "SetClipboard", "toclipboard", "set_clipboard",
-        "setclipboardtext" }) do
-        local f = getgenv()[fname]
-        if type(f) == "function" then
-            okc = pcall(f, s)
-            if okc then break end
-        end
-    end
-    if not okc and syn and syn.write_clipboard then okc = pcall(syn.write_clipboard, s) end
-    return okc
-end
-
-task.spawn(function()
-    -- [FC11] Doan nay nam TRUOC vong game:IsLoaded o :815 nen phai tu cho co
-    -- LocalPlayer (toi da 20s) moi dung ScreenGui; that bai thi chi in ra console.
-    local t0 = tick()
-    while game:GetService("Players").LocalPlayer == nil and tick() - t0 < 20 do
-        task.wait(0.2)
-    end
-    local okBuild, errBuild = pcall(function()
-        local Players = game:GetService("Players")
-        local gui = Instance.new("ScreenGui")
-        gui.Name = "BocchiLogTab"
-        gui.ResetOnSpawn = false
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        pcall(function() gui.DisplayOrder = 99998 end)
-        local attached = false
-        if gethui then
-            pcall(function()
-                gui.Parent = gethui()
-                attached = true
-            end)
-        end
-        if not attached then
-            pcall(function()
-                gui.Parent = game:GetService("CoreGui")
-                attached = true
-            end)
-        end
-        if not attached then
-            local pg = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
-            if pg then
-                pcall(function()
-                    gui.Parent = pg
-                    attached = true
-                end)
-            end
-        end
-        if not attached then return end
-        BocchiLogGui = gui
-
-        local vp = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(1280, 720)
-        local w = math.clamp(vp.X * 0.34, 300, 440)
-        local h = math.clamp(vp.Y * 0.36, 180, 280)
-
-        local frame = Instance.new("Frame")
-        frame.Name = "LogFrame"
-        frame.Size = UDim2.new(0, w, 0, h)
-        frame.Position = UDim2.new(0, 6, 0.5, -h / 2)
-        frame.BackgroundColor3 = Color3.fromRGB(10, 14, 12)
-        frame.BackgroundTransparency = 0.1
-        frame.Draggable = true
-        frame.Parent = gui
-        local fc = Instance.new("UICorner")
-        fc.CornerRadius = UDim.new(0, 7)
-        fc.Parent = frame
-        local fs = Instance.new("UIStroke")
-        fs.Color = Color3.fromRGB(60, 190, 120)
-        fs.Thickness = 1
-        fs.Parent = frame
-
-        local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, -10, 0, 22)
-        title.Position = UDim2.new(0, 6, 0, 1)
-        title.BackgroundTransparency = 1
-        title.Font = Enum.Font.GothamBold
-        title.TextSize = 13
-        title.TextXAlignment = Enum.TextXAlignment.Left
-        title.TextColor3 = Color3.fromRGB(120, 255, 170)
-        title.Text = "LOG SCRIPT (keo duoc)"
-        title.Parent = frame
-
-        local btnCopy = BocchiLogMakeBtn("COPY", 6, 58, Color3.fromRGB(34, 66, 46))
-        btnCopy.Parent = frame
-        local btnAn = BocchiLogMakeBtn("AN", 68, 38)
-        btnAn.Parent = frame
-
-        local list = Instance.new("ScrollingFrame")
-        list.Size = UDim2.new(1, -10, 1, -54)
-        list.Position = UDim2.new(0, 5, 0, 47)
-        list.BackgroundTransparency = 1
-        list.ScrollBarThickness = 5
-        list.ScrollBarImageColor3 = Color3.fromRGB(90, 200, 130)
-        list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        list.CanvasSize = UDim2.new()
-        list.Parent = frame
-        local layout = Instance.new("UIListLayout")
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.Padding = UDim.new(0, 1)
-        layout.Parent = list
-        BocchiLogList = list
-
-        local reopen = Instance.new("TextButton")
-        reopen.Size = UDim2.new(0, 56, 0, 22)
-        reopen.Position = UDim2.new(0, 6, 0.5, -h / 2 - 26)
-        reopen.BackgroundColor3 = Color3.fromRGB(10, 14, 12)
-        reopen.TextColor3 = Color3.fromRGB(120, 255, 170)
-        reopen.Font = Enum.Font.GothamBold
-        reopen.TextSize = 12
-        reopen.Text = "MO LOG"
-        reopen.Visible = false
-        reopen.Parent = gui
-        local rc = Instance.new("UICorner")
-        rc.CornerRadius = UDim.new(0, 4)
-        rc.Parent = reopen
-
-        btnCopy.MouseButton1Click:Connect(function()
-            if BocchiLogCopy() then
-                btnCopy.Text = "OK!"
-            else
-                btnCopy.Text = "KHONG"
-            end
-            task.delay(1.2, function() pcall(function() btnCopy.Text = "COPY" end) end)
-        end)
-        btnAn.MouseButton1Click:Connect(function()
-            frame.Visible = false
-            reopen.Visible = true
-        end)
-        reopen.MouseButton1Click:Connect(function()
-            frame.Visible = true
-            reopen.Visible = false
-        end)
-    end)
-    if not okBuild then
-        print("[FC11] Khong dung duoc tab LOG trong game: " .. tostring(errBuild))
-    end
-    -- Lay het hang doi da gom TRUOC khi co tab (doi chieu bang ruong, khong
-    -- vua duoi vua them vao cung 1 table)
-    local pending = BocchiLogQueue
-    BocchiLogQueue = {}
-    for _, dong in ipairs(pending) do BocchiLog(dong) end
-    BocchiLog("[FC11] Tab LOG dang bat o goc trai - bam COPY roi dan log cho minh")
-end)
 
 function RaidUsesStoredFruits()
     if type(Config) ~= "table" or type(Config.Raid) ~= "table" then
@@ -1041,7 +780,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "789789"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2561,7 +2300,7 @@ ScriptStorage = {
             for _, TaskName in ipairs(TaskRegistryAll or {}) do
                 if not seen[TaskName] then
                     seen[TaskName] = true
-                    BocchiLog("[FC7] CANH BAO: task '" .. tostring(TaskName) .. "' nam ngoai TaskGroups (Sea " ..
+                    print("[FC7] CANH BAO: task '" .. tostring(TaskName) .. "' nam ngoai TaskGroups (Sea " ..
                         tostring(sea) .. ") -> ty them vao cuoi de KHONG mat chuc nang nay")
                     table.insert(list, TaskName)
                 end
@@ -2607,7 +2346,7 @@ ScriptStorage = {
 
         -- [FC7] Dung thu tu task theo Sea vua xac dinh duoc o doan PlaceId tren.
         RebuildTasksOrder(SeaIndex)
-        BocchiLog("[FC7] Thu tu task cua Sea " .. tostring(SeaIndex) .. ": " .. table.concat(TasksOrder, " > "))
+        print("[FC7] Thu tu task cua Sea " .. tostring(SeaIndex) .. ": " .. table.concat(TasksOrder, " > "))
 
         -- [km36] PlaceId o ban game nay co the KHONG nam trong bang tren -> SeaIndex tinh
         -- 1 lan luc inject co the SAI, khien LevelFarm cu dung o buoc "dich sea" roi return.
@@ -2653,7 +2392,7 @@ ScriptStorage = {
                         MeleeNpcIndexSea = nil
                         -- [FC7] Doi Sea = doi bang uu tien task
                         RebuildTasksOrder(ni)
-                        BocchiLog("[FC7] Thu tu task cua Sea " .. tostring(ni) .. ": " .. table.concat(TasksOrder, " > "))
+                        print("[FC7] Thu tu task cua Sea " .. tostring(ni) .. ": " .. table.concat(TasksOrder, " > "))
                         pending, same = nil, 0
                     end
                 else
@@ -3802,7 +3541,7 @@ ScriptStorage = {
                 TweenInstance:Cancel()
             end
 
-            local Speed = (CurrentDist < 30) and 45 or 160
+            local Speed = (CurrentDist < 30) and 45 or 120
             local Time = CurrentDist / Speed
 
             local tweenService = game:GetService("TweenService")
@@ -4544,64 +4283,9 @@ ScriptStorage = {
         local Player = Players.LocalPlayer
         local Modules = ReplicatedStorage:FindFirstChild("Modules") or ReplicatedStorage:WaitForChild("Modules", 3)
         local Net = Modules and (Modules:FindFirstChild("Net") or Modules:WaitForChild("Net", 3))
-        -- [FC8c] TIM REMOTE DANG VO: cu tim "RE/RegisterAttack" truc tiep tren Modules.Net la
-        -- hoi SIEU VI: Net la ModuleScript nen khong the chua Instance con, con remote that
-        -- do game tao luc chay va often nam sau 1 folder khac (RE hoac khong). Neu ca 3 cach
-        -- deu trua -> RegisterAttack/RegisterHit = nil -> Funcs:Attack() chay het trong pcall
-        -- nen KHONG BAO LOI, va day la ly do hitbot khong ra sat thuong o moi tai khoan trong
-        -- khi bam chieu (di remote khac) van co. Tim theo thu tu: path -> ten truc tiep ->
-        -- moi folder con -> toan bo ReplicatedStorage.
-        local function FindCombatRemote(Name)
-            local function isRemote(o)
-                return o and (o:IsA("RemoteEvent") or o:IsA("UnreliableRemoteEvent"))
-            end
-            local function fromRoot(Root)
-                if not Root then return nil end
-                local ok, hit = pcall(function() return Root:FindFirstChild("RE/" .. Name) end)
-                if ok and isRemote(hit) then return hit end
-                ok, hit = pcall(function() return Root:FindFirstChild(Name) end)
-                if ok and isRemote(hit) then return hit end
-                ok, hit = pcall(function()
-                    local re = Root:FindFirstChild("RE")
-                    return re and re:FindFirstChild(Name)
-                end)
-                if ok and isRemote(hit) then return hit end
-                ok, hit = pcall(function()
-                    for _, folder in ipairs(Root:GetChildren()) do
-                        if folder:IsA("Folder") then
-                            local c = folder:FindFirstChild(Name)
-                            if isRemote(c) then return c end
-                        end
-                    end
-                end)
-                if ok and isRemote(hit) then return hit end
-                ok, hit = pcall(function()
-                    for _, d in ipairs(Root:GetDescendants()) do
-                        if d.Name == Name and isRemote(d) then return d end
-                    end
-                end)
-                if ok and isRemote(hit) then return hit end
-                return nil
-            end
-            return fromRoot(Net) or fromRoot(Modules) or fromRoot(ReplicatedStorage)
-        end
-        local RegisterAttack = FindCombatRemote("RegisterAttack")
-        local RegisterHit = FindCombatRemote("RegisterHit")
-        local ShootGunEvent = FindCombatRemote("ShootGunEvent")
-        -- [FC8c] In duong dan that 1 lan de test: "TIM KHONG THAY" = day la nguyen nhan
-        pcall(function()
-            local function path(o)
-                if not o then return "TIM KHONG THAY" end
-                local parts, cur = {}, o
-                while cur and cur ~= game do
-                    table.insert(parts, 1, cur.Name)
-                    cur = cur.Parent
-                end
-                return table.concat(parts, "/")
-            end
-            BocchiLog("[FC8c] RegisterAttack = " .. path(RegisterAttack) .. " | RegisterHit = " ..
-                path(RegisterHit) .. " | Net = " .. (Net and (Net.ClassName .. ":" .. Net.Name) or "nil"))
-        end)
+        local RegisterAttack = Net and (Net:FindFirstChild("RE/RegisterAttack") or Net:WaitForChild("RE/RegisterAttack", 3))
+        local RegisterHit = Net and (Net:FindFirstChild("RE/RegisterHit") or Net:WaitForChild("RE/RegisterHit", 3))
+        local ShootGunEvent = Net and (Net:FindFirstChild("RE/ShootGunEvent") or Net:WaitForChild("RE/ShootGunEvent", 3))
         local GunValidator = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Validator2")
         local Register_Hit, Register_Attack = RegisterHit, RegisterAttack
         local Funcs = {}
@@ -4621,12 +4305,9 @@ ScriptStorage = {
 
             local enemies = workspace:FindFirstChild("Enemies")
             if enemies then
-                -- [FC10] Ban kinh dat duoc (cu 65): qua hep nen dung canh ngoai la khong
-                -- thay quai nao -> khong bao gio gui cu danh.
-                local banKinh = (Config and Config.Settings and tonumber(Config.Settings.BanKinhDanhVo)) or 150
                 for _, v in pairs(enemies:GetChildren()) do
                     if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-                        if (v.HumanoidRootPart.Position - myPos).Magnitude <= banKinh then
+                        if (v.HumanoidRootPart.Position - myPos).Magnitude <= 65 then
                             table.insert(cachedBladeHits, v)
                         end
                     end
@@ -4671,52 +4352,8 @@ ScriptStorage = {
             end
         end)
 
-        local Fc8NoTargetTick, Fc8SentTick, Fc8SendFailTick, Fc9ValidatorTick
-        -- [FC10] Trang thai do hinh lenh RegisterHit (xem trong Funcs:Attack)
-        local Fc10Mode = 1
-        local Fc10LockedMode = nil
-        local Fc10ProbeMob, Fc10ProbeHealth, Fc10Sends = nil, nil, 0
-        -- [FC12] Co 3 hinh gui RegisterHit; tu xoay 1 -> 2 -> 3 -> 1 khi mau khong giam.
-        local function Fc12Ten(mode)
-            if mode == 2 then
-                return "FireServer(HRP, 1) kieu 'DANH QUAI TU XA'"
-            elseif mode == 3 then
-                return "FireServer(Head, {{quai, HRP}}) kieu hub CU"
-            end
-            return "FireServer(Head, {{quai, Head}}) kieu EMERALD"
-        end
-        local function Fc12KepNext(mode)
-            return (mode % 3) + 1
-        end
-        -- [FC8c] Thu lai tim remote khi cu danh dien ra: luc scriptmoiinject co the
-        -- game chua Replicate remote xong, ma lookup o tren chi chay 1 lan -> nil mai mai.
-        local Fc8RetryTick
-        local function Fc8RetryRemotes()
-            if RegisterAttack and RegisterHit then return end
-            if Fc8RetryTick and os.clock() - Fc8RetryTick < 15 then return end
-            Fc8RetryTick = os.clock()
-            if not RegisterAttack then RegisterAttack = FindCombatRemote("RegisterAttack") end
-            if not RegisterHit then RegisterHit = FindCombatRemote("RegisterHit") end
-            pcall(function()
-                if Net and Net:IsA("ModuleScript") and (not RegisterAttack or not RegisterHit) then
-                    local reqNet = safe_require(Net, 1)
-                    if reqNet and type(reqNet) == "table" and type(reqNet.RemoteEvent) == "function" then
-                        if not RegisterAttack then
-                            RegisterAttack = reqNet:RemoteEvent("RegisterAttack", true)
-                        end
-                        if not RegisterHit then RegisterHit = reqNet:RemoteEvent("RegisterHit", true) end
-                    end
-                end
-            end)
-            if RegisterAttack or RegisterHit then
-                BocchiLog("[FC8c] Tim lai duoc remote: RegisterAttack=" .. (RegisterAttack and "co" or "MAT") ..
-                    " | RegisterHit=" .. (RegisterHit and "co" or "MAT"))
-            end
-        end
-
+        local Fc8NoTargetTick, Fc8SentTick, Fc8SendFailTick
         function Funcs:Attack()
-            pcall(Fc8RetryRemotes)
-
             pcall(function()
                 local char = game:GetService("Players").LocalPlayer.Character
                 if char and not char:FindFirstChild("HasBuso") then
@@ -4743,9 +4380,7 @@ ScriptStorage = {
                     Fc8NoTargetTick = os.clock()
                     local c = Player and Player.Character
                     local held = c and c:FindFirstChildOfClass("Tool")
-                    BocchiLog("[FC8] Chua gui cu danh: khong co nao trong " ..
-                        tostring((Config and Config.Settings and tonumber(Config.Settings.BanKinhDanhVo)) or 150) ..
-                        " studs | Tool dang cam=" ..
+                    print("[FC8] Chua gui cu danh: khong co nao trong 65 studs | Tool dang cam=" ..
                         tostring(held and held.Name or "KHONG CO") .. " | RegisterAttack=" ..
                         (RegisterAttack and "co" or "MAT") .. " | RegisterHit=" ..
                         (RegisterHit and "co" or "MAT"))
@@ -4759,132 +4394,23 @@ ScriptStorage = {
                 end
             end)
 
-            -- [FC9] Thu tuc xac nhan cua game: file 'DANH QUAI TU XA' chay lenh NAY chen
-            -- giua RegisterAttack va RegisterHit (moi cu danh), gia tri = milestone thoi
-            -- gian lam tron. Co the day la "handshake" ma server v30 doi truoc khi chap nhan
-            -- cu danh; script hub cu khong he goi Validator (chi co Validator2 cho sung).
-            if Config and Config.Settings and Config.Settings.ValidatorTruocKhiDanh then
-                pcall(function()
-                    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-                    local validator = remotes and remotes:FindFirstChild("Validator")
-                    if validator then
-                        validator:FireServer(math.floor(tick() * 10000000))
-                        if not Fc9ValidatorTick or os.clock() - Fc9ValidatorTick >= 45 then
-                            Fc9ValidatorTick = os.clock()
-                            BocchiLog("[FC9] Da goi Remotes.Validator truoc RegisterHit")
-                        end
-                    elseif not Fc9ValidatorTick or os.clock() - Fc9ValidatorTick >= 45 then
-                        Fc9ValidatorTick = os.clock()
-                        BocchiLog("[FC9] Remotes.Validator KHONG ton tai -> bo buoc xac nhan")
-                    end
-                end)
-            end
-
+            local targetHead = nil
             local targetsTable = {}
-            -- [FC12] Bang thu 3 giu hinh CU ({quai, HumanoidRootPart}) de mode 3 con duoc
-            -- khi quay probe; mode 1 (emerald) dung targetsTable voi Head.
-            local targetsHrp = {}
-            local aimPart = nil
-            -- [FC10] Chon muc tieu theo thu tu GA N NHAT: thu tu cua pairs() khong on dinh
-            -- nen khong duoc dung bladehits[1] lam con quai de theo doi mau.
-            local myRoot = Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-            local myPosNow = myRoot and myRoot.Position
-            local nearestMob, nearestDist
             for r, v in pairs(bladehits) do
-                local hrp = v:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    -- [FC12] SPY cua script emerald (ra sat thuong 110 tren cung acc nay)
-                    -- cho thay RegisterHit Arg[2] la {{don_vi, don_vi.Head}, ...} -- phan tu
-                    -- thu 2 cua moi cap la HEAD, khong phai HumanoidRootPart. Server v30 cham
-                    -- vung trung o Head nen guoi HRP = 0 sat thuong. Do do mode 1 gui Head.
-                    local head = v:FindFirstChild("Head")
+                if not targetHead and v:FindFirstChild("Head") then
+                    targetHead = v.Head
+                end
+                if v:FindFirstChild("HumanoidRootPart") then
                     table.insert(targetsTable, {
                         [1] = v,
-                        [2] = head or hrp
+                        [2] = v.HumanoidRootPart
                     })
-                    table.insert(targetsHrp, {
-                        [1] = v,
-                        [2] = hrp
-                    })
-                    -- [FC10] Head chi la tuy chon: mob nao khong co Head thi cu danh van
-                    -- phai di (truoc day thieu Head la return = 0 sat thuong mai mai).
-                    if not aimPart then
-                        aimPart = head or hrp
-                    end
-                    if myPosNow then
-                        local d = (hrp.Position - myPosNow).Magnitude
-                        if not nearestDist or d < nearestDist then
-                            nearestDist, nearestMob = d, v
-                        end
-                    end
                 end
             end
 
-            if RegisterHit and #targetsTable > 0 then
-                -- [FC10] TU DO HINH LENH: acc cua ban danh bang script khac (emerald) VAN
-                -- RA sat thuong 110 tren cung con quai do, cung nam don -> khong phai loi
-                -- acc, loi o hinh dang goi RegisterHit.
-                -- [FC12] SPY cho thay emerald gui {{quai, quai.Head}} + Arg[1] = Head, nen
-                -- mode 1 BAY GIO LA DUNG HINH EMERALD (truoc day mode 1 nhom HRP vao vi tri
-                -- so 2 = ca 3 lan probe deu chua tung thu dung hinh).
-                local primary = nearestMob or bladehits[1]
-                local humP = primary and primary:FindFirstChild("Humanoid")
-                local nowHealth = humP and humP.Health or nil
-                if Fc10ProbeMob ~= primary then
-                    Fc10ProbeMob, Fc10ProbeHealth = primary, nowHealth
-                elseif nowHealth and Fc10ProbeHealth then
-                    if nowHealth < Fc10ProbeHealth then
-                        if not Fc10LockedMode then
-                            Fc10LockedMode = Fc10Mode
-                            BocchiLog(string.format(
-                                "[FC10] Kieu gui %d CO sat thuong (%.0f -> %.0f) -> giu kieu nay",
-                                Fc10Mode, Fc10ProbeHealth, nowHealth))
-                        end
-                        Fc10Sends = 0
-                        Fc10ProbeHealth = nowHealth
-                    else
-                        Fc10Sends = Fc10Sends + 1
-                        if not Fc10LockedMode then
-                            -- [FC12] Nguong troi kieu 12 -> 30 cu danh (~3s): 12 cu danh o
-                            -- nhip 0.1s la 1.2s, qua ngan de ket luan mot kieu la hong.
-                            if (Fc10Sends % 30) == 0 then
-                                Fc10Mode = Fc12KepNext(Fc10Mode)
-                                BocchiLog("[FC10] " .. tostring(Fc10Sends) ..
-                                    " cu danh khong giam mau -> thu kieu " .. tostring(Fc10Mode) ..
-                                    " = " .. Fc12Ten(Fc10Mode))
-                            end
-                        elseif Fc10Sends >= 40 then
-                            Fc10LockedMode = nil
-                            Fc10Mode = Fc12KepNext(Fc10Mode)
-                            BocchiLog("[FC10] Kieu da chot lau khong con hieu qua -> do lai kieu " ..
-                                tostring(Fc10Mode) .. " = " .. Fc12Ten(Fc10Mode))
-                        end
-                        Fc10ProbeHealth = nowHealth
-                    end
-                end
-                local cuEp = Config and Config.Settings and tonumber(Config.Settings.KieuGuiDanh)
-                local mode = (cuEp and cuEp >= 1 and cuEp <= 3) and cuEp or Fc10Mode
-
+            if RegisterHit and targetHead and #targetsTable > 0 then
                 pcall(function()
-                    -- [FC12] Arg[1] lay Head cua CON QUAI GAN NHAT (emerald: Arg[1] =
-                    -- Enemies.Snowman.Head), khong lay dai dien bang pairs() nua.
-                    local aim = aimPart
-                    if primary then
-                        aim = primary:FindFirstChild("Head") or
-                            primary:FindFirstChild("HumanoidRootPart") or aim
-                    end
-                    if mode == 2 then
-                        local hrp = primary and primary:FindFirstChild("HumanoidRootPart")
-                        if hrp then
-                            RegisterHit:FireServer(hrp, 1)
-                        end
-                    elseif mode == 3 then
-                        if aim then
-                            RegisterHit:FireServer(aim, targetsHrp)
-                        end
-                    elseif aim then
-                        RegisterHit:FireServer(aim, targetsTable)
-                    end
+                    RegisterHit:FireServer(targetHead, targetsTable)
                 end)
                 -- [FC8b] Xac nhan "lenh DA duoc gui" (30s/lan). Neu log nay chay ma quai VAN
                 -- khong mat mau -> cu danh bi server bo qua vi thieu/sai du lieu theo ban
@@ -4893,69 +4419,26 @@ ScriptStorage = {
                     Fc8SentTick = os.clock()
                     local c = Player and Player.Character
                     local held = c and c:FindFirstChildOfClass("Tool")
-                    BocchiLog("[FC8] Da gui cu danh kieu " .. tostring(mode) ..
-                        " (" .. Fc12Ten(mode) .. ") | RegisterAttack=" ..
-                        (RegisterAttack and "co" or "MAT") .. " | muc tieu=" .. tostring(#targetsTable) ..
-                        " | Tool dang cam=" .. tostring(held and held.Name or "KHONG CO"))
+                    print("[FC8] Da gui cu danh | RegisterAttack=" .. (RegisterAttack and "co" or "MAT") ..
+                        " | muc tieu=" .. tostring(#targetsTable) .. " | Tool dang cam=" ..
+                        tostring(held and held.Name or "KHONG CO"))
                 end
             elseif not Fc8SendFailTick or os.clock() - Fc8SendFailTick >= 20 then
                 Fc8SendFailTick = os.clock()
-                BocchiLog("[FC8] KHONG gui duoc cu danh: RegisterHit=" .. (RegisterHit and "co" or "MAT") ..
-                    " | Head/HRP=" .. (aimPart and "co" or "MAT") .. " | danh sach=" .. tostring(#targetsTable))
+                print("[FC8] KHONG gui duoc cu danh: RegisterHit=" .. (RegisterHit and "co" or "MAT") ..
+                    " | Head=" .. (targetHead and "co" or "MAT") .. " | danh sach=" .. tostring(#targetsTable))
             end
         end
 
         -- Optimized FastAttack loop with Volt Actor support
-        -- [FC9] (1) Danh LIEN TUC trong 1.5s sau lan duoc yeu cau, khong can 2 lan goi
-        -- nam cung 1 giay nhu dieu kien cu `_G.FastAttack == os.time()`; (2) BAM CHUOT
-        -- THAT bang VirtualUser de CHINH TOOL CUA GAME danh M1 (day la cach god human.lua
-        -- va file 'DANH QUAI TU XA' van ra sat thuong, con script hub chi FireServer manual
-        -- thi server v30 co the bo qua).
-        local Fc9EquipTick, Fc9ClickedLog
-        local function Fc9EnsureToolHeld()
-            if not (Config and Config.Settings and Config.Settings.TuCamVoKhiTrongTay) then
-                return
-            end
-            local char = Player and Player.Character
-            local hum = char and char:FindFirstChildWhichIsA("Humanoid")
-            if not char or not hum then return end
-            if char:FindFirstChildOfClass("Tool") then return end
-            if Fc9EquipTick and os.clock() - Fc9EquipTick < 2 then return end
-            Fc9EquipTick = os.clock()
-            for _, tool in ipairs(Player.Backpack:GetChildren()) do
-                local ok, isMelee = pcall(function()
-                    return tool:IsA("Tool") and
-                        (tool.ToolTip == "Melee" or tool.ToolTip == "Sword" or tool:FindFirstChild("Melee"))
-                end)
-                if ok and isMelee then
-                    pcall(function() hum:EquipTool(tool) end)
-                    BocchiLog("[FC9] Da cam vo '" .. tool.Name .. "' de bam chuot danh M1")
-                    return
-                end
-            end
-        end
         local FastAttackLoop = function()
             while task.wait(.1) do
-                local canCham = (_G.FastAttack == os.time()) or ((os.clock() - (_G.FastAttackTick or 0)) < 1.5)
-                if canCham then
+                if _G.FastAttack == os.time() then
                     pcall(
                         function()
                             Funcs:Attack()
                         end
                     )
-                    if Config and Config.Settings and Config.Settings.BamChuThat then
-                        pcall(function()
-                            Fc9EnsureToolHeld()
-                            local VirtualUser = game:GetService("VirtualUser")
-                            -- [FC11] KHONG goi CaptureController() nua: no CAT chuot cua ban
-                            -- (user: "no chan click chuot minh luon"). ClickButton1 van chay.
-                            VirtualUser:ClickButton1(Vector2.new(0, 0))
-                            if not Fc9ClickedLog or os.clock() - Fc9ClickedLog >= 45 then
-                                Fc9ClickedLog = os.clock()
-                                BocchiLog("[FC9] Dang bam chuot that (ClickButton1) 0.1s/nhip de game tu danh M1")
-                            end
-                        end)
-                    end
                 end
             end
         end
@@ -4974,8 +4457,6 @@ ScriptStorage = {
             pcall(
                 function()
                     _G.FastAttack = os.time()
-                    -- [FC9] Mốc giờ để FastAttackLoop danh lien tuc 1.5s sau do
-                    _G.FastAttackTick = os.clock()
                 end
             )
         end
@@ -5335,10 +4816,12 @@ CombatController = {
                         break
                     end
 
-                    -- [FC8b] Do cao dung khi danh = Config. DA THUI: dat 3 (ngang que) lam
-                    -- nhan vat roi xuong thung long chet o bai cao, ma sat thuong VAN = 0
-                    -- -> khoang cach khong phai nguyen nhan. Mac dinh tra lai 20 nhu cu.
-                    local targetAttackPos = CaculateCircreDirection(MobHumanoidRootPart.CFrame).Position + Vector3.new(0, tonumber(Config.Settings.CaoDoDanh) or 20, 0)
+                    -- [FC8b] Do cao dung khi danh = Config (mac dinh 3 studs ngang dau que),
+                    -- truoc day hard-code 20 studs: dung tren cao 20 studs thi server trua
+                    -- khoang cach cua lenh RegisterHit -> vo quay ma quai khong mat mau,
+                    -- xay ra o MOI tai khoan/duoi moi cap (bam tay duoi dat thi van mat).
+                    -- Muon quay lai cu: dat Config.Settings.CaoDoDanh = 20.
+                    local targetAttackPos = CaculateCircreDirection(MobHumanoidRootPart.CFrame).Position + Vector3.new(0, tonumber(Config.Settings.CaoDoDanh) or 3, 0)
                     local myChar = LocalPlayer.Character
                     local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
                     local distToMob = myHrp and (myHrp.Position - targetAttackPos).Magnitude or 999
@@ -6537,7 +6020,7 @@ FunctionsHandler = {
                         MonName = quLive
                         if not Fc3FallbackLog or os.time() - Fc3FallbackLog > 30 then
                             Fc3FallbackLog = os.time()
-                            BocchiLog("[FC3] Khong co nhiem vu dang chay + bang quest khong co ten quai -> fam " ..
+                            print("[FC3] Khong co nhiem vu dang chay + bang quest khong co ten quai -> fam " ..
                                 tostring(quLive) .. " (cay mastery/Beli/nguyen lieu, khong dung yen)")
                         end
                     end
@@ -7974,7 +7457,7 @@ FunctionsHandler = {
                     LPC.Methods.EquipTool:Call(tool.Name)
                     LPC.Methods.EquipTool:Call("Melee")
                 end
-                BocchiLog("[FC5] Mac vo " .. tostring(meleeName) .. " (tool '" .. tostring(tool.Name) ..
+                print("[FC5] Mac vo " .. tostring(meleeName) .. " (tool '" .. tostring(tool.Name) ..
                     "') de cay mastery -> LevelFarm fam truc tiep")
                 return true
             end)
@@ -11398,7 +10881,7 @@ FunctionsHandler = {
                 if longGrace and idleFor < longGrace then
                     if not Fc6Warned or (pos - Fc6Warned).Magnitude > 40 then
                         Fc6Warned = pos
-                        BocchiLog("[FC6] task '" .. tostring(winnerName) .. "' dung " ..
+                        print("[FC6] task '" .. tostring(winnerName) .. "' dung " ..
                             string.format("%.0f", idleFor) .. "s (dang tai NPC/boss -> cho den " ..
                             tostring(longGrace) .. "s roi moi fam cuong buc)")
                         SetTask("SubTask", "[FC6] " .. tostring(winnerName) .. " dung " ..
@@ -11410,7 +10893,7 @@ FunctionsHandler = {
                 if Fc6NoForce[winnerName] then
                     if not Fc6Warned or (pos - Fc6Warned).Magnitude > 40 then
                         Fc6Warned = pos
-                        BocchiLog("[FC6] task '" .. tostring(winnerName) .. "' dung " ..
+                        print("[FC6] task '" .. tostring(winnerName) .. "' dung " ..
                             string.format("%.0f", idleFor) .. "s (puzzle/raid -> KHONG xen vao)")
                         SetTask("SubTask", "[FC6] " .. tostring(winnerName) .. " dang cho " ..
                             string.format("%.0f", idleFor) .. "s (khong cuong buc vi dang theo chuoi)")
@@ -11419,7 +10902,7 @@ FunctionsHandler = {
                 end
                 if Fc6KickAt and (now - Fc6KickAt) < 25 then return end
                 Fc6KickAt = now
-                BocchiLog("[FC6] watchdog: task '" .. tostring(winnerName) .. "' giu tick " ..
+                print("[FC6] watchdog: task '" .. tostring(winnerName) .. "' giu tick " ..
                     string.format("%.0f", idleFor) .. "s khong danh + khong di -> cuong buc fam")
                 SetTask("SubTask", "[FC6] watchdog: " .. tostring(winnerName) ..
                     " dung " .. string.format("%.0f", idleFor) .. "s -> fam cuong buc")
