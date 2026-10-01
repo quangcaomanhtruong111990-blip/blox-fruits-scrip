@@ -150,9 +150,9 @@ do
         -- [FC6 review] Khi LevelFarm khong doc duoc ten quai tu bang cap do thi van danh
         -- con quai GAN NHAT trong khoang nay (studs) thay vi dung cho "No Mob Found".
         KhoangTimQuaiKhiKhongCoTen = 1500,
-        -- [FC8b] Do cao cua nhan vat khi dung danh quai (studs). 3 = ngang que de server
-        -- cong nhan cu danh; dat 20 = bay phao tren dau nhu cac build cu.
-        CaoDoDanh = 3,
+        -- [FC8b] Do cao cua nhan vat khi dung danh quai (studs). DA THUI: 3 lam nhan vat
+        -- roi chet o bai cao ma van khong co sat thuong -> giu nguyen 20 nhu build cu.
+        CaoDoDanh = 20,
     }
     for k, v in pairs(Km45Defaults) do
         if Config.Settings[k] == nil then
@@ -177,6 +177,12 @@ do
     end
     if Config.Settings.QuestDoneLookahead == nil then
         Config.Settings.QuestDoneLookahead = true
+    end
+    -- [FC8b] Ban FC8b da dat CaoDoDanh = 3 (xuong ngang que) -> bi roi chet o bai cao ma
+    -- van khong co sat thuong. Config cu van con gia tri 3 (getgenv song qua lan re-inject)
+    -- nen chi ep LAI DUNG so 3 do ve 20; ban tu dat gia tri khac thi giu nguyen.
+    if tonumber(Config.Settings.CaoDoDanh) == 3 then
+        Config.Settings.CaoDoDanh = 20
     end
 end
 
@@ -780,7 +786,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "333"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -4816,12 +4822,10 @@ CombatController = {
                         break
                     end
 
-                    -- [FC8b] Do cao dung khi danh = Config (mac dinh 3 studs ngang dau que),
-                    -- truoc day hard-code 20 studs: dung tren cao 20 studs thi server trua
-                    -- khoang cach cua lenh RegisterHit -> vo quay ma quai khong mat mau,
-                    -- xay ra o MOI tai khoan/duoi moi cap (bam tay duoi dat thi van mat).
-                    -- Muon quay lai cu: dat Config.Settings.CaoDoDanh = 20.
-                    local targetAttackPos = CaculateCircreDirection(MobHumanoidRootPart.CFrame).Position + Vector3.new(0, tonumber(Config.Settings.CaoDoDanh) or 3, 0)
+                    -- [FC8b] Do cao dung khi danh = Config. DA THUI: dat 3 (ngang que) lam
+                    -- nhan vat roi xuong thung long chet o bai cao, ma sat thuong VAN = 0
+                    -- -> khoang cach khong phai nguyen nhan. Mac dinh tra lai 20 nhu cu.
+                    local targetAttackPos = CaculateCircreDirection(MobHumanoidRootPart.CFrame).Position + Vector3.new(0, tonumber(Config.Settings.CaoDoDanh) or 20, 0)
                     local myChar = LocalPlayer.Character
                     local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
                     local distToMob = myHrp and (myHrp.Position - targetAttackPos).Magnitude or 999
