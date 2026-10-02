@@ -777,7 +777,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "4TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1513,6 +1513,12 @@ ScriptStorage = {
 
         function SetTask(Index, Value)
             if ScriptStorage.Task[Index] == Value then
+                return
+            end
+            -- [DT1] dang ghim dong bao loi (Dt1Bao) thi an cac SubTask thuong de log khong bi
+            -- nat trong 1 tick; MainTask van ghi binh thuong.
+            if Index == "SubTask" and Dt1PinUntil and os.clock() < Dt1PinUntil and
+                Value ~= Dt1PinText then
                 return
             end
             local Parser = {
@@ -2310,6 +2316,108 @@ ScriptStorage = {
         -- Start cua no co vong "while not ScriptStorage.Tools['Flower i'] do task.wait() end",
         -- hoa don khong spawn la ca scheduler dung im -> dung loai loi "task giu tick ma khong
         -- lam gi" (km18). Muon dung Race V2 thi phai sua xong vong do da.
+
+        -- ============================================================
+        -- [DT1] = port FC23 cua "FILE CHINH.lua" sang ban dien thoai.
+        -- 3 viec: (1) in tra loi server + cooldown khi mua vo that bai,
+        -- (2) khong LoadFruit trai dang nam tay khi di raid + in reply "Select"
+        --     + phong 300s khi raid that bai, (3) TimNhuongTick de LevelFarm khong
+        --     chiem tick vinh vien (nhat trai roi / danh boss moi co hoi chay).
+        -- ============================================================
+        Dt1BuyMute = Dt1BuyMute or {}
+        -- [DT1] _G.Stop song qua lan nap truoc (toan file khong co cho nao ghi false) -> mo khoa
+        -- ngay luc inject, neu khong thi luon co the bi 1 con quai "khong giam mau" gietch ca script.
+        _G.Stop = false
+
+        -- [DT1] IN LEN MAN HINH: dien thoai khong co console nhu PC, chi print() la vo nghia.
+        -- Dt1Bao() vua print vua ghim vao dong SubTask cua HUD 6s (SetTask ben duoi se an
+        -- moi SubTask khac khi con ghim) -> doc duoc ly do chai tren may.
+        function Dt1Bao(text)
+            print(text)
+            pcall(function()
+                Dt1PinText = text
+                Dt1PinUntil = os.clock() + 6
+                SetTask("SubTask", text)
+            end)
+        end
+        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s)")
+
+        -- [FC23] GetRaidableFruit tra ve BANG chu khong phai chuoi -> log phai dich ra ten
+        function TenTraiRaid(t)
+            if type(t) == "table" then
+                return tostring(t.Name or t.name or "?")
+            end
+            return tostring(t)
+        end
+
+        -- [FC23] Trai da la Tool vat ly tren tay / trong balo thi KHONG duoc LoadFruit nua:
+        -- server tu choi va bao "Cannot hold multiple Blox Fruits at once." -> raid dung tai cho.
+        function TraiDangNamTay(t)
+            if type(t) ~= "table" then return false end
+            if t.IsPhysical then return true end
+            local ten = tostring(t.Name or "")
+            if ten == "" then return false end
+            local okThay, thay = pcall(function()
+                local ds = {
+                    LocalPlayer.Character and LocalPlayer.Character:GetChildren() or {},
+                    LocalPlayer:FindFirstChild("Backpack") and LocalPlayer.Backpack:GetChildren() or {},
+                }
+                for _, nhom in ipairs(ds) do
+                    for _, it in ipairs(nhom) do
+                        if it:IsA("Tool") and
+                            (it.Name == ten or tostring(it:GetAttribute("OriginalName")) == ten) then
+                            return true
+                        end
+                    end
+                end
+                return false
+            end)
+            return (okThay and thay) == true
+        end
+
+        -- [FC23] LevelFarm.Start co vong fam dai (toi 300s) va scheduler chi chay 1 task/tick,
+        -- nen CollectDrops / BossesTask / ExpRedeem ... KHONG BAO GIO duoc hoi -> "ko nhat trai roi,
+        -- ko di danh boss". Cach: moi 8s fam tu hoi cac task o TRUOC minh trong TasksOrder,
+        -- task nao Refresh = true thi fam break de ho chay. Co chong thrash 5 lan/60s -> phat 180s.
+        function TimNhuongTick()
+            local ok, res = pcall(function()
+                if type(TasksOrder) ~= "table" or type(FunctionsHandler) ~= "table" then return nil end
+                local viTri
+                for i, ten in ipairs(TasksOrder) do
+                    if ten == "LevelFarm" then
+                        viTri = i
+                        break
+                    end
+                end
+                if not viTri or viTri <= 1 then return nil end
+                Fc23YieldMute = Fc23YieldMute or {}
+                Fc23YieldCount = Fc23YieldCount or {}
+                for i = 1, viTri - 1 do
+                    local ten = TasksOrder[i]
+                    local Task = FunctionsHandler[ten]
+                    local Refresh = Task and Task.Initalized and Task.Methods and Task.Methods.Refresh
+                    if Refresh and not (Fc23YieldMute[ten] and os.time() < Fc23YieldMute[ten]) then
+                        local okR, giaTri = pcall(function() return Refresh:Call(false) end)
+                        if okR and giaTri then
+                            local dt = Fc23YieldCount[ten]
+                            if (not dt) or (os.time() - dt.t0 > 60) then
+                                Fc23YieldCount[ten] = { n = 1, t0 = os.time() }
+                            else
+                                dt.n = dt.n + 1
+                                if dt.n >= 5 then
+                                    Fc23YieldMute[ten] = os.time() + 180
+                                    Fc23YieldCount[ten] = nil
+                                    print("[DT1] '" .. tostring(ten) .. "' cat fam 5 lan/60s -> phong 180s")
+                                end
+                            end
+                            return ten
+                        end
+                    end
+                end
+                return nil
+            end)
+            return (ok and res) or nil
+        end
 
         MaxLevel = 2800
 
@@ -4259,14 +4367,33 @@ ScriptStorage = {
             end 
             if Check then
                 local Response_ = Remotes.CommF_:InvokeServer("Buy" .. M1, true)
-                print("Response_", Response_ == 1, typeof(Response_))
+                -- [DT1] in TEN kieu vo vao log (truoc day chi "Response_" khong biet la vo nao)
+                print("[DT1] Check Buy " .. tostring(M1) .. " -> " .. tostring(Response_) ..
+                    " (so sanh 1 = " .. tostring(Response_ == 1) .. ", kieu " .. typeof(Response_) .. ")")
                 if type(Response_) == "number" and not table.find(MeleeCanBuy,M1) then
                     table.insert(MeleeCanBuy, M1)
                     warn("Inserted " .. M1)
                 end
                 return Response_ == 1
             end
-            return Remotes.CommF_:InvokeServer("Buy" .. M1)
+            -- [DT1] MUA THAT: truoc day loi o day IM LANG (chi InvokeServer, khong doc tra loi),
+            -- nen khong the biet server tu choi vi thieu F / thieu Bel / chua dat dieu kien.
+            -- Them cooldown theo tung kieu vo de nhan vat khong spam remote moi tick fam.
+            if Dt1BuyMute[M1] and os.time() < Dt1BuyMute[M1] then
+                print("[DT1] bo qua Buy " .. tostring(M1) .. " con phong " ..
+                    tostring(Dt1BuyMute[M1] - os.time()) .. "s")
+                return false
+            end
+            local okB, respB = pcall(function()
+                return Remotes.CommF_:InvokeServer("Buy" .. M1)
+            end)
+            Dt1BuyMute[M1] = os.time() + 120
+            local pd = ScriptStorage.PlayerData or {}
+            Dt1Bao("[DT1] Buy " .. tostring(M1) .. " -> " ..
+                (okB and tostring(respB) or ("LOI " .. tostring(respB))) ..
+                " | F=" .. tostring(pd.Fragments or 0) ..
+                " | Bel=" .. tostring(pd.Beli or 0) .. " (phong 120s)")
+            return respB
         end
 
 
@@ -4809,12 +4936,25 @@ CombatController = {
                             then
                                 SetTask(
                                     "SubTask",
-                                    "Hop Server - Mob Health Unchanged ( " ..
+                                    "Bo qua quai - Mob Health Unchanged ( " ..
                                         MobHumanoid.Health .. " / " .. MobHumanoid.MaxHealth .. ")"
                                 )
                                 alert("Stuck", "Mob health unchanged")
-                                _G.Stop = true
-                                SafeRejoinOrHop("Rejoin")
+                                -- [DT1] NGUYEN NHAN "ch chay toi day la dung han": o day gan
+                                -- _G.Stop = true nhung CA FILE khong co cho nao ghi _G.Stop = false,
+                                -- ma RefreshTasksData (11038) va vong lap chinh (11470) deu
+                                -- "if _G.Stop then return" => TOAN BO scheduler chet vinh vien,
+                                -- HUD con nguyen dong cu nen nhin tuong nhu dang chay.
+                                -- SafeRejoinOrHop o ban nay chi la stub in log (khong doi server that),
+                                -- nen thay dung script thi PHAI bo. Danh dau con quai nay roi bo qua no.
+                                _G.Stop = false
+                                pcall(function()
+                                    if MonResult:GetAttribute("IgnoreGrab") == nil then
+                                        MonResult:SetAttribute("IgnoreGrab", true)
+                                    end
+                                    MonResult:SetAttribute("FailureCount",
+                                        (MonResult:GetAttribute("FailureCount") or 0) + 3)
+                                end)
                                 return
                             end
 
@@ -6006,6 +6146,20 @@ FunctionsHandler = {
 
                     while task.wait(0.05) do
                         if _G.Stop then break end
+
+                        -- [DT1] NHUONG TICK: vong fam nay giu tick ca 300s nen scheduler (chi chay
+                        -- 1 task/tick) khong bao gio hoi CollectDrops / BossesTask / ExpRedeem ->
+                        -- "ko nhat trai roi, ko di danh boss". Moi 8s hoi cac task o TRUOC LevelFarm,
+                        -- task nao san sang thi dung fam de ho chay (co phong 180s neu cat qua nhieu).
+                        if type(TimNhuongTick) == "function" and
+                            (not Fc23YieldTick or os.clock() - Fc23YieldTick >= 8) then
+                            Fc23YieldTick = os.clock()
+                            local tenNhuong = TimNhuongTick()
+                            if tenNhuong then
+                                print("[DT1] Nhuong tick cho '" .. tostring(tenNhuong) .. "' -> tam dung fam")
+                                break
+                            end
+                        end
 
                         -- KIỂM TRA ĐÃ TIẾP CẬN BÃI QUÁI HAY CHƯA (Tránh nhận nhầm quest khi đang bay đường dài)
                         -- [km45] scan ca folder Enemies -> chi quet 1 lan / 2s thay vi 20 lan/giay
@@ -9022,6 +9176,19 @@ FunctionsHandler = {
                 return true
             end
 
+            -- [DT1] RAID DA TUNG THAT BAI (thieu Special Microchip / server tu choi "Select")
+            -- -> phong 300s de fam tiep, tranh vong lap "chon raid -> chet -> chon raid" xay ra
+            -- lien tuc nhu ban PC tung mac (FC23). Dat o SAU canh dao/da co chip nen raid dang
+            -- chay thuong KHONG bi chan.
+            if RaidFailMuteUntil and os.time() < RaidFailMuteUntil then
+                if not Dt1RaidMuteLog or os.time() - Dt1RaidMuteLog > 120 then
+                    Dt1RaidMuteLog = os.time()
+                    print("[DT1] raid dang bi phong " .. tostring(RaidFailMuteUntil - os.time()) ..
+                        "s nua -> fam tiep")
+                end
+                return false
+            end
+
             -- Nếu Level chưa Max: farm tích luỹ đến 10k Fragments
             -- Nếu đã Max Level: farm tích luỹ đến 15k Fragments
             if Level < MaxLevel then
@@ -9034,6 +9201,12 @@ FunctionsHandler = {
             local RaidFruit = FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()
             if RaidFruit then
                 FunctionsHandler.RaidController:Set("CurrentProgressLevel", RaidFruit)
+                -- [DT1] in ro ten trai (GetRaidableFruit tra ve BANG, in truc tiep ra "table: 0x...")
+                if not Fc22RaidFruitLogTick or os.time() - Fc22RaidFruitLogTick > 30 then
+                    Fc22RaidFruitLogTick = os.time()
+                    print("[FC23] Thay trai '" .. TenTraiRaid(RaidFruit) .. "' (F " .. tostring(Fragments) ..
+                        ") -> di RAID, ngung fam")
+                end
                 return RaidFruit
             end
             
@@ -9127,7 +9300,8 @@ FunctionsHandler = {
                                 if not table.find(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name) then
                                     table.insert(ScriptStorage.IgnoreStoreFruits, cRaidFruit.Name)
                                 end
-                                if getgenv().LastLoadedFruit ~= cRaidFruit.Name then
+                                if getgenv().LastLoadedFruit ~= cRaidFruit.Name and
+                                    not TraiDangNamTay(cRaidFruit) then
                                     getgenv().LastLoadedFruit = cRaidFruit.Name
                                     alert("Load Fruit", cRaidFruit.Name)
                                     -- [km43] LayTraiKhoRa = LoadFruit + kiem tra Tool trai ve duoc
@@ -9156,9 +9330,23 @@ FunctionsHandler = {
                                         getgenv().LastLoadedFruit = nil
                                     end
                                 end
-                                Remotes.CommF_:InvokeServer("RaidsNpc", "Select", FunctionsHandler.RaidController:Get("CurrentChip"))
+                                -- [FC23] doc tra loi "Select" (truoc day an het) va KHONG gui
+                                -- LoadFruit lan nua khi trai dang la Tool tren tay: server tu choi,
+                                -- man hinh bao "Cannot hold multiple Blox Fruits at once." va chuoi
+                                -- raid dung tai do -> khong bao gio vao duoc raid.
+                                local okSel, respSel = pcall(function()
+                                    return Remotes.CommF_:InvokeServer("RaidsNpc", "Select",
+                                        FunctionsHandler.RaidController:Get("CurrentChip"))
+                                end)
+                                Dt1Bao("[FC23] RaidsNpc Select (tra " .. TenTraiRaid(cRaidFruit) .. ") -> " ..
+                                    (okSel and tostring(respSel) or ("LOI " .. tostring(respSel))))
                                 task.wait(1)
-                                Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
+                                if not TraiDangNamTay(cRaidFruit) then
+                                    Remotes.CommF_:InvokeServer("LoadFruit", cRaidFruit.Name)
+                                else
+                                    print("[FC23] Tra '" .. TenTraiRaid(cRaidFruit) ..
+                                        "' da o tren tay -> bo qua LoadFruit, chi Select raid")
+                                end
                                 task.wait(1)
                             else
                                 -- Mua bằng Beli (nếu đủ 100k và hết cooldown)
@@ -9171,7 +9359,13 @@ FunctionsHandler = {
                                             FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("")
                                         end
                                         task.wait(1)
-                                        Remotes.CommF_:InvokeServer("RaidsNpc", "Select", FunctionsHandler.RaidController:Get("CurrentChip"))
+                                        -- [FC23] in reply cua server khi chon raid bang Beli
+                                        local okSelB, respSelB = pcall(function()
+                                            return Remotes.CommF_:InvokeServer("RaidsNpc", "Select",
+                                                FunctionsHandler.RaidController:Get("CurrentChip"))
+                                        end)
+                                        Dt1Bao("[FC23] RaidsNpc Select (bang BELI " .. tostring(Beli) .. ") -> " ..
+                                            (okSelB and tostring(respSelB) or ("LOI " .. tostring(respSelB))))
                                         task.wait(1)
                                         -- Đặt cooldown 2 tiếng (7200 giây)
                                         getgenv().BeliChipCooldownUntil = os.time() + 7200
@@ -9190,7 +9384,32 @@ FunctionsHandler = {
                         task.wait(2)
                         
                         if not CheckSpecialMicrochip() then
+                            -- [FC23] doan nay truoc day chi warn roi return IM LANG -> khong biet
+                            -- tai sao thieu chip (server khong cap vi "Select" bi tu choi?).
                             warn("Failed to get Special Microchip after buying")
+                            local okChung, chung = pcall(function()
+                                local ds = {}
+                                if LocalPlayer.Character then
+                                    for _, it in ipairs(LocalPlayer.Character:GetChildren()) do
+                                        if it:IsA("Tool") then table.insert(ds, it.Name) end
+                                    end
+                                end
+                                if LocalPlayer.Backpack then
+                                    for _, it in ipairs(LocalPlayer.Backpack:GetChildren()) do
+                                        if it:IsA("Tool") then table.insert(ds, it.Name) end
+                                    end
+                                end
+                                local pdB = ScriptStorage.PlayerData or {}
+                                return "tool=" .. tostring(#ds) .. " [" .. table.concat(ds, ", ") ..
+                                    "] | trai tren tay=" .. tostring(DemTraiVatLy()) ..
+                                    " | Bel=" .. tostring(pdB.Beli or 0) ..
+                                    " | F=" .. tostring(pdB.Fragments or 0)
+                            end)
+                            print("[FC23] KHONG co Special Microchip sau khi Select -> " ..
+                                tostring(okChung and chung or ("LOI " .. tostring(chung))))
+                            -- [DT1] phong 5 phut de khong quay vong "chon raid -> chet"
+                            RaidFailMuteUntil = os.time() + 300
+                            Dt1Bao("[DT1] RAID LOI: thieu Special Microchip -> phong 300s, fam tiep")
                             return
                         end
                         
