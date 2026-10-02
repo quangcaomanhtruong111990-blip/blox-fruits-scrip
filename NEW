@@ -782,7 +782,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "4TN"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2345,7 +2345,255 @@ ScriptStorage = {
                 SetTask("SubTask", text)
             end)
         end
-        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID")
+        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID | DT4: mo bang Vat Pham la doc duoc so nguyen lieu")
+
+        -- [DT4] ---- DOC BANG "VAT PHAM" (Stash) -----------------------------
+        -- Anh user chup bang "Vat Pham": moi o CHI co icon + chu so (99, 23, 46...),
+        -- khong co chu nao ghi TEN mon. Nguon 3 cua km55 di tim nhan chu
+        -- "Magma Ore 46" (ten + dinh so cung mot dong) nen KHONG THE nao khop.
+        -- DT4 dung 2 chieu trong chinh bang do:
+        --   (a) van quet ten, nhung tim trong CA nhan AN (chua roi moi hien) va trong
+        --       ca anh/chu ho o 4 cap cha, khong chi nhan truc tiep nhu km55;
+        --   (b) neu khong tim thay ten nao -> GO ten mon vao o Search cua bang, bang
+        --       con lai 1 o thi doc chu so duy nhat con lai. Loc ra 0 o = CHAC CHAN
+        --       khong nam giu mon do (0 tuyet doi, khong con "doc khong thay" nua).
+        Dt4GuiCuaMinh = function(sg)
+            local n = string.lower(tostring(sg and sg.Name or ""))
+            return n == "cyndraldev" or string.find(n, "bocchi", 1, true) ~= nil
+                or string.find(n, "hub", 1, true) ~= nil
+        end
+
+        -- Nhan nao that su hien tren man hinh (cha me an thi con an theo)
+        function Dt4DangHien(d)
+            local r = true
+            pcall(function()
+                local a = d
+                while a and (a:IsA("GuiObject") or a:IsA("LayerCollector")) do
+                    if a.Visible == false then
+                        r = false
+                        break
+                    end
+                    if a:IsA("ScreenGui") then
+                        break
+                    end
+                    a = a.Parent
+                end
+            end)
+            return r
+        end
+
+        -- Tim ScreenGui cua bang "Vat Pham" dang MO + o Search cua no
+        function Dt4TimBang()
+            local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+            if not pg then return nil end
+            for _, sg in ipairs(pg:GetChildren()) do
+                if sg:IsA("ScreenGui") and not Dt4GuiCuaMinh(sg) and Dt4DangHien(sg) then
+                    local tb = nil
+                    for _, d in ipairs(sg:GetDescendants()) do
+                        if d:IsA("TextBox") and Dt4DangHien(d) then
+                            local k1 = MaterialCompact(d.PlaceholderText)
+                            local k2 = MaterialCompact(d.Name)
+                            if k1 == "search" or k2 == "search" or k1 == "tim" or k1 == "timkiem"
+                                or string.find(k1, "search", 1, true) ~= nil then
+                                tb = tb or d
+                            end
+                        end
+                    end
+                    if tb then
+                        return sg, tb
+                    end
+                end
+            end
+            return nil
+        end
+
+        -- Cac chu "chi la mot con so" = badge so luong tren goc o, dang hien
+        function Dt4DemBadge(sg)
+            local ds = {}
+            for _, d in ipairs(sg:GetDescendants()) do
+                local isT = false
+                pcall(function() isT = d:IsA("GuiText") end)
+                if isT and Dt4DangHien(d) then
+                    local txt = nil
+                    pcall(function() txt = d.Text end)
+                    local n = tonumber(string.match(tostring(txt), "^%s*(%d+)%s*$"))
+                    if n then
+                        table.insert(ds, n)
+                    end
+                end
+            end
+            return ds
+        end
+
+        -- (a) Ten mon nam trong nhan AN: khong doi visible, tim so trong 4 cap cha
+        function Dt4DocTheoTen(sg, want, got, src)
+            local nhan = {}
+            for _, d in ipairs(sg:GetDescendants()) do
+                local isT = false
+                pcall(function() isT = d:IsA("GuiText") end)
+                if isT then
+                    local txt = nil
+                    pcall(function() txt = d.Text end)
+                    if type(txt) == "string" and #txt < 90 then
+                        nhan[#nhan + 1] = d
+                    end
+                end
+            end
+            for _, lbl in ipairs(nhan) do
+                local compact = MaterialCompact(lbl.Text)
+                for name, key in pairs(want) do
+                    if not got[name] and compact == key then
+                        local a = lbl.Parent
+                        -- CHI tim trong 2 cap cha gan nhat = trong vong 1 o. Len toi 3-4
+                        -- cap la ca grid, so dau tien tim thay co the cua o KHAC.
+                        for _ = 1, 2 do
+                            if not a then
+                                break
+                            end
+                            for _, s in ipairs(a:GetDescendants()) do
+                                local isT = false
+                                pcall(function() isT = s:IsA("GuiText") end)
+                                if isT and s ~= lbl then
+                                    local n = tonumber(string.match(tostring(s.Text), "^%s*(%d+)%s*$"))
+                                    if n then
+                                        got[name] = n
+                                        src[name] = "Stash-ten"
+                                        break
+                                    end
+                                end
+                            end
+                            if got[name] then
+                                break
+                            end
+                            a = a.Parent
+                        end
+                    end
+                end
+            end
+        end
+
+        function Dt4TruyVan(name)
+            local out = { tostring(name) }
+            local a = string.match(tostring(name), "^(%S+)")
+            local b = string.match(tostring(name), "(%S+)$")
+            if a and a ~= name then
+                out[#out + 1] = a
+            end
+            if b and b ~= name and b ~= a then
+                out[#out + 1] = b
+            end
+            return out
+        end
+
+        -- (b) Loc tung ten qua o Search roi doc so con lai
+        function Dt4LocBang(sg, tb, want, got, src)
+            local goc = nil
+            pcall(function() goc = tb.Text end)
+            Dt4GocText = goc
+            local function Dat(s)
+                pcall(function() tb.Text = tostring(s or "") end)
+                task.wait(0.45)
+            end
+
+            -- Do 1 lan/inject: o search CO loc that khong (go "zzz" -> phai ra 0 o)
+            if Dt4SearchChay == nil then
+                local truoc = #Dt4DemBadge(sg)
+                Dat("zzz")
+                local sau = #Dt4DemBadge(sg)
+                Dat(goc)
+                if truoc == 0 then
+                    return
+                end
+                Dt4SearchChay = (sau == 0)
+                Dt4SoO = truoc
+                print("[DT4] do o search: " .. truoc .. " o luc khong loc -> " .. sau ..
+                    " o khi go 'zzz' = " .. (Dt4SearchChay and "SEARCH LOC DUOC" or "SEARCH KHONG LOC, bo qua DT4"))
+            end
+            if Dt4SearchChay ~= true then
+                return
+            end
+
+            local ket = {}
+            local daGiam = false
+            for name in pairs(want) do
+                if not got[name] then
+                    local k = { so = nil, coKhop = false }
+                    for _, q in ipairs(Dt4TruyVan(name)) do
+                        Dat(q)
+                        local ds = Dt4DemBadge(sg)
+                        -- #ds == Dt4SoO (va bang co nhieu hon 1 o) nghia la go gi cung
+                        -- con nguyen so o => o search KHONG he loc. Vo nghia, KHONG duoc
+                        -- phep rut ra ket luan "co 0" tu do.
+                        local khongLoc = ((Dt4SoO or 0) > 1 and #ds == Dt4SoO)
+                        if not khongLoc then
+                            if #ds < (Dt4SoO or 0) then
+                                daGiam = true
+                            end
+                            if #ds >= 1 then
+                                k.coKhop = true
+                            end
+                            if #ds == 1 then
+                                k.so = ds[1]
+                                break
+                            end
+                        end
+                    end
+                    ket[name] = k
+                end
+            end
+            Dat(goc)
+            if not daGiam and (Dt4SoO or 0) > 1 then
+                Dt4SearchChay = false
+                print("[DT4] ca 4 truy van deu giu nguyen " .. tostring(Dt4SoO) ..
+                    " o => o search khong loc duoc bang, TAT DT4 (khong ghi 0 gia)")
+                return
+            end
+
+            local coAiKhop = false
+            for _, k in pairs(ket) do
+                if k.coKhop then
+                    coAiKhop = true
+                    break
+                end
+            end
+            for name, k in pairs(ket) do
+                if k.so then
+                    got[name] = k.so
+                    src[name] = "Stash-search"
+                elseif coAiKhop then
+                    got[name] = 0
+                    src[name] = "Stash-khongco"
+                end
+            end
+            if not coAiKhop and next(ket) ~= nil then
+                Dt4KhongKhopTick = Dt4KhongKhopTick or 0
+                if os.clock() - Dt4KhongKhopTick > 90 then
+                    Dt4KhongKhopTick = os.clock()
+                    Dt1Bao("[DT4] search loc duoc bang nhung ca 4 ten Fish Tail / Dragon Scale / Magma Ore" ..
+                        " / Mystic Droplet deu khong khop => bang dang dung ten TIENG VIET")
+                end
+            end
+        end
+
+        -- Goi khi bang "Vat Pham" dang mo; tra true = doc duoc bang
+        function Dt4DocBang(want, got, src)
+            local sg, tb = Dt4TimBang()
+            if not sg then
+                return false
+            end
+            Dt4DocTheoTen(sg, want, got, src)
+            local con = false
+            for name in pairs(want) do
+                if not got[name] then
+                    con = true
+                    break
+                end
+            end
+            if con and tb then
+                Dt4LocBang(sg, tb, want, got, src)
+            end
+            return true
+        end
 
         -- [FC23] GetRaidableFruit tra ve BANG chu khong phai chuoi -> log phai dich ra ten
         function TenTraiRaid(t)
@@ -3921,7 +4169,7 @@ ScriptStorage = {
                     if not pg then return end
                     local dem = 0
                     for _, lbl in ipairs(pg:GetDescendants()) do
-                        if dem > 500 then break end
+                        if dem > 4000 then break end
                         dem = dem + 1
                         local isText = false
                         pcall(function() isText = lbl:IsA("GuiText") end)
@@ -3969,12 +4217,44 @@ ScriptStorage = {
                 end)
             end
 
+            -- [DT4] Nguon 4: bang "Vat Pham" dang MO -> doc theo nhan ten AN, neu van
+            -- khong thay thi LOC tung ten qua o Search cua bang va doc so con lai.
+            local conThieuDt4 = false
+            for name in pairs(want) do
+                if not got[name] then
+                    conThieuDt4 = true
+                    break
+                end
+            end
+            if conThieuDt4 then
+                local okD4, errD4 = pcall(Dt4DocBang, want, got, src)
+                if not okD4 then
+                    print("[DT4] LOI doc bang: " .. tostring(errD4))
+                    pcall(function()
+                        local sg2, tb2 = Dt4TimBang()
+                        if tb2 and Dt4GocText ~= nil then
+                            tb2.Text = Dt4GocText
+                        end
+                    end)
+                end
+            end
+
             for name, num in pairs(got) do
                 ScriptStorage.InvDebugCache[name] = num
                 if MaterialCacheLog[name] ~= num then
                     MaterialCacheLog[name] = num
                     print("[KhoLieu] " .. name .. " = " .. num .. " (nguon: " .. tostring(src[name]) .. ")")
+                    if string.sub(tostring(src[name] or ""), 1, 5) == "Stash" then
+                        Dt4Thay = Dt4Thay or {}
+                        Dt4Thay[#Dt4Thay + 1] = name .. "=" .. num
+                    end
                 end
+            end
+            -- [DT4] Dien thoai khong co console -> ket qua doc tu bang phai len HUD
+            if Dt4Thay and #Dt4Thay > 0 then
+                Dt1Bao("[DT4] Doc bang Vat Pham: " .. table.concat(Dt4Thay, ", ") ..
+                    " | can: Fish Tail 20, Dragon Scale 10, Magma Ore 20, Mystic Droplet 10")
+                Dt4Thay = nil
             end
             -- Bao cao khi KHONG doc duoc (2 phut/lan) de biet nguon nao ton tai tren ban nay
             if soThua > 0 then
@@ -3988,7 +4268,8 @@ ScriptStorage = {
                     print("[KhoLieu] CHUA DOC DUOC: " .. table.concat(ds, ", ") ..
                         " | Data=" .. (tostring(ScriptStorage.InvDebugCache[GodhumanMaterialsList[1].Name] or "trong")) ..
                         " | Remote=" .. tostring(MaterialRemoteCmd or "khong lenh nao tra table") ..
-                        " (mo kho Stash roi cho 15s)")
+                        " | DT4=" .. tostring(Dt4SearchChay) ..
+                        " (mo bang Vat Pham roi cho 20s)")
                 end
             end
             return got
@@ -3999,7 +4280,13 @@ ScriptStorage = {
             task.wait(12)
             while true do
                 task.wait(15)
-                if (Config.Items and Config.Items.AutoFullyMelees) or GodHumanFlag then
+                -- [DT4] Mo bang "Vat Pham" ra la doc duoc ngay, khong bat buoc phai
+                -- bat chuong Go Toan Bo (ban nay chi co print() nen can doc duoc luc nao ay)
+                local moBang = false
+                pcall(function()
+                    moBang = (Dt4TimBang() ~= nil)
+                end)
+                if (Config.Items and Config.Items.AutoFullyMelees) or GodHumanFlag or moBang then
                     pcall(RefreshMaterialCache)
                 end
             end
@@ -5841,7 +6128,7 @@ FunctionsHandler = {
                         end
                         if #ghStatus.MissingMaterials > 0 and not coNLDocDuoc then
                             SetTask("MainTask", "Godhuman | khong doc duoc nguyen lieu")
-                            SetTask("SubTask", "Mo kho Stash de [KhoLieu] doc so, neu van khong thay " ..
+                            SetTask("SubTask", "Mo bang Vat Pham (Stash) de [DT4] loc qua o Search doc so, neu van khong thay " ..
                                 "thi bat GodhumanAlreadyOwned=true (da co vo) hoac [Vo check] de fam vo khac")
                             GodhumanBlindTick = GodhumanBlindTick or 0
                             if os.clock() - GodhumanBlindTick > 60 then
