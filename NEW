@@ -406,7 +406,7 @@ function DemTraiTrangTrongKho()
 end
 
 -- Lan luot thu tung trai cui cho toi khi lay duoc 1 trai ra kho
-function TimTraiCuiTrongKho()
+function TimTraiCuiTrongKho(ChoTraiXau)
     if not RaidUsesStoredFruits() then
         return nil
     end
@@ -418,12 +418,14 @@ function TimTraiCuiTrongKho()
     end
     KhoTraiLastTry = os.clock()
 
-    -- [km47] CHI lay trai TRANG. Danh sach kho lay duoc thi loc bang TraiLoaiTrang;
+    -- [km47] Mac dinh chi lay trai TRANG. Danh sach kho lay duoc thi loc bang TraiLoaiTrang;
     -- nguon nao khong co ten thi thu cu soa dung danh sach trai trang mac dinh.
+    -- [DT3] ChoTraiXau = true (dang thieu DIEM F) -> moi trai deu duoc thu, van loc trai
+    -- hang cao (HighTen) va Eatlist o vong lap ben duoi nen khong an mat trai xin.
     local candidates = {}
     local traiKhoKhac = {}
     for _, F in ipairs(TraiTrongKho(true)) do
-        if TraiLoaiTrang(F.Name) then
+        if ChoTraiXau or TraiLoaiTrang(F.Name) then
             table.insert(candidates, F.Name)
         else
             table.insert(traiKhoKhac, tostring(F.Name))
@@ -780,7 +782,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "4TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2343,7 +2345,7 @@ ScriptStorage = {
                 SetTask("SubTask", text)
             end)
         end
-        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s)")
+        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID")
 
         -- [FC23] GetRaidableFruit tra ve BANG chu khong phai chuoi -> log phai dich ra ten
         function TenTraiRaid(t)
@@ -5204,6 +5206,42 @@ CombatController = {
             return ThieuNguyenLieuSeaCached(2)
         end
 
+        -- ============================================================
+        -- [DT3] THIEU DIEM F -> LAY BAT CU TRAI NAO MO RAID LUON
+        -- (user: "khi thieu diem F la tu lay trai ra raid luon nha, sao cho no dung im vay")
+        -- Ban cu chan 2 cho:
+        --   (1) km47 `RaidChiDungTraiTrang` = chi duoc mo raid bang trai TRANG (Common).
+        --       Acc nay cam trai khong phai trai trang -> GetRaidableFruit tra nil.
+        --   (2) km25 khong co trai cui thi phai cho 20 PHUT (1200s) moi duoc dung 100k Bel
+        --       mua chip -> trong luc do no fam, ma LevelFarm khong con ten quai nao de danh
+        --       (MonName = nil) thi return IM LANG -> nhan vat dung im giua troi, HUD giu
+        --       dong "[km34] Melee | ... | thieu Fragments 3126/5000" cua task Melee.
+        -- DT3: khi Melee THAT SU can diem F (nhan duoc qua nhanh farm_fragments) thi moi
+        -- trai khong phai hang cao deu duoc dung de mo raid, va thu mua chip bang Bel sau
+        -- 60s thay vi 20 phut. Tat bang Config.Raid.OnlyWhiteFruits = false nhu cu.
+        -- ============================================================
+        function Dt3GhiThieuF(ten, canCo, dangCo)
+            Dt3ThieuFInfo = {
+                ten = tostring(ten or "?"),
+                can = tonumber(canCo) or 0,
+                co = tonumber(dangCo) or 0,
+                luc = os.time(),
+            }
+        end
+
+        -- Chi tinh la thieu F khi Melee vua bao can diem F trong 3 phut gan day, neu khong
+        -- thi dong co van "chay" sau khi user tat AutoFullyMelees hoac da mua duoc vo.
+        function Dt3ThieuF()
+            local i = Dt3ThieuFInfo
+            if not i or (os.time() - (tonumber(i.luc) or 0)) > 180 then
+                return nil
+            end
+            if (tonumber(i.can) or 0) <= 0 or (tonumber(i.co) or 0) >= (tonumber(i.can) or 0) then
+                return nil
+            end
+            return i
+        end
+
         -- Tra (ToSea, RemoteName) neu du dieu kien sang bien; nil neu khong can di.
         function SeaTravelTarget()
             if Config.Items and Config.Items.AutoSeaTravel == false then
@@ -6510,6 +6548,35 @@ FunctionsHandler = {
                         -- Giới hạn an toàn tránh kẹt
                         if os.time() - farmMobStart > 300 then
                             break
+                        end
+                    end
+                else
+                    -- [DT3] KHONG CON TEN QUAI NAO DE DANH (MonName = nil). Truoc day doan nay
+                    -- ket thuc IM LANG -> LevelFarm khong kip SetTask nen HUD giu dong
+                    -- "[km34] Melee | ... | thieu Fragments 3126/5000" cua task Melee va nhan vat
+                    -- dung yen vo tan (user: "sao cho no dung im vay"). Nay in ro ly do va neu
+                    -- dang thieu diem F thi bao huong tiep theo la RAID lay F.
+                    local thieuFLf = Dt3ThieuF()
+                    SetTask("MainTask", "Level Farm | khong tim thay quai nao trong server nay")
+                    SetTask("SubTask", (thieuFLf and ("thieu diem F " .. tostring(thieuFLf.co) .. "/" ..
+                        tostring(thieuFLf.can) .. " (" .. tostring(thieuFLf.ten) .. ") -> RAID lay F")
+                        ) or "khong co nhiem vu dang chay + bang nhiem vu sea nay khong con quai live")
+                    if not Dt3IdleLog or os.time() - Dt3IdleLog > 30 then
+                        Dt3IdleLog = os.time()
+                        local ds = {}
+                        pcall(function()
+                            for ten, n in pairs(LiveEnemyCounts()) do
+                                if (tonumber(n) or 0) > 0 then
+                                    table.insert(ds, tostring(ten) .. " x" .. tostring(n))
+                                end
+                            end
+                        end)
+                        table.sort(ds)
+                        print("[DT3] dung yen | q=" .. tostring(hasActiveQuest) .. " | quai live: " ..
+                            (#ds > 0 and table.concat(ds, ", ") or "KHONG CO con nao trong server"))
+                        if thieuFLf then
+                            Dt1Bao("[DT3] khong co quai danh -> lay trai mo RAID lay diem F (" ..
+                                tostring(thieuFLf.co) .. "/" .. tostring(thieuFLf.can) .. ")")
                         end
                     end
                 end
@@ -7914,7 +7981,16 @@ FunctionsHandler = {
                     -- [km22] Vo dau tien bi chan va CHANG co vo nao lay duoc ngay bay gio.
                     -- Bao ro ly do tren man hinh + fam dung loai nguyen lieu con thieu.
                     local f = ev.first
-                    local hint = (f.action == "farm_fragments" and "fam + nhat trai, co trai cui thi RAID lay diem F")
+                    -- [DT3] "farm_fragments" = vo nay can DIEM F, ma raid la nguon F duy nhat
+                    -- -> ghi lai de RaidController Refresh duoc nho 2 rang buoc cua ban cu
+                    -- (chi dung trai trang + cho du 20 phut moi duoc mua chip bang Bel).
+                    if f.action == "farm_fragments" then
+                        local price = (MeleePrices and MeleePrices[f.name] and MeleePrices[f.name].Price) or {}
+                        local canCo = tonumber(price.Fragments) or 0
+                        local dangCo = tonumber(MeleeCurAmount and MeleeCurAmount("Fragments")) or 0
+                        Dt3GhiThieuF(f.name, canCo, dangCo)
+                    end
+                    local hint = (f.action == "farm_fragments" and "thieu diem F -> lay trai mo RAID ngay (DT3)")
                         or (f.action == "farm_beli" and "fam Beli bang vo hien tai")
                         or (f.action == "farm_prereq" and "cay vo dieu kien truoc do")
                         or (f.action == "npc_absent" and "NPC vo nay khong co trong server nay -> bo qua tam, lay vo ke tiep")
@@ -9115,7 +9191,9 @@ FunctionsHandler = {
 
         FunctionsHandler.RaidController:RegisterMethod(
             "GetRaidableFruit",
-            function()
+            function(ChoTraiXau)
+                -- [DT3] ChoTraiXau = true khi dang thieu DIEM F: moi trai khong phai hang
+                -- cao deu duoc dung mo raid, khong bi km47 han che "chi trai trang".
                 pcall(RefreshInventory)
                 
                 local TrashFruits = {
@@ -9166,7 +9244,7 @@ FunctionsHandler = {
                             -- gia -> van dung duoc de raid, mien khong phai trai xep hang cao
                             -- [km47] them dieu kien TRAI TRANG (khong dung trai xanh/tim/do de raid)
                             if (isTrash or (price > 0 and price < 1000000) or price == 0) and not isHighTier and not isEatList
-                                and (not RaidChiDungTraiTrang() or TraiLoaiTrang(rawName)) then
+                                and (not RaidChiDungTraiTrang() or ChoTraiXau or TraiLoaiTrang(rawName)) then
                                 Fruit.Type = "Blox Fruit"
                                 return Fruit
                             end
@@ -9205,7 +9283,7 @@ FunctionsHandler = {
                             end
                             local isEatList = Config and Config.Items and Config.Items.Eatlist and table.find(Config.Items.Eatlist, rawName)
                             if (isTrash or (price > 0 and price < 1000000)) and not isHighTier and not isEatList
-                                and (not RaidChiDungTraiTrang() or TraiLoaiTrang(rawName)) then
+                                and (not RaidChiDungTraiTrang() or ChoTraiXau or TraiLoaiTrang(rawName)) then
                                 return Fruit
                             end
                         end
@@ -9236,7 +9314,8 @@ FunctionsHandler = {
                             end
                         end
                         -- [km47] trai vat ly trong balo CUNG phai trai trang moi duoc dung raid
-                        if not isHighTier and (not RaidChiDungTraiTrang() or TraiLoaiTrang(toolName)) then
+                        -- [DT3] truir khi dang thieu diem F (ChoTraiXau) -> trai nao cung mo duoc raid
+                        if not isHighTier and (not RaidChiDungTraiTrang() or ChoTraiXau or TraiLoaiTrang(toolName)) then
                             return { Name = toolName, Type = "Blox Fruit", IsPhysical = true }
                         end
                     end
@@ -9245,7 +9324,7 @@ FunctionsHandler = {
                 -- 4. [km43] Van co the co trai trong kho nhung remote liet ke da CHET o ban nay
                 -- -> lay cu soa: goi LoadFruit tung ten trai cui, dung khi nao Tool trai
                 -- xuat hien that trong balo (TimTraiCuiTrongKho tu throttle 6s/lan thu)
-                local LayDuoc = TimTraiCuiTrongKho()
+                local LayDuoc = TimTraiCuiTrongKho(ChoTraiXau)
                 if LayDuoc then
                     return LayDuoc
                 end
@@ -9385,14 +9464,22 @@ FunctionsHandler = {
             end
         
             -- 3. Thực hiện đi Raid (Hỗ trợ cả Fruit dưới 1M lẫn mua Chip bằng 100k Beli)
-            local RaidFruit = FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call()
+            -- [DT3] Dang thieu DIEM F (vo trong chuoi can Fragments) -> duoc dung MOI trai
+            -- khong phai hang cao de mo raid, thay vi chi trai trang nhu km47.
+            local thieuF = Dt3ThieuF()
+            local RaidFruit = FunctionsHandler.RaidController.Methods.GetRaidableFruit:Call(thieuF ~= nil)
             if RaidFruit then
                 FunctionsHandler.RaidController:Set("CurrentProgressLevel", RaidFruit)
                 -- [DT1] in ro ten trai (GetRaidableFruit tra ve BANG, in truc tiep ra "table: 0x...")
                 if not Fc22RaidFruitLogTick or os.time() - Fc22RaidFruitLogTick > 30 then
                     Fc22RaidFruitLogTick = os.time()
-                    print("[FC23] Thay trai '" .. TenTraiRaid(RaidFruit) .. "' (F " .. tostring(Fragments) ..
-                        ") -> di RAID, ngung fam")
+                    if thieuF then
+                        Dt1Bao("[DT3] Thieu F " .. tostring(thieuF.co) .. "/" .. tostring(thieuF.can) ..
+                            " (" .. tostring(thieuF.ten) .. ") -> lay trai '" .. TenTraiRaid(RaidFruit) .. "' mo RAID")
+                    else
+                        print("[FC23] Thay trai '" .. TenTraiRaid(RaidFruit) .. "' (F " .. tostring(Fragments) ..
+                            ") -> di RAID, ngung fam")
+                    end
                 end
                 return RaidFruit
             end
@@ -9400,12 +9487,15 @@ FunctionsHandler = {
             -- [km25] User yeu cau: FAM + NAT TRAI truoc; CO TRAI CUI moi di RAID lay diem F.
             --truoc day no tu bo 100k Beli mua chip lien tuc -> Bel bay ma F van thieu.
             --Van cho phep neu qua 20 phut khong roi trai nao (khoi dung chay hoan toan).
+            --[DT3] Nhung KHI DANG THIEU DIEM F thi chi cho 60s: khong co trai nao roi trong
+            -- luc nay thi dung 100k Bel mua chip mo raid, vi dung yen o day khong bao gio co F.
             if RaidFruit then
                 RaidNoFruitSince = nil
             else
                 RaidNoFruitSince = RaidNoFruitSince or os.time()
             end
-            local BeliChipWait = (os.time() - (RaidNoFruitSince or 0)) > 1200
+            local ChoiChoMuaChip = (thieuF and 60) or 1200
+            local BeliChipWait = (os.time() - (RaidNoFruitSince or 0)) > ChoiChoMuaChip
             if Beli >= 100000 and (BeliChipWait or (Config.Raid and Config.Raid.UseBeliChip)) then
                 if not (getgenv().BeliChipCooldownUntil and os.time() < getgenv().BeliChipCooldownUntil) then
                     return true
@@ -9420,9 +9510,10 @@ FunctionsHandler = {
                     soTool = DemTraiVatLy()
                 end)
                 print("[RaidCheck] chua co trai cui | kho liet ke duoc " .. tostring(soTraiKho) ..
-                    " trai (TRANG: " .. tostring(soTraiTrang) .. ", chi dung trai trang), balo co " ..
-                    tostring(soTool) .. " tool trai -> fam + nhat trai, con " ..
-                    math.max(0, 1200 - (os.time() - RaidNoFruitSince)) .. "s nua moi mua chip bang Bel")
+                    " trai (TRANG: " .. tostring(soTraiTrang) ..
+                    (thieuF and ", dang thieu F nen DUOC DUNG MOI TRAI" or ", chi dung trai trang") ..
+                    "), balo co " .. tostring(soTool) .. " tool trai -> that su khong con trai nao, con " ..
+                    math.max(0, ChoiChoMuaChip - (os.time() - RaidNoFruitSince)) .. "s nua moi mua chip bang Bel")
             end
             
             return false
