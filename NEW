@@ -788,7 +788,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "4TN"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2351,7 +2351,7 @@ ScriptStorage = {
                 SetTask("SubTask", text)
             end)
         end
-        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID | DT4: loc bang Vat Pham qua o Search | DT5: nhan dien bang + dinh danh theo Name/attribute + DUMP cay GUI len man hinh")
+        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID | DT4: loc bang Vat Pham qua o Search | DT5: nhan dien bang + dinh danh theo Name/attribute | DT6: tu dong DUMP moi cua SO GUI VUA MO len man hinh (khong can doc duoc nguyen lieu) | DT6Dump() de quet tay")
 
         -- [DT4] ---- DOC BANG "VAT PHAM" (Stash) -----------------------------
         -- Anh user chup bang "Vat Pham": moi o CHI co icon + chu so (99, 23, 46...),
@@ -2363,12 +2363,14 @@ ScriptStorage = {
         --   (b) neu khong tim thay ten nao -> GO ten mon vao o Search cua bang, bang
         --       con lai 1 o thi doc chu so duy nhat con lai. Loc ra 0 o = CHAC CHAN
         --       khong nam giu mon do (0 tuyet doi, khong con "doc khong thay" nua).
+        -- [DT6] Chan dung GUI cua CHINH minh. LUU Y: truoc day loc ca chu "hub" ->
+        -- VE' MAT GIET LUON GUI cua game (nhieu ScreenGui cua Blox Fruits chua "Hub"
+        -- trong ten). Chi chan dung ten that cua hub nay: "CyndralDev" (:775).
         Dt4GuiCuaMinh = function(sg)
             local n = string.lower(tostring(sg and sg.Name or ""))
             return n == "cyndraldev" or string.find(n, "bocchi", 1, true) ~= nil
-                or string.find(n, "hub", 1, true) ~= nil
-                or string.find(n, "dump", 1, true) ~= nil
-                or string.find(n, "dt4", 1, true) ~= nil or string.find(n, "dt5", 1, true) ~= nil
+                or string.find(n, "dt5dump", 1, true) ~= nil
+                or string.find(n, "dt6", 1, true) ~= nil
         end
 
         -- Nhan nao that su hien tren man hinh (cha me an thi con an theo)
@@ -2392,10 +2394,10 @@ ScriptStorage = {
 
         -- Tim ScreenGui cua bang "Vat Pham" dang MO + o Search cua no
         function Dt4TimBang()
-            local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
-            if not pg then return nil end
-            for _, sg in ipairs(pg:GetChildren()) do
-                if sg:IsA("ScreenGui") and not Dt4GuiCuaMinh(sg) and Dt4DangHien(sg) then
+            -- [DT6] Dt6CuaAll() = PlayerGui (de quy) + CoreGui (con truc tiep); ban cu
+            -- chi GetChildren nen GUI nam sau Folder hoac bi day ra CoreGui la nuot mat.
+            for _, sg in ipairs(Dt6CuaAll()) do
+                if not Dt4GuiCuaMinh(sg) and Dt4DangHien(sg) then
                     local tb = nil
                     for _, d in ipairs(sg:GetDescendants()) do
                         if d:IsA("TextBox") and Dt4DangHien(d) then
@@ -2631,16 +2633,15 @@ ScriptStorage = {
 
         -- ScreenGui cua game co >=3 icon va >=2 chu so = bang vat pham dang mo
         function Dt5TimBangMo()
-            local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
-            if not pg then return nil end
             local best = nil
-            for _, sg in ipairs(pg:GetChildren()) do
-                if sg:IsA("ScreenGui") and not Dt4GuiCuaMinh(sg) and Dt4DangHien(sg) then
+            -- [DT6] Quet PlayerGui (de quy) + CoreGui (con truc tiep) chu khong rieng
+            -- PlayerGui:GetChildren(): nhieu ban nhieu cua nam sau Folder con, va co
+            -- ban executor day GUI cua game ra CoreGui.
+            for _, sg in ipairs(Dt6CuaAll()) do
+                if not Dt4GuiCuaMinh(sg) and Dt4DangHien(sg) then
                     local nd = 0
                     pcall(function() nd = #sg:GetDescendants() end)
-                    if nd < 6 or nd > 6000 then
-                        -- qua it = khong phai bang do; qua nhieu = tranh quet nang tren DT
-                    else
+                    if nd >= 6 and nd <= 6000 then
                         local soIcon, soSo = Dt5DemO(sg)
                         if soIcon >= 3 and soSo >= 2 and (not best or soIcon > best.icon) then
                             best = { sg = sg, icon = soIcon, so = soSo }
@@ -2848,6 +2849,178 @@ ScriptStorage = {
             Dt5HienDump(lines, "[DT5] Cay GUI cua bang '" .. tostring(sg.Name) .. "' (" .. #lines ..
                 " nhan, " .. soIcon .. " icon, " .. soSo .. " chu so). CHUP ANH toan man hinh roi CUON xuong chup tiep.")
             print("[DT5] dump " .. #lines .. " dong cua bang '" .. tostring(sg.Name) .. "'")
+        end
+
+        -- [DT6] ---- MAY DO CHAN DUNG DOC LAP ------------------------------
+        -- Moi thu tren (km55 / DT4 / DT5) deu bat dau bang "tim ra cua nao la bang
+        -- Vat Pham". Anh user chung minh bang MO roi ma KHONG co bat cu dong [DT5]
+        -- nao len HUD => buoc phat hien do fail, va fail o dau thi khong ai biet.
+        -- DT6 khong doan nua: 2s chup danh sach ScreenGui, cua nao VUA Xuat HIEN
+        -- thi in ngay no co gi ben trong (icon / chu so / chuoi chu that / asset id).
+        -- [DT6] Lay moi ScreenGui dang co the chua bang Vat Pham:
+        -- PlayerGui (quet de quy, nhieu ban nhieu Folder) + CoreGui (executor parent
+        -- ra do khi RefreshGui/Hidden; chi lay con truc tiep vi CoreGui rat to).
+        function Dt6CuaAll()
+            local ds = {}
+            local plr = nil
+            pcall(function() plr = game:GetService("Players").LocalPlayer end)
+            local pg = plr and plr:FindFirstChild("PlayerGui") or nil
+            if pg then
+                for _, sg in ipairs(pg:GetDescendants()) do
+                    if sg:IsA("ScreenGui") then
+                        table.insert(ds, sg)
+                    end
+                end
+            end
+            pcall(function()
+                for _, sg in ipairs(game:GetService("CoreGui"):GetChildren()) do
+                    if sg:IsA("ScreenGui") then
+                        table.insert(ds, sg)
+                    end
+                end
+            end)
+            return ds
+        end
+
+        function Dt6DanhSach()
+            local ds = {}
+            local all = Dt6CuaAll()
+            local dem = 0
+            for _, sg in ipairs(all) do
+                dem = dem + 1
+                if dem <= 26 then
+                    local nd = 0
+                    pcall(function() nd = #sg:GetDescendants() end)
+                    local vis = "?"
+                    pcall(function() vis = tostring(sg.Visible) end)
+                    table.insert(ds, "GUI: '" .. tostring(sg.Name) .. "' cha=" ..
+                        tostring(sg.Parent and sg.Parent.Name or "?") .. " Visible=" .. vis ..
+                        " nhan=" .. nd)
+                end
+            end
+            return ds
+        end
+
+        function Dt6ChiTiet(sg)
+            local ds = { "=== CUA '" .. tostring(sg.Name) .. "' ===" }
+            local soIcon, soSo, soTB, dem = 0, 0, 0, 0
+            local chu, hinh = {}, {}
+            for _, d in ipairs(sg:GetDescendants()) do
+                dem = dem + 1
+                if dem > 1500 then
+                    break
+                end
+                local isI = false
+                pcall(function() isI = d:IsA("GuiImage") end)
+                if isI then
+                    local im = nil
+                    pcall(function() im = d.Image end)
+                    if type(im) == "string" and im ~= "" then
+                        soIcon = soIcon + 1
+                        if #hinh < 14 then
+                            table.insert(hinh, string.sub(tostring(d.Name) .. " = " ..
+                                string.gsub(im, "rbxassetid://", "#"), 1, 48))
+                        end
+                    end
+                end
+                local isT = false
+                pcall(function() isT = d:IsA("GuiText") end)
+                if isT then
+                    local txt = nil
+                    pcall(function() txt = d.Text end)
+                    if type(txt) == "string" and txt ~= "" then
+                        if tonumber(string.match(txt, "^%s*(%d+)%s*$")) then
+                            soSo = soSo + 1
+                        elseif #chu < 22 then
+                            table.insert(chu, string.sub(txt, 1, 30))
+                        end
+                    end
+                end
+                if d:IsA("TextBox") then
+                    soTB = soTB + 1
+                end
+            end
+            table.insert(ds, "icon=" .. soIcon .. "  chi-so=" .. soSo .. "  TextBox=" .. soTB ..
+                "  nhan=" .. dem)
+            table.insert(ds, "CHU THAT: " .. table.concat(chu, " // "))
+            for _, h in ipairs(hinh) do
+                table.insert(ds, "ANH: " .. h)
+            end
+            return ds
+        end
+
+        function Dt6In(sg, chuDe)
+            local ok, ds = pcall(Dt6ChiTiet, sg)
+            if not ok or type(ds) ~= "table" then
+                ds = { "LOI quet cua: " .. tostring(ds) }
+            end
+            local gop = {}
+            for _, s in ipairs(Dt6DanhSach()) do
+                table.insert(gop, s)
+            end
+            table.insert(gop, "----------------------------------")
+            for _, s in ipairs(ds) do
+                table.insert(gop, s)
+            end
+            Dt5HienDump(gop, chuDe .. " | BAM DONG de tat, CHUP ANH truoc khi tat")
+        end
+
+        task.spawn(function()
+            task.wait(10)
+            local trangThai = {}
+            local lanDau = true
+            local soLuot = 0
+            while true do
+                task.wait(2)
+                pcall(function()
+                    for _, sg in ipairs(Dt6CuaAll()) do
+                        if not Dt4GuiCuaMinh(sg) then
+                            local key = tostring(sg.Name) .. "|" .. tostring(sg.Parent and sg.Parent.Name)
+                            local vis = false
+                            pcall(function() vis = (sg.Visible ~= false) end)
+                            local cu = trangThai[key]
+                            trangThai[key] = vis
+                            -- Bang Vat Pham thuong DA ton tai san trong PlayerGui, luc mo chi
+                            -- bat Visible = true -> phai bat SU CHUYEN TRANG THAI, khong phai
+                            -- "GUI Xuat hien" (neu do thi KHONG BAO GIO no len).
+                            if not lanDau and vis and cu == false and soLuot < 8 then
+                                soLuot = soLuot + 1
+                                Dt6In(sg, "[DT6] cua VUA MO: '" .. tostring(sg.Name) .. "'")
+                            end
+                        end
+                    end
+                    lanDau = false
+                end)
+            end
+        end)
+
+        -- Goi tay tu executor neu can: Dt6Dump()
+        function Dt6Dump()
+            local best = nil
+            local bestN = 0
+            for _, sg in ipairs(Dt6CuaAll()) do
+                local ok, n = pcall(function()
+                    if Dt4GuiCuaMinh(sg) or sg.Visible == false then
+                        return 0
+                    end
+                    local c = 0
+                    for _, d in ipairs(sg:GetDescendants()) do
+                        c = c + 1
+                        if c > 400 then break end
+                    end
+                    return c
+                end)
+                if ok and n >= 6 and n > bestN then
+                    bestN = n
+                    best = sg
+                end
+            end
+            if best then
+                Dt6In(best, "[DT6] quet thu cong (nhieu nhan nhat)")
+            else
+                local ds = Dt6DanhSach()
+                Dt5HienDump(ds, "[DT6] khong tim thay cua nao dang mo")
+            end
         end
 
         -- Goi khi bang "Vat Pham" dang mo; tra true = doc duoc bang
