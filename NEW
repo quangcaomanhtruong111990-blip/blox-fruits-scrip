@@ -147,6 +147,9 @@ do
         -- nguyen lieu / mastery / Beli cho Godhuman (khong co cach nao khac de kiem
         -- tra chu quyen vo khi Tool khong nam trong balo).
         GodhumanAlreadyOwned = false,
+        -- [DT2] true = con thieu nguyen lieu Sea 2 (Magma Ore / Mystic Droplet) thi O LAI Sea 2
+        -- fam, va neu dang o Sea 3 se VE Sea 2. Dat false = tra lai cu ly cu (luon len Sea 3).
+        GodhumanGiuSea2 = true,
         -- [FC6 review] Khi LevelFarm khong doc duoc ten quai tu bang cap do thi van danh
         -- con quai GAN NHAT trong khoang nay (studs) thay vi dung cho "No Mob Found".
         KhoangTimQuaiKhiKhongCoTen = 1500,
@@ -777,7 +780,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "4TN"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5077,12 +5080,141 @@ CombatController = {
         -- cung cua TasksOrder -> khi Bosses/Quests/Melee chiem tick thi lenh dich khong chay lan
         -- nao; km42 nang no ra vong lap chinh va giu lai o LevelFarm mot NUT NGUNG duy nhat.
 
+        -- ============================================================
+        -- [DT2] NGUYEN LIEU GODHUMAN NAM O BIEN KHAC
+        -- GodhumanMaterialsList: Fish Tail + Dragon Scale o Sea 3, con
+        -- Magma Ore (20, Magma Ninja) + Mystic Droplet (10, Sea Soldier/Water Fighter) o Sea 2.
+        -- Ban cu: SeaTravelTarget thay cap >= 1500 o Sea 2 la goi TravelZou ve Sea 3, ma nhanh
+        -- Godhuman trong LevelFarm lai chi chay khi SeaIndex == 3 -> 2 loai nguyen lieu Sea 2
+        -- KHONG BAO GIO fam duoc (user: "no ve Sea 2 thi dung cho no lai Sea 3, de no fam lai
+        -- nguyen lieu"). DT2 dao lai thu tu: con thieu thi O LAI Sea 2; dang o Sea 3 thi VE Sea 2.
+        -- Tat: Config.Settings.GodhumanGiuSea2 = false.
+        -- ============================================================
+        function Dt2Bao(text, cach)
+            Dt2LastBao = Dt2LastBao or {}
+            local now = os.time()
+            local cu = Dt2LastBao[text]
+            if cu and (now - cu) < (cach or 60) then
+                return
+            end
+            Dt2LastBao[text] = now
+            Dt1Bao(text)
+        end
+
+        function Dt2TenMat(ds)
+            local t = {}
+            for _, m in ipairs(ds or {}) do
+                table.insert(t, tostring(m.Name) .. " " .. tostring(m.Count) .. "/" .. tostring(m.Req))
+            end
+            return table.concat(t, ", ")
+        end
+
+        -- Chi tra ten con quai NEU no that su song trong server nay. Start vao Attack khi
+        -- khong co nao se keo nhan vat bay theo toa do cu trong MobPositionsFallback
+        -- (Magma Ninja = Y 50, Sea Soldier = Y 50 -> trung nuoc, roi tuong), nen phai kiem truoc.
+        function Dt2CoQuaiLive(mobs)
+            local ok, res = pcall(function()
+                local enemies = workspace:FindFirstChild("Enemies")
+                if not enemies then return nil end
+                local set = {}
+                for _, n in ipairs(mobs or {}) do
+                    set[tostring(n)] = true
+                end
+                for _, e in ipairs(enemies:GetChildren()) do
+                    if set[e.Name] and e:FindFirstChild("HumanoidRootPart") then
+                        return e.Name
+                    end
+                end
+                return nil
+            end)
+            return (ok and res) or nil
+        end
+
+        -- Danh sach nguyen lieu cua `sea` chua du. GetItemCount tra 0 khi doc khong duoc ->
+        -- duoc hieu la CHUA DU (that nguyen lieu o bien khac con toi hon la im lang roi
+        -- di sang bien khong co quai nao drop).
+        function ThieuNguyenLieuSea(sea)
+            local ok, res = pcall(function()
+                if type(GodhumanMaterialsList) ~= "table" then return nil end
+                local ds = {}
+                for _, mat in ipairs(GodhumanMaterialsList) do
+                    if (tonumber(mat.Sea) or 0) == sea then
+                        local cnt = tonumber(GetItemCount(mat.Name)) or 0
+                        local daNop = (type(AncientMonkMaterialsSubmitted) == "table")
+                            and AncientMonkMaterialsSubmitted[mat.Name]
+                        if cnt < (tonumber(mat.Req) or 1) and not daNop then
+                            table.insert(ds, {
+                                Name = mat.Name, Count = cnt, Req = mat.Req,
+                                Mobs = mat.Mobs, Sea = mat.Sea
+                            })
+                        end
+                    end
+                end
+                if #ds == 0 then return nil end
+                return ds
+            end)
+            return (ok and res) or nil
+        end
+
+        -- SeaTravelTick goi moi frame -> cache 20s (GetItemCount tu no da co throttle remote).
+        function ThieuNguyenLieuSeaCached(sea)
+            local now = os.clock()
+            Dt2MatCache = Dt2MatCache or {}
+            local c = Dt2MatCache[sea]
+            if c and (now - c.t) < 20 then
+                return c.v
+            end
+            local v = ThieuNguyenLieuSea(sea)
+            Dt2MatCache[sea] = { t = now, v = v }
+            return v
+        end
+
+        -- Tra ve danh sach nguyen lieu Sea 2 con thieu, nil neu khong can gi o Sea 2.
+        -- SeaTravelTick goi ham nay MOI FRAME -> cache ket qua 20s (GodhumanOwnedNow phai
+        -- quet PlayerGui, khong duoc chay hang ngan lan/phut).
+        function GodhumanConThieuSea2()
+            local now = os.clock()
+            if Dt2LockCache and (now - Dt2LockCache.t) < 20 then
+                return Dt2LockCache.v
+            end
+            local v = GodhumanConThieuSea2That()
+            Dt2LockCache = { t = now, v = v }
+            return v
+        end
+
+        function GodhumanConThieuSea2That()
+            if Config and Config.Settings and Config.Settings.GodhumanGiuSea2 == false then
+                return nil
+            end
+            if not (Config and Config.Items and (Config.Items.AutoFullyMelees or GodHumanFlag)) then
+                return nil
+            end
+            if Config.Settings and Config.Settings.GodhumanAlreadyOwned then
+                return nil
+            end
+            local daCo = false
+            pcall(function()
+                if type(GodhumanOwnedNow) == "function" then
+                    daCo = (GodhumanOwnedNow() == true)
+                end
+            end)
+            if daCo then
+                return nil
+            end
+            return ThieuNguyenLieuSeaCached(2)
+        end
+
         -- Tra (ToSea, RemoteName) neu du dieu kien sang bien; nil neu khong can di.
         function SeaTravelTarget()
             if Config.Items and Config.Items.AutoSeaTravel == false then
                 return nil
             end
             local pLvl = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 0
+            -- [DT2] da ve duoc Sea 2 thi xoa dong ho "khong di duoc" ben duoi
+            if SeaIndex ~= 3 then
+                Dt2BackSea2At = nil
+            end
+            local thieuSea2 = GodhumanConThieuSea2()
             if pLvl >= 700 and SeaIndex == 1 then
                 return 2, "TravelDressrosa"
             elseif pLvl >= 1500 and SeaIndex == 2 then
@@ -5097,7 +5229,29 @@ CombatController = {
                     end
                     return nil
                 end
+                -- [DT2] CON THIEU NGUYEN LIEU SEA 2 -> O LAI DAY fam, khong keo ve Sea 3 nua
+                if thieuSea2 then
+                    Dt2Bao("[DT2] O LAI Sea 2 fam nguyen lieu: " .. Dt2TenMat(thieuSea2))
+                    return nil
+                end
                 return 3, "TravelZou"
+            elseif pLvl >= 700 and SeaIndex == 3 and thieuSea2 then
+                -- [DT2] dang o Sea 3 ma con thieu nguyen lieu Sea 2 -> VE Sea 2 (lenh nay
+                -- SoulGuitar cua ban nay da dung tu lau). Neu 150s van chua di duoc thi nghi
+                -- 30 phut roi thu lai, de khong spam TravelDressrosa moi tick.
+                if Dt2BackSea2Until and os.time() < Dt2BackSea2Until then
+                    return nil
+                end
+                if not Dt2BackSea2At then
+                    Dt2BackSea2At = os.time()
+                    Dt2Bao("[DT2] VE Sea 2 fam nguyen lieu: " .. Dt2TenMat(thieuSea2), 0)
+                elseif os.time() - Dt2BackSea2At > 150 then
+                    Dt2BackSea2At = nil
+                    Dt2BackSea2Until = os.time() + 1800
+                    Dt2Bao("[DT2] khong ve duoc Sea 2 (van o Sea 3 sau 150s) -> thu lai sau 30 phut", 0)
+                    return nil
+                end
+                return 2, "TravelDressrosa"
             end
             return nil
         end
@@ -5586,6 +5740,39 @@ FunctionsHandler = {
                 local PlayerLevel = tonumber(ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
 
                 pcall(RefreshInventory)
+
+                -- [DT2] O SEA 2 VA CON THIEU NGUYEN LIEU SEA 2 -> danh dung con quai drop no
+                -- (Magma Ore = Magma Ninja, Mystic Droplet = Sea Soldier / Water Fighter).
+                -- nhanh Godhuman ben duoi chi chay o Sea 3 nen 2 loai nay khong co ai fam.
+                if SeaIndex == 2 then
+                    local thieuSea2 = GodhumanConThieuSea2()
+                    if thieuSea2 then
+                        local mat, tenLive
+                        for _, m in ipairs(thieuSea2) do
+                            tenLive = Dt2CoQuaiLive(m.Mobs)
+                            if tenLive then
+                                mat = m
+                                break
+                            end
+                        end
+                        if mat then
+                            SetTask("MainTask", "Godhuman Farm (Sea 2) | " .. tostring(mat.Name) ..
+                                " (" .. tostring(mat.Count) .. "/" .. tostring(mat.Req) .. ")")
+                            SetTask("SubTask", "Danh: " .. table.concat(mat.Mobs or {}, ", ") ..
+                                " | con thieu " .. tostring(#thieuSea2) .. " loai Sea 2 -> khong di Sea 3")
+                            Dt2Bao("[DT2] Sea 2: fam " .. Dt2TenMat(thieuSea2), 120)
+                            pcall(function()
+                                CombatController.Attack(mat.Mobs)
+                            end)
+                            return
+                        end
+                        -- Khong co con quai nao trong server -> VAN o lai Sea 2 (lock ben
+                        -- SeaTravelTarget giu nguyen) nhung fam nhiem vu binh thuong; TimHop
+                        -- 15 phut se doi server khac co quai.
+                        Dt2Bao("[DT2] Sea 2 khong co " .. Dt2TenMat(thieuSea2) ..
+                            " trong server nay -> fam tam thoi, doi server se tim lai", 90)
+                    end
+                end
 
                 -- CHUYỂN SEA THEO CẤP ĐỘ CHUẨN:
                 -- Cấp >= 700 ở Sea 1 -> Đi Sea 2
