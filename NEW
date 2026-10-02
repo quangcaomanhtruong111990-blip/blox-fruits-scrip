@@ -150,6 +150,12 @@ do
         -- [DT2] true = con thieu nguyen lieu Sea 2 (Magma Ore / Mystic Droplet) thi O LAI Sea 2
         -- fam, va neu dang o Sea 3 se VE Sea 2. Dat false = tra lai cu ly cu (luon len Sea 3).
         GodhumanGiuSea2 = true,
+        -- [DT5] NHAP TAY so nguyen lieu dang co = cach duy nhat CHAC CHAN 100% de mo khoa
+        -- Sea 2 khi script doc khong duoc bang Vat Pham. Vi du:
+        --   NguyenLieuTuCai = { ["Fish Tail"] = 99, ["Dragon Scale"] = 10,
+        --                       ["Magma Ore"] = 46, ["Mystic Droplet"] = 23 },
+        -- De trong {} = script tu do. Chi can du 4 ten tren la Godhuman tinh la du nguyen lieu.
+        NguyenLieuTuCai = {},
         -- [FC6 review] Khi LevelFarm khong doc duoc ten quai tu bang cap do thi van danh
         -- con quai GAN NHAT trong khoang nay (studs) thay vi dung cho "No Mob Found".
         KhoangTimQuaiKhiKhongCoTen = 1500,
@@ -782,7 +788,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "4TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2345,7 +2351,7 @@ ScriptStorage = {
                 SetTask("SubTask", text)
             end)
         end
-        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID | DT4: mo bang Vat Pham la doc duoc so nguyen lieu")
+        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID | DT4: loc bang Vat Pham qua o Search | DT5: nhan dien bang + dinh danh theo Name/attribute + DUMP cay GUI len man hinh")
 
         -- [DT4] ---- DOC BANG "VAT PHAM" (Stash) -----------------------------
         -- Anh user chup bang "Vat Pham": moi o CHI co icon + chu so (99, 23, 46...),
@@ -2361,6 +2367,8 @@ ScriptStorage = {
             local n = string.lower(tostring(sg and sg.Name or ""))
             return n == "cyndraldev" or string.find(n, "bocchi", 1, true) ~= nil
                 or string.find(n, "hub", 1, true) ~= nil
+                or string.find(n, "dump", 1, true) ~= nil
+                or string.find(n, "dt4", 1, true) ~= nil or string.find(n, "dt5", 1, true) ~= nil
         end
 
         -- Nhan nao that su hien tren man hinh (cha me an thi con an theo)
@@ -2575,12 +2583,288 @@ ScriptStorage = {
             end
         end
 
+        -- [DT5] ---- NHAN DIEN BANG "VAT PHAM" KHONG CAN O SEARCH + DUMP Cay GUI
+        -- DT4 chi tim duoc bang khi no co TextBox "search", va chi doc nhan CHU.
+        -- DT5 them 3 thu: (1) nhan dien bang theo luong ICON + CHU SO (khong can
+        -- o search), (2) doc ten mon nam trong NAME cua o / GetAttributes() /
+        -- StringValue (km55 va km49 deu bo sot duong nay), (3) NEU van khong thay
+        -- thi DUMP toan bo cay GUI cua bang len man hinh de chup anh - day la bang
+        -- chung duy nhat cho biet ten that cua nguyen lieu nam o dau.
+        function Dt5DemO(sg)
+            local soIcon, soSo = 0, 0
+            for _, d in ipairs(sg:GetDescendants()) do
+                local isI = false
+                pcall(function() isI = d:IsA("GuiImage") end)
+                if isI then
+                    local im = nil
+                    pcall(function() im = d.Image end)
+                    if type(im) == "string" and string.find(im, "rbxasset", 1, true) ~= nil then
+                        soIcon = soIcon + 1
+                    end
+                end
+                local isT = false
+                pcall(function() isT = d:IsA("GuiText") end)
+                if isT then
+                    local txt = nil
+                    pcall(function() txt = d.Text end)
+                    if tonumber(string.match(tostring(txt), "^%s*(%d+)%s*$")) then
+                        soSo = soSo + 1
+                    end
+                end
+            end
+            return soIcon, soSo
+        end
+
+        function Dt5TimOSearch(sg)
+            for _, d in ipairs(sg:GetDescendants()) do
+                if d:IsA("TextBox") and Dt4DangHien(d) then
+                    local k1 = MaterialCompact(d.PlaceholderText)
+                    local k2 = MaterialCompact(d.Name)
+                    if k1 == "search" or k2 == "search" or k1 == "tim" or k1 == "timkiem"
+                        or string.find(k1, "search", 1, true) ~= nil then
+                        return d
+                    end
+                end
+            end
+            return nil
+        end
+
+        -- ScreenGui cua game co >=3 icon va >=2 chu so = bang vat pham dang mo
+        function Dt5TimBangMo()
+            local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+            if not pg then return nil end
+            local best = nil
+            for _, sg in ipairs(pg:GetChildren()) do
+                if sg:IsA("ScreenGui") and not Dt4GuiCuaMinh(sg) and Dt4DangHien(sg) then
+                    local nd = 0
+                    pcall(function() nd = #sg:GetDescendants() end)
+                    if nd < 6 or nd > 6000 then
+                        -- qua it = khong phai bang do; qua nhieu = tranh quet nang tren DT
+                    else
+                        local soIcon, soSo = Dt5DemO(sg)
+                        if soIcon >= 3 and soSo >= 2 and (not best or soIcon > best.icon) then
+                            best = { sg = sg, icon = soIcon, so = soSo }
+                        end
+                    end
+                end
+            end
+            if not best then
+                return nil
+            end
+            local tb = nil
+            pcall(function() tb = Dt5TimOSearch(best.sg) end)
+            return best.sg, tb, best.icon, best.so
+        end
+
+        -- (DT5.2) Ten mon trong NAME / attribute / Value cua chu, roi lay so trong o
+        function Dt5DocDinhDanh(sg, want, got, src)
+            for _, d in ipairs(sg:GetDescendants()) do
+                local tenKhop = nil
+                local dn = MaterialCompact(d.Name)
+                for name, key in pairs(want) do
+                    if not got[name] and dn == key then
+                        tenKhop = name
+                    end
+                end
+                if not tenKhop then
+                    local okA, attrs = pcall(function() return d:GetAttributes() end)
+                    if okA and type(attrs) == "table" then
+                        for _, av in pairs(attrs) do
+                            if type(av) == "string" then
+                                local ka = MaterialCompact(av)
+                                for name, key in pairs(want) do
+                                    if not got[name] and ka == key then
+                                        tenKhop = name
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                if not tenKhop then
+                    local cv = nil
+                    pcall(function() cv = d.Value end)
+                    if type(cv) == "string" then
+                        local kv = MaterialCompact(cv)
+                        for name, key in pairs(want) do
+                            if not got[name] and kv == key then
+                                tenKhop = name
+                            end
+                        end
+                    end
+                end
+                if tenKhop then
+                    local a = d.Parent
+                    for _ = 1, 2 do
+                        if not a then
+                            break
+                        end
+                        for _, s in ipairs(a:GetDescendants()) do
+                            local isT = false
+                            pcall(function() isT = s:IsA("GuiText") end)
+                            if isT then
+                                local n = tonumber(string.match(tostring(s.Text), "^%s*(%d+)%s*$"))
+                                if n then
+                                    got[tenKhop] = n
+                                    src[tenKhop] = "Stash-dinhdanh"
+                                    break
+                                end
+                            end
+                        end
+                        if got[tenKhop] then
+                            break
+                        end
+                        a = a.Parent
+                    end
+                end
+            end
+        end
+
+        -- (DT5.3) Dump cay GUI: depth | ClassName | 'Ten' | T=chu | I=asset | @thuoc tinh
+        function Dt5LayDump(sg)
+            local lines = {}
+            local function quy(d, cap)
+                if #lines >= 150 then
+                    return
+                end
+                local s = string.rep(" ", cap * 2) .. d.ClassName .. "|'" .. tostring(d.Name) .. "'"
+                local isT = false
+                pcall(function() isT = d:IsA("GuiText") end)
+                if isT then
+                    local txt = nil
+                    pcall(function() txt = d.Text end)
+                    if type(txt) == "string" and txt ~= "" then
+                        s = s .. " T=" .. string.sub(txt, 1, 24)
+                    end
+                end
+                local isI = false
+                pcall(function() isI = d:IsA("GuiImage") end)
+                if isI then
+                    local im = nil
+                    pcall(function() im = d.Image end)
+                    if type(im) == "string" and im ~= "" then
+                        s = s .. " I=" .. string.gsub(im, "rbxassetid://", "#")
+                    end
+                end
+                local okA, attrs = pcall(function() return d:GetAttributes() end)
+                if okA and type(attrs) == "table" then
+                    local n = 0
+                    for k, v in pairs(attrs) do
+                        n = n + 1
+                        if n <= 2 then
+                            s = s .. " @" .. tostring(k) .. "=" .. tostring(v)
+                        end
+                    end
+                    if n > 2 then
+                        s = s .. " @" .. n .. "attr"
+                    end
+                end
+                local cv = nil
+                pcall(function() cv = d.Value end)
+                if cv ~= nil then
+                    s = s .. " V=" .. tostring(cv)
+                end
+                if #s > 116 then
+                    s = string.sub(s, 1, 116)
+                end
+                table.insert(lines, s)
+                for _, c in ipairs(d:GetChildren()) do
+                    quy(c, cap + 1)
+                end
+            end
+            quy(sg, 0)
+            return lines
+        end
+
+        function Dt5HienDump(lines, chuDe)
+            local plr = game:GetService("Players").LocalPlayer
+            local pg = plr:FindFirstChild("PlayerGui")
+            if not pg then return end
+            local cu = pg:FindFirstChild("Dt5DumpGui")
+            if cu then
+                cu:Destroy()
+            end
+            local sg = Instance.new("ScreenGui")
+            sg.Name = "Dt5DumpGui"
+            sg.ResetOnSpawn = false
+            sg.IgnoreGuiInset = true
+            sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            sg.Parent = pg
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(0.95, 0, 0.88, 0)
+            f.Position = UDim2.new(0.025, 0, 0.05, 0)
+            f.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+            f.BorderSizePixel = 0
+            f.Parent = sg
+            local tieu = Instance.new("TextLabel")
+            tieu.Size = UDim2.new(1, -44, 0, 30)
+            tieu.Position = UDim2.new(0, 4, 0, 2)
+            tieu.BackgroundTransparency = 1
+            tieu.TextXAlignment = Enum.TextXAlignment.Left
+            tieu.TextColor3 = Color3.fromRGB(255, 214, 102)
+            tieu.TextSize = 11
+            tieu.TextWrapped = true
+            tieu.Text = chuDe
+            tieu.Parent = f
+            local dong = Instance.new("TextButton")
+            dong.Size = UDim2.new(0, 38, 0, 20)
+            dong.Position = UDim2.new(1, -40, 0, 2)
+            dong.Text = "DONG"
+            dong.TextSize = 11
+            dong.BackgroundColor3 = Color3.fromRGB(120, 30, 30)
+            dong.TextColor3 = Color3.fromRGB(255, 255, 255)
+            dong.Parent = f
+            local sf = Instance.new("ScrollingFrame")
+            sf.Size = UDim2.new(1, -8, 1, -38)
+            sf.Position = UDim2.new(0, 4, 0, 34)
+            sf.BackgroundTransparency = 1
+            sf.ScrollBarThickness = 5
+            sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            sf.Parent = f
+            local lbl = Instance.new("TextLabel")
+            lbl.Size = UDim2.new(1, -8, 0, 13 * #lines + 8)
+            lbl.Position = UDim2.new(0, 2, 0, 2)
+            lbl.BackgroundTransparency = 1
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.TextYAlignment = Enum.TextYAlignment.Top
+            lbl.TextColor3 = Color3.fromRGB(210, 225, 255)
+            lbl.TextSize = 11
+            lbl.Font = Enum.Font.Code
+            lbl.Text = table.concat(lines, "\n")
+            lbl.Parent = sf
+            dong.MouseButton1Click:Connect(function()
+                pcall(function() sg:Destroy() end)
+            end)
+        end
+
+        function Dt5Dump(sg)
+            local ok, lines = pcall(Dt5LayDump, sg)
+            if not ok or type(lines) ~= "table" or #lines == 0 then
+                print("[DT5] dump THAT BAI: " .. tostring(lines))
+                return
+            end
+            Dt5DumpLines = lines
+            local soIcon, soSo = Dt5DemO(sg)
+            Dt5HienDump(lines, "[DT5] Cay GUI cua bang '" .. tostring(sg.Name) .. "' (" .. #lines ..
+                " nhan, " .. soIcon .. " icon, " .. soSo .. " chu so). CHUP ANH toan man hinh roi CUON xuong chup tiep.")
+            print("[DT5] dump " .. #lines .. " dong cua bang '" .. tostring(sg.Name) .. "'")
+        end
+
         -- Goi khi bang "Vat Pham" dang mo; tra true = doc duoc bang
         function Dt4DocBang(want, got, src)
-            local sg, tb = Dt4TimBang()
+            local sg, tb, soIcon, soSo = Dt5TimBangMo()
             if not sg then
                 return false
             end
+            Dt5DaThay = true
+            Dt5Dumped = Dt5Dumped or {}
+            local moc = tostring(sg.Name)
+            if not Dt5Bao or Dt5Bao ~= moc then
+                Dt5Bao = moc
+                Dt1Bao("[DT5] THAY bang Vat Pham '" .. moc .. "': " .. soIcon .. " icon, " .. soSo ..
+                    " chu so, o search = " .. (tb and "CO" or "KHONG") .. " -> dang doc")
+            end
+            pcall(Dt5DocDinhDanh, sg, want, got, src)
             Dt4DocTheoTen(sg, want, got, src)
             local con = false
             for name in pairs(want) do
@@ -2591,6 +2875,17 @@ ScriptStorage = {
             end
             if con and tb then
                 Dt4LocBang(sg, tb, want, got, src)
+            end
+            local con2 = false
+            for name in pairs(want) do
+                if not got[name] then
+                    con2 = true
+                    break
+                end
+            end
+            if con2 and not Dt5Dumped[moc] then
+                Dt5Dumped[moc] = true
+                Dt5Dump(sg)
             end
             return true
         end
@@ -4102,6 +4397,23 @@ ScriptStorage = {
             end
             local got, src = {}, {}
 
+            -- [DT5] Nguon 0: so BAN TU NHAP trong Config.Settings.NguyenLieuTuCai.
+            -- Day la duong duy nhat KHONG THE SAI: neu moi thu doc bang Vat Pham deu fail
+            -- thi dien thang so dang co vao do, Sea 2 (DT2) mo khoa ngay tuc thì.
+            pcall(function()
+                local tc = Config and Config.Settings and Config.Settings.NguyenLieuTuCai
+                if type(tc) ~= "table" then
+                    return
+                end
+                for name in pairs(want) do
+                    local n = tonumber(tc[name])
+                    if n then
+                        got[name] = n
+                        src[name] = "TuCai"
+                    end
+                end
+            end)
+
             -- Nguon 1: LocalPlayer.Data (chi lay Value/Number/IntValue co TEN = ten vat pham)
             pcall(function()
                 local data = game:GetService("Players").LocalPlayer:FindFirstChild("Data")
@@ -4244,7 +4556,8 @@ ScriptStorage = {
                 if MaterialCacheLog[name] ~= num then
                     MaterialCacheLog[name] = num
                     print("[KhoLieu] " .. name .. " = " .. num .. " (nguon: " .. tostring(src[name]) .. ")")
-                    if string.sub(tostring(src[name] or ""), 1, 5) == "Stash" then
+                    local ng = tostring(src[name] or "")
+                    if string.sub(ng, 1, 5) == "Stash" or ng == "TuCai" then
                         Dt4Thay = Dt4Thay or {}
                         Dt4Thay[#Dt4Thay + 1] = name .. "=" .. num
                     end
@@ -4265,11 +4578,11 @@ ScriptStorage = {
                     for _, mat in ipairs(GodhumanMaterialsList or {}) do
                         if not got[mat.Name] then table.insert(ds, mat.Name) end
                     end
-                    print("[KhoLieu] CHUA DOC DUOC: " .. table.concat(ds, ", ") ..
-                        " | Data=" .. (tostring(ScriptStorage.InvDebugCache[GodhumanMaterialsList[1].Name] or "trong")) ..
+                    Dt1Bao("[KhoLieu] CHUA DOC DUOC: " .. table.concat(ds, ", ") ..
                         " | Remote=" .. tostring(MaterialRemoteCmd or "khong lenh nao tra table") ..
                         " | DT4=" .. tostring(Dt4SearchChay) ..
-                        " (mo bang Vat Pham roi cho 20s)")
+                        " | " .. (Dt5DaThay and "DA thay bang Vat Pham (xem dump tren man hinh)"
+                            or "CHUA thay bang Vat Pham mo luc quet") .. " (2 phut/lan)")
                 end
             end
             return got
@@ -4280,11 +4593,11 @@ ScriptStorage = {
             task.wait(12)
             while true do
                 task.wait(15)
-                -- [DT4] Mo bang "Vat Pham" ra la doc duoc ngay, khong bat buoc phai
+                -- [DT4/DT5] Mo bang "Vat Pham" ra la doc duoc ngay, khong bat buoc phai
                 -- bat chuong Go Toan Bo (ban nay chi co print() nen can doc duoc luc nao ay)
                 local moBang = false
                 pcall(function()
-                    moBang = (Dt4TimBang() ~= nil)
+                    moBang = (Dt5TimBangMo() ~= nil)
                 end)
                 if (Config.Items and Config.Items.AutoFullyMelees) or GodHumanFlag or moBang then
                     pcall(RefreshMaterialCache)
