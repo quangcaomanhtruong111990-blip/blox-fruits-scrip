@@ -33,6 +33,29 @@ pcall(function()
     end
 end)
 
+-- ========================================================
+-- [DT7] CONFIG MAU DIEN SAN - NGUYEN LIEU GODHUMAN
+-- ========================================================
+-- Script doc bang "Vat Pham" khong duoc (moi o chi co icon + chu so, khong co chu
+-- ghi TEN mon) nen buoc kiem tra nguyen lieu cua DT2 luon hieu la "0 = chua du"
+-- -> nhan vat bi giu o Sea 2 mai mai. Vung nay ghi san 4 so => mo khoa ngay.
+--
+-- DungMau = true  : dung 4 so ben duoi, KHONG can doc UI nua.
+-- DungMau = false : tra ve cu (tu doc UI; van giu NguyenLieuTuCai rieng cua ban).
+--
+-- 4 so duoi day LA DO TU ANH BANG "Vat Pham" ban da gui (99 / 23 / 46 / 14).
+-- So CAN thuc te: Fish Tail 20, Dragon Scale 10, Magma Ore 20, Mystic Droplet 10.
+-- >>> MO lai bang Vat Pham va doi 4 so cho dung so BAN DANG CO. >>>
+-- Neu so ghi cao hon so that thi script nghi la DU -> bo qua fam nguyen lieu ma
+-- len Sea 3 / di kiem vo, se thay thieu that. Khong chac thi giam xuong 0.
+Dt7Mau = {
+    DungMau = true,
+    ["Fish Tail"] = 99,       -- icon con ca
+    ["Dragon Scale"] = 14,    -- icon vuon rong
+    ["Magma Ore"] = 46,       -- icon da chay (fam: Magma Ninja, Sea 2)
+    ["Mystic Droplet"] = 23,  -- icon giot tim (fam: Sea Soldier / Water Fighter, Sea 2)
+}
+
 print("========================================")
 print("[Bocchi Hub] SCRIPT INJECTED SUCCESSFULLY! [BUILD FC4 | FC4 = THEM QUEST CON THIEU: Sea1Quests co them PrisonerQuest (Lv 190-249 - truoc day khoang nay KY gap nen het quest la dung chan); Sea3Quests co them SubmergedQuest1 + SubmergedQuest2 (Lv 2550-2625, nam duoi nuoc nhung TweenController da co canh Y < -1500 la bay toi tau ngam truoc nen di chuyen duoc); BlacklistedQuestIds luc khoi chi con 5 id cu gia tri 1 = khong chan gi ca (comment giai thich). Log [FC4] | FC5 = VO KHONG CON CHIEM TICK KHI CHIN CAY MASTERY: MeleesController.Refresh tra FALSE khi hanh dong = farm (da co vo, dang danh them mastery) va goi EquipMeleeForMastery(name) equip dung vo do (toi da 1 lan/60s/voi, log [FC5]) roi de tick cho LevelFarm fam; chi giu tick khi co hanh dong that (buy / farm_fragments / farm_beli / farm_prereq) | FC6 = WATCHDOG CHONG DUNG YEN TOAN CUC: Fc6Watchdog chay moi tick ngay sau Start, neu hon 25s ma khong co nhAT danh moi (getgenv().Fc6LastAttack cap nhat trong CombatController.Attack) VA cung khong di chuyen qua 12 studs thi ep LevelFarm.Methods.Start:Call() di fam tiep; bang mien chen Fc6NoForce (RaidController, PirateRaid, Trevor, Yama, Tushita, SoulGuitar, SecondSeaPuzzle, ThirdSeaPuzzle, ColosseumPuzzle, Saber, ExpRedeem, CollectDrops) CHI in canh bao len SubTask chu khong chen ngan, vi do la nhung chuoi bat-dap/puzzle ma chen vao giua chung la hong chuoi; mien chen khi dang trong raid hoac Trevor dang mo trai. Log [FC6] | FC7 = THU TU TASK RIENG CHO TUNG SEA (TaskGroupOrder, goi RebuildTasksOrder(SeaIndex) luc inject + moi lan DetectSeaIndex doi sea): Sea1 = Drops > Quests > Bosses > Rewards > Combat > Utility > Melee > LevelUp | Sea2 = Drops > Quests > Combat > Bosses > Rewards > Utility > Melee > LevelUp | Sea3 = Drops > Combat > Bosses > Quests > Rewards > Utility > Melee > LevelUp; tu dong them vao CUOI moi task nam ngoai TaskGroups de KHONG bi mat chuc nang (in [FC7] CANH BAO). EvoRace CO Y khong dua vao lich chay: Start cua no co vong while not ScriptStorage.Tools['Flower i'] do task.wait() end = dung yen vo tan neu khong thu duoc hoa. Log [FC7] Thu tu task cua Sea N: ... | FC3 | FC3 = (1) THOI CHI LAI Them 1 ti nua: QuestGoneDelay 15s -> 25s, MinFarmDuration 25s -> 40s, memo tien do nhiem vu 90s -> 120s (ep qua Config CU: moi gia tri <=20s / <=30s bi nang len 25/40, ban dat lon hon thi giu nguyen); (2) HET DUNG YEN KHI THIEU VO (user: 'check toi vo dragon talon, chua du diem de nhan la no dung yen o do luon ko chi di fam'): MeleesController.DA CO TOOL trong balo truoc day chi equip roi RETURN trong khi no van giu tick -> LevelFarm khong bao gio duoc chay = dung yen vo tan; nay equip xong bao LevelFarm di fam ngay, va LevelFarm neu CHANG co nhiem vu dang chay lan chang co ten quai nao tu bang nhiem vu (MonName=nil) thi lay 1 loai quai THAT SU dang co mat trong server (PickLiveSeaMob) va danh - van lam du dieu kien vo: mastery + level + nguyen lieu + Beli, log [FC3]. | FC2 = KHONG CON MAT TIEN DO NHIEM VU KIỂU '7/8 -> nhan cai moi 0/8' (user: 'con quai cuoi cung van bi'): them memo getgenv().QuestProgMemo luu {cur,total,mob,id} moi lan HUD doc duoc x/y va con hieu luc 90s ke tu LAN DOC GAN NHAT; khi HasActiveQuest doc HUD khong ra (ban nay UI tieng Viet + bai quai bi stream an nen that thuong) ma memo van bao 'x < y' thi (1) NHANH NHAN NHIEM VU bi chet tum lai - van danh dung con quai cua nhiem vu cu, MainTask ghi 'Chua xong nhiem vu (7/8) -> khong nhan cai moi', (2) QUICK HUY QUEST DOI VO (AutoFullyMelees du mastery) bi HOAN LAI den khi nhiem vu xong that, log [Mastery Complete] ... NHUNG nhiem vu 7/8 chua xong. Memo tu xoa khi x >= y (xong that) hoac sau 90s khong doc duoc thong tin nao (thiet bi khong bi khoa). | FC1 = CAC QUANG NHAN NHIEM VU XA HON (user: 'đánh chưa xong nhiệm vụ đã nhận nhiệm vụ mới'): (1) QuestGoneDelay 2s -> 15s (UI phai bien mat LIEN TUC 15s moi duoc coi la xong nhiem vu; truoc day 2s nen HUD tam doc khong ra la no nhan cai moi, mat tien do giua chung), (2) MinFarmDuration 2.5s -> 25s (phai dung fam tai bai quai it nhat 25s), (3) nhanh 'UI mat' KHONG con xoa LastStartQuestAt -> con phai cho them QuestTryGap 8s truoc khi goi StartQuest tiep, (4) ep qua Config CU (getgenv song qua lan re-inject): moi gia tri <=5s bi nang len 15s/25s, ban tu dat lon hon thi giu nguyen - muon cho dai hon nua thi doi 2 so trong Config.Settings. Log nhan biet: [QuestState] UI nhiem vu da mat 15s + da fam 30s -> nhan nhiem vu moi sau 8s nua | km57 = [Godhuman] CHECK DIEU KIEN TRUOC KHI DI FAM: (1) GodhumanOwnedNow() tim vo Godhuman o MOI noi (Character/Backpack theo TEN DOI KHONG dau cach, ScriptStorage.Tools, ScriptStorage.Melees, HUD game) -> da co la THOI fam, khong con doi ten Tool 'Godhuman' chang; (2) mo [Godhuman] in DAY DU: da mo khoa chua + 4 nguyen lieu (kem co bao [KHONG DOC DUOC] hay khong) + mastery 5 vo + Beli + Frags + ket luan, 60s/lan; (3) NEU khong nguon nao doc duoc nguyen lieu -> DUNG VONG FAM NGUYEN LIEU MUON (fam Fish Tail ca ngay cung khong xong) va bao ly do tren SubTask; (4) cong bat tay Config.Settings.GodhumanAlreadyOwned=true = 'acc nay da co Godhuman' de tat ca buoc Godhuman | km56 | [NPC tu] phan biet 2 kieu NPC tra loi theo file 'KIEM TRA VO OK' cua ban: SO = mua duoc/khong duoc tien (bo qua 10 phut), CHU (string) = chinh game yeu cau them (vi du chua dua Fire Essence) -> CHI bo qua 3 phut va IN NGuyen do len SubTask, khong bi phong top 10 phut oam; log [MeleeCheck] <vo> | <NPC> tra loi: [ly do] | km55 | [KhoLieu] NAP SO NGUYEN LIEU vao ScriptStorage.InvDebugCache (GetItemCount buoc 1b da doc bang nay nen KHONG phai sua no): 15s/lan, thu 3 nguon = LocalPlayer.Data -> remote kho (chi do 1 lan/inject, lenh nao tra table thi nho lai) -> chu trong PlayerGui khi ban MO KHO Stash; chi ghi so >0, ten khop tuyen doi khong spaced ('FishTail42'/'FishTail'+'42'), GUI hub bi loai; chi chay khi bat AutoFullyMelees/Godhuman; log [KhoLieu] <ten> = <so> (nguon: ...) hoac [KhoLieu] CHUA DOC DUOC: ... | km54 | [Sabi / Dragon Claw] VO NAY KHONG ban bang 'BuyDragonClaw' -> lenh check tra ve khac 1 nen cu cho la NPC tu roi bo ve, khong bao gio goi lenh nhan that (Bay toi Sabi ma ko nhan). Nay: bang MeleeAltClaim chi ra lenh nhan rieng cho tung vo (Dragon Claw = BlackbeardReward,'DragonClaw','2'), den NPC la GOI THANG lenh do TRUOC, khong bi check 'Buy<vo>' chan lai; log [MeleeCheck] Dragon Claw ... van goi lenh nhan | km53 | [Godhuman] GetMeleeMastery + CheckGodhumanProgress (duong GO 5 VO + nhan Godhuman da mo khoa) bay gio doc bang [Vo HUD] cua game: 5 vo phu (Superhuman/Death Step/Electric Claw/Sharkman Karate/Dragon Talon) cat trong kho van duoc tinh mastery 400, Godhuman co trong HUD = da mo khoa; nguon cu chi nhin Tool trong Character/Backpack nen luc nao cung bao thieu vo va fam khong bao gio xong | km52 | [Vo HUD] DOC DONG MASTERY CUA GAME (PlayerGui, 'Dark Step: 405 | Electro: 407 | ...') 10s/lan de biet CHINH XAC dang co vo nao + mastery bao nhieu, khong can equip Tool va khong goi remote; nguon nay nap cho GetPlayerMeleeMastery + MeleeIsOwned; GUI cua hub bi loai khoi bua doc | km51 | [Vo check] MOI LAN: in CA 10 VO (XONG / CO / KO + mastery + action) 1 phut/lan de thay no nghi gi; luu y cho den luc nay: 'CO/KO' chi nhan duoc khi Tool cua vo nam trong Character/Backpack hoac da tung thay trong lan chay nay | km50 | TU DOI SERVER MOI 15 PHUT (TimHop): dung __ServerBrowser cua game de teleport, khong dung TeleportService; chay background moi 5s kiem tra dong ho, den gio ma dang giua raid/Trevor thi cho 30s; muon tat: Config.Settings.AutoTimHop=false, doi gio: Config.Settings.HopEveryMin=15; log [Hop] (... du 15 phut, tranh Security kick 267) -> ServerBrowser(N server...) -> lenh teleport tra ve: ok | KHONG CON code dem nguyen lieu km49 (da revert ve km48) | km48 | GACHA THEO BAN CU GUI: thu 1 lan sau 15s, moi 60s 1 lan; khi bi tu choi thi nghi TANG DAN 15p->30p->2h (vi ZiolesGacha co the dang 2h hoi chieu, khong phai sai lenh) va IN RA gio quay lai thay im lang; loi goi tay RandomTraiNgay() de quay ngay; van giu quy tac km47: trai TRANG o lai balo de mo raid, trai xanh/tim/do moi cat vao kho | km47 | (1) RAID CHI DUNG TRAI TRANG (Common): danh sach 'cui' cu co ca Magma/Quake/Ghost/Barrier/Rubber/Flame... -> an het trai xin; gio TraiLoaiTrang() chi duyet Kilo/Bone/Rocket/Spin/Chop/Blast/Spring/Cube/Sword/Ice/Door/Dark/Light/Sand/Blade/Falcon (+ Config.Raid.WhiteFruits), ap dung CA 3 duong lay trai (kho / ScriptStorage.Backpack / tool that trong balo) + cu soa LoadFruit; (2) DAO NGUOC chuyen cat trai: trai TRANG giu lai balo de mo raid, trai XANH/TIM/DO tu cat vao kho lien (truoc day km43 tat het nen trai nam lung tung); (3) BAT LAI GACHA random trai (km43 tat Config.Items.AutoRandomFruit=false + chan dieu kien trong vong lap -> ngung quay), da ep lai AutoRandomFruit=true neu Config cu con false | km46 | XONG NHIEM VU LA NHAN LAI LIEN TUC (khong danh them vai con nua): QuestGoneDelay 20s->2s (tu ep lai neu Config cu con gia tri 20), gan xong (con 1 con) thi buoc HUD doc lai toi da 1s/lan, luc break vi xong quest thi xoa Luon thoi gian cho StartQuest (LastStartQuestAt) + dat ForceNextQuestCheck de Start lan sau doc HUD that; nhan quest bi tu choi lan 1 thi CHUA bay toi NPC ngay (cho lan 2) vi lan dau co the chi do server chua kip ghi nhan xong quest cu | km45 | (1) Nhan NHIEM VU TAI BAI QUAI: khong bay toi NPC, khong can tim thay NPC, StartQuest goi cach <= 8s/lan (QuestTryGap); chi bay toi tan noi NEU server da tu choi nhiem vu do (QuestNeedsFlight); (2) CHECK THA THUONG: HasActiveQuest 0.35s->3s, HudLabel 5s->8s, QuestProgress 1s->4s, EnemyCount 0.5s->2s, BossScan 1s->3s + sua bug BossScanCache quet moi tick, QuestState log 15s->45s | km44 | BO TAT CA LOAI 'DUNG IM DE CHECK': (1) bo ning combat 45s + bo bay len 250 studs + bo CombatController return som + bo LevelFarm hold -> lenh dich Sea (TravelZou/TravelDressrosa) chi goi background moi 12s, VAN fam danh quai binh thuong; (2) bo chan RAID cua 'Da du dieu kien mua Black Leg' -> do deadlock: vo nay chi mua duoc TRONG raid ma no chan raid => khong bao gio raid => F=0; (3) [QuestDebug] Bartilo moi loi chi IN 1 LAN (Level 1523 ngoai 850-1499 = vinh vien); (4) [Boss] log dung chung nguon LiveEnemyCounts + in so con trong folder Enemies + noi ro boss Sea 2/3 chi spawn TRONG RAID/sea event | [km43] KHO TRAI -> RAID: lay trai cui trong kho ra raid (LoadFruit cu soa tung ten, verify Tool ve balo), TAT hoan toan luong trai tu dong (AutoRandomFruit=false, CatTraiVaoRuong return 0, MeleeCheck khong StoreFruit; muon bat lai: Config.Raid.UseStoredFruits=false), nguong Raid = Config.Raid.MinLevel 1000 (truoc 1100 chan Lv 1070), RefreshInventory sua (getInventory nil lam Backpack luon rong), SPY bat MOI remote + in ket qua | Dieu kien game: Sea2=700, Sea3=1500]")
 print("[Bocchi Hub] Initializing modules...")
@@ -165,6 +188,30 @@ do
             Config.Settings[k] = v
         end
     end
+    -- [DT7] NAP CONFIG MAU DIEN SAN (Dt7Mau o dau file) vao NguyenLieuTuCai.
+    -- Chi nap ten CHUA co trong bang -> so BAN TU DIEN o NguyenLieuTuCai van thang.
+    -- DungMau = false o dau file = bo qua het, script tu doc UI nhu cu.
+    -- PHAI nap moi lan inject: Config co the la ban CU (getgenv song qua lan re-inject).
+    pcall(function()
+        if type(Dt7Mau) ~= "table" or Dt7Mau.DungMau ~= true then
+            print("[DT7] config mau: TAT (DungMau ~= true) -> tu doc bang Vat Pham")
+            return
+        end
+        local tc = Config.Settings.NguyenLieuTuCai
+        if type(tc) ~= "table" then
+            tc = {}
+            Config.Settings.NguyenLieuTuCai = tc
+        end
+        local gop = {}
+        for _, ten in ipairs({ "Fish Tail", "Dragon Scale", "Magma Ore", "Mystic Droplet" }) do
+            local n = tonumber(Dt7Mau[ten])
+            if n and tonumber(tc[ten]) == nil then
+                tc[ten] = n
+            end
+            table.insert(gop, ten .. "=" .. tostring(tc[ten]))
+        end
+        print("[DT7] config mau: BAT | " .. table.concat(gop, " "))
+    end)
     -- [km46] PHAI EP LAI: Config co the la ban CU (getgenv song qua lan re-inject) nen
     -- QuestGoneDelay = 20 cua ban cu van con nguyen -> script danh them vai con quai moi nhan lai quest.
     -- Chi doi dung gia tri cu 20 -> khong lo ghi de gia tri ban tu dat.
@@ -788,7 +835,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "4TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2351,7 +2398,7 @@ ScriptStorage = {
                 SetTask("SubTask", text)
             end)
         end
-        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID | DT4: loc bang Vat Pham qua o Search | DT5: nhan dien bang + dinh danh theo Name/attribute | DT6: tu dong DUMP moi cua SO GUI VUA MO len man hinh (khong can doc duoc nguyen lieu) | DT6Dump() de quet tay")
+        Dt1Bao("[DT1] DA VA XONG ban dien thoai (Buy<vo> co log, FC23 raid, nhuong tick 8s) | DT2: giu Sea 2 fam nguyen lieu | DT3: thieu diem F -> lay trai mo RAID | DT4: loc bang Vat Pham qua o Search | DT5: nhan dien bang + dinh danh theo Name/attribute | DT6: tu dong DUMP moi cua SO GUI VUA MO len man hinh (khong can doc duoc nguyen lieu) | DT6Dump() de quet tay | DT7: CONFIG MAU 4 nguyen lieu dien san o DAU FILE (Dt7Mau.DungMau)")
 
         -- [DT4] ---- DOC BANG "VAT PHAM" (Stash) -----------------------------
         -- Anh user chup bang "Vat Pham": moi o CHI co icon + chu so (99, 23, 46...),
