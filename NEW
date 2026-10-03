@@ -1011,12 +1011,22 @@ ScriptStorage = {
                                     else
                                         -- Check if idle time exceeds threshold
                                         if (currentTime - idleStartTime) >= Config.Configuration.IdleCheck then
-                                            print("[AFK Check] Player is idle for " .. (currentTime - idleStartTime) .. " seconds, rejoining...")
-                                            if Hop then
-                                                Hop("Rejoin")
-                                            else
-                                                SafeRejoinOrHop("Rejoin")
+                                            -- [M11] Dang o TRONG RAID ma dung yen 1 cho (dang
+                                            -- danh boss / cho quai tap trung) la RAT TU NHIEU.
+                                            -- Roi vao day = Hop("Rejoin") = thoat raid, khop vet
+                                            -- "dang raid bo di mat roi / thoat ra mat". Dang raid
+                                            -- thi KHONG doi server, tinh lai thoi gian idle.
+                                            if not (M11DangRaid and M11DangRaid()) then
+                                                print("[AFK Check] Player is idle for " .. (currentTime - idleStartTime) .. " seconds, rejoining...")
+                                                if Hop then
+                                                    Hop("Rejoin")
+                                                else
+                                                    SafeRejoinOrHop("Rejoin")
+                                                end
+                                            elseif M9Lam and M9Lam() then
+                                                print("[M11] AFK Check bat duoc nhan vat dung yen trong RAID -> KHONG doi server")
                                             end
+                                            idleStartTime = nil
                                             return
                                         end
                                     end
@@ -2976,6 +2986,73 @@ ScriptStorage = {
         
         -- TweenController
         
+        -- [M11] (user: "no vua moi load map raid la no bay di luon, ko biet ban cho trung
+        -- voi nhiem vu gi, khi lam cai thi ngung het chu, dang raid la ngung tim kiem may
+        -- thu khac"). Khi vong RAID chay, RefreshTasksData goi `Start:Call` DONG BO nen
+        -- thread chinh nam BEN TRONG vong raid -> 15 task khac trong TasksOrder KHONG the
+        -- lay luot. Thu pham that la cac thread SONG SONG (task.spawn) van danh nhau:
+        --   * ThirdSeaPuzzle (6828): `while task.wait() do Attack("rip_indra") end` bat dau
+        --     1 lan la chay VINH VIEN. Attack khong tim thay quai thi roi vao nhan "khu vuc"
+        --     (3790) va TWEEN den bai cua con quai khac = keo nhan vat DI KHOI DAO RAID.
+        --   * Cung Attack: cam "Sweet Chalice" + game bao InCombat (3597 va 3665) thi
+        --     Create(Vector3(0,0,0)) = bay ra GIUA BIEN -> dung hinh "load map raid xong
+        --     la bay di". Luc danh quai raid thi InCombat = true, nen no NEM di that.
+        --   * BuyMelee (3136) va proxy CommF_ "Buy..." (1099): repeat-tween toi NPC ban vo.
+        -- Vi vay M11 chan 2 CHO DUY NHAT (TweenController.Create + CombatController.Attack)
+        -- bang CACH SO COROUTINE: dang RAID thi chi thread cua vong raid duoc phep di
+        -- chuyen / danh; moi thread khac bi tu choi va IN loai + toa do len HUD de user
+        -- nhin thay "trung nhiem vu gi". Het raid (flag xoa) la duong lai moi thu chay lai,
+        -- khong co dung yen. Fail-open: executor khong co coroutine.running() thi khong chan
+        -- gi ca (an toan hon dong bang), nen con chan them 2 nhanh Sweet Chalice o duoi.
+        M11RaidThread = nil
+        M11ChanLogDen = 0
+        M11DemBiChan = 0
+        function M11DangRaid()
+            if FunctionsHandler and FunctionsHandler.RaidController then
+                local ok, giaTri = pcall(function()
+                    return FunctionsHandler.RaidController:Get("IsInRaidProcess")
+                end)
+                if ok and giaTri == true then
+                    return true
+                end
+            end
+            return getgenv().IsRaidStarting == true
+        end
+        function M11DuocHanhDong()
+            if not M11DangRaid() then
+                return true
+            end
+            local co = nil
+            pcall(function()
+                if coroutine and coroutine.running then
+                    co = coroutine.running()
+                end
+            end)
+            if not co or not M11RaidThread then
+                return true
+            end
+            return co == M11RaidThread
+        end
+        function M11BiChan(loai, dich)
+            M11DemBiChan = M11DemBiChan + 1
+            if os.clock() < M11ChanLogDen then
+                return
+            end
+            M11ChanLogDen = os.clock() + 10
+            local toa = "?"
+            pcall(function()
+                local p = dich
+                if typeof(dich) == "CFrame" then
+                    p = dich.Position
+                end
+                if typeof(p) == "Vector3" then
+                    toa = string.format("%.0f, %.0f, %.0f", p.X, p.Y, p.Z)
+                end
+            end)
+            BaoM1("[M11] DANG RAID -> chan " .. tostring(loai) .. " tu thread khac | dich " ..
+                toa .. " | da chan " .. tostring(M11DemBiChan) .. " lan")
+        end
+
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
@@ -2984,6 +3061,13 @@ ScriptStorage = {
             
             -- Chống bay khi đang chết
             if Character.Humanoid.Health <= 0 then return end
+
+            -- [M11] Luc dang RAID: khong bat ki thread nao khac vong raid duoc keo nhan
+            -- vat di (day la CHOT DUY NHAT moi lenh bay cua file nay).
+            if not M11DuocHanhDong() then
+                M11BiChan("TWEEN", Position)
+                return
+            end
         
             -- Chuyển đổi Position sang CFrame nếu cần
             local TargetCFrame = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
@@ -3583,6 +3667,16 @@ CombatController = {
         end
 
         function CombatController.Attack(MobTable, NearbyHit, Range, Callback)
+            -- [M11] Attack la noi duy nhat tao di chuyen theo quai/khu vuc, va la noi
+            -- nem nhan vat ra (0,0,0) khi cam Sweet Chalice. Cac loop nen (ThirdSeaPuzzle
+            -- 6828, proxy mua vo) chay o thread KHAC -> luc dang RAID thi TU CHOI het de
+            -- chung khong keo nhan vat ra khoi dao raid. Luot danh cua RAID goi tren thread
+            -- chinh nen van chay binh thuong.
+            if not M11DuocHanhDong() then
+                local ten = type(MobTable) == "table" and MobTable[1] or MobTable
+                M11BiChan("ATTACK '" .. tostring(ten) .. "'", nil)
+                return
+            end
             -- Cache GuideModule env để tránh gọi getsenv nhiều lần
             -- [M5] Ban cu goi GetGuideEnv() HAI LAN moi luot danh (pcall roi tinh lai), ma
             -- Attack chay 10 lan/giay -> getsenv = thu pham lam cham moi nhip. Luu lai 5s.
@@ -3594,7 +3688,9 @@ CombatController = {
             end
             local GuideEnv = M5GuideEnv
 
-            if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
+            -- [M11] (0,0,0) = GIUA BIEN. Dang raid ma bay di la mat toan bo tien do
+            -- raid -> nhanh nay chi dung khi fam thuong.
+            if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] and not M11DangRaid() then
                 TweenController.Create(Vector3.new(0, 0, 0))
                 return
             end
@@ -3662,7 +3758,8 @@ CombatController = {
                         end
 
                         -- Cache lại InCombat mỗi lần loop để kiểm tra trạng thái combat
-                        if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
+                        -- [M11] nhu nhanh 3683: dang raid thi khong bay ra (0,0,0)
+                        if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] and not M11DangRaid() then
                             TweenController.Create(Vector3.new(0, 0, 0))
                             return
                         end
@@ -3687,7 +3784,12 @@ CombatController = {
                                 if
                                     ScriptStorage.PlayerData.Level > 100 and
                                         Count2 >= CombatController.MAX_ATTACK_DURATION_2 and
-                                        MobHumanoid.Health - MobHumanoid.MaxHealth == 0
+                                        MobHumanoid.Health - MobHumanoid.MaxHealth == 0 and
+                                        -- [M11] Mau boss RAID khong giam luc vua vao dao (quai chua
+                                        -- kip render / dang hoi mau) rat de do. Roi vao day = _G.Stop
+                                        -- + REJOIN = mat tien do raid, khop vet "roi thoat ra mat".
+                                        -- Dang raid thi KHONG doi server.
+                                        not M11DangRaid()
                                  then
                                     SetTask(
                                         "SubTask",
@@ -4770,7 +4872,9 @@ FunctionsHandler = {
                 end
 
                 local Result
-                if ScriptStorage.Backpack.Saber then
+                -- [M12] "Backpack.Saber" khong bao gio duoc nap nua (getInventory chet) ->
+                -- da co Saber van di lam lai nhiem vu Saber.  Doc Tool trong balo thay vao.
+                if M12DaCoTool and M12DaCoTool("Saber") then
                     return
                 end
 
@@ -5887,6 +5991,53 @@ FunctionsHandler = {
             M9KhoaRaid.fruit = (ok and type(kq) == "table") and kq or nil
             return M9KhoaRaid.fruit
         end
+
+        -- [M10] (user: "ban lam gi no bo di dau vay, dang raid bo di mat roi")
+        -- Thu pham: `GetCurrentRaidIsland` (5731) chi tra dao khi nguoi choi con trong
+        -- 2000 studs cua no, ma vong raid goi no MOI 0.05s (luc dang danh) va moi 1s
+        -- (dau vong). Chi can bi hat vang / dao di chuyen / model doi ten giua 2 gate la
+        -- no tra nil => script TU dat "Auto Raid - Completed" va bo raid giua chung.
+        -- Model "Island N" (>7000 studs tu goc toa do) CHI TON TAI luc raid dang dien ra
+        -- => "con raid" phai do bang SU KIEN DIEN, khong do khoang cach, va cung khong
+        -- can HumanoidRootPart (chet giua raid la Character nil = NEM LOI = thoat raid).
+        function M10DaoRaid()
+            -- [M10] Cache 1s: Refresh duoc goi 30-60 lan/giay va phep thu nay quet
+            -- workspace["_WorldOrigin"].Locations (duoc goi ngay CANH `GetCurrentRaidIsland`
+            -- cung quet) -> khong dem them mot lan quet moi tick.
+            if M10DaoCacheTick and os.clock() - M10DaoCacheTick < 1 then
+                return M10DaoCache
+            end
+            local ketQua, soLonNhat = nil, 0
+            pcall(function()
+                local locs = workspace:FindFirstChild("_WorldOrigin")
+                locs = locs and locs:FindFirstChild("Locations")
+                if not locs then return end
+                for _, Island in locs:GetChildren() do
+                    if string.find(Island.Name, "Island ") and
+                        CaculateDistance(Island.Position, Vector3.new(0, 0, 0)) > 7000 then
+                        local so = tonumber((string.gsub(Island.Name, "Island ", "")))
+                        if so and so > soLonNhat then
+                            soLonNhat, ketQua = so, Island
+                        end
+                    end
+                end
+            end)
+            M10DaoCache, M10DaoCacheTick = ketQua, os.clock()
+            return ketQua
+        end
+
+        -- [M10] Co 4s an han khi model bi mat khoi tam mat (doi gate, hoi sinh, loi do).
+        function M10ConTrongRaid()
+            if M10DaoRaid() then
+                M10MatDaoDen = nil
+                return true
+            end
+            if not M10MatDaoDen then
+                M10MatDaoDen = os.clock() + 4
+                return true
+            end
+            return os.clock() < M10MatDaoDen
+        end
      
     
         FunctionsHandler.RaidController:RegisterMethod("Refresh", function()
@@ -5988,7 +6139,11 @@ FunctionsHandler = {
 
             -- 2. Logic tích luỹ Fragments:
             -- Nếu đang trên đảo Raid hoặc có Microchip sẵn -> LUÔN tiếp tục Raid!
+            -- [M10] Them M10DaoRaid(): bi keo ra xa >2000 studs KHONG co nghia la het
+            -- raid; truoc day Refresh bo mat "dang o trong raid" -> task khac keo nhan
+            -- vat di = "dang raid bo di mat roi".
             local inRaidIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
+                or M10DaoRaid()
             local hasChip = CheckSpecialMicrochip()
             if inRaidIsland or hasChip then
                 return true
@@ -6085,6 +6240,7 @@ FunctionsHandler = {
                 -- Kiểm tra trước: Nếu không có chip và không có trái ác quỷ, không khởi động raid
                 local hasMicrochip = CheckSpecialMicrochip()
                 local isAlreadyOnIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
+                    or M10DaoRaid()
                 -- [M9] Dung trai da cache 20s thay goi remote doc kho them lan nua.
                 local hasRaidFruit = M9LayTraiRaid()
 
@@ -6097,6 +6253,13 @@ FunctionsHandler = {
                 getgenv().IsRaidStarting = true
                 getgenv().InRaidSafe = true 
                 FunctionsHandler.RaidController:Set("IsInRaidProcess", true)
+                -- [M11] Ghi lai thread dang chay vong raid: day la thread DUY NHAT duoc phep
+                -- di chuyen / Attack khi M11DangRaid() = true (xem M11DuocHanhDong 2997).
+                M11RaidThread = coroutine and coroutine.running and coroutine.running() or nil
+                if M9Lam() then
+                    BaoM1("[M11] RAID bat dau -> KHOP quyen di chuyen cho thread raid" ..
+                        (M11RaidThread and "" or " (executor khong co coroutine.running -> chi chan nhanh Sweet Chalice)"))
+                end
 
                 -- Wrap toàn bộ logic trong pcall để đảm bảo các khóa (lock) luôn được xử lý kể cả khi lỗi
                 local ok, err = pcall(function()
@@ -6247,7 +6410,9 @@ FunctionsHandler = {
                         repeat
                             task.wait(0.5)
                             local CheckIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
-                            if CheckIsland then
+                            -- [M10] Dao vua xuat co the o xa hon 2000 studs luc vao ->
+                            -- tinh ca su kien model "Island N" xuat hien.
+                            if CheckIsland or M10DaoRaid() then
                                 RaidStarted = true
                                 break
                             end
@@ -6274,12 +6439,18 @@ FunctionsHandler = {
                         alert("Raid Started", "Entering raid island")
                         task.wait(1)
                         
-                        CurrentIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
+                        CurrentIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call() or M10DaoRaid()
                         -- [M9] Dung CurrentIsland vua doc, khong goi lai remote scan 2 lan.
                         BaoM1("[M9] RAID bat dau | " .. tostring(CurrentIsland and CurrentIsland.Name or "?") ..
                             " | chip " .. tostring(FunctionsHandler.RaidController:Get("CurrentChip")))
                     end
                     
+                    -- [M10] Neo lai theo su kien dien cua dao: truong hop da o trong raid
+                    -- ma `GetCurrentRaidIsland` khong thay (bi keo ra xa >2000 studs) thi
+                    -- ban cu `return` day = bo raid giua chung.
+                    if not CurrentIsland then
+                        CurrentIsland = M10DaoRaid()
+                    end
                     if not CurrentIsland then
                         return
                     end
@@ -6289,24 +6460,38 @@ FunctionsHandler = {
                         
                         while true do
                             task.wait(1)
-                            CurrentIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
-                            
-                            if not CurrentIsland then
+                            -- [M10] Dao gan (van dung de bay toi) HOAC chi can model
+                            -- "Island N" con day la tinh nhu dang o trong raid.
+                            local DaoGan = nil
+                            pcall(function()
+                                DaoGan = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
+                            end)
+                            if not DaoGan then
+                                DaoGan = M10DaoRaid()
+                            end
+                            if DaoGan then M10TenDao = DaoGan.Name end
+
+                            if not M10ConTrongRaid() then
                                 SetTask("MainTask", "Auto Raid - Completed")
+                                SetTask("SubTask", "[M10] Het raid (model Island N mat hon 4s) -> fam tiep")
                                 -- [M9] Xong raid: doc lai kho NGAY (cache 20s) de neu con
                                 -- trai cuu/tra du thi raid ke tiep chay luon, khong cho tron.
                                 M9KhoaRaid.fruit, M9KhoaRaid.fruitTick = nil, 0
-                                if M9Lam() then
-                                    BaoM1("[M9] RAID hoan thanh -> fam tiep / raid tiep theo trai")
-                                end
+                                BaoM1("[M10] RAID ket thuc | " .. tostring(M10TenDao or "?") ..
+                                    " -> fam tiep / raid tiep theo trai")
                                 return
                             end
                             
-                            SetTask("MainTask", "Auto Raid - " .. CurrentIsland.Name .. " / 5")
+                            SetTask("MainTask", "Auto Raid - " .. tostring(M10TenDao or "Island ?") .. " / 5")
+                            -- [M10] HUD: khi vao raid thi SubTask cua Melees (vi du
+                            -- "Buying Melee - Dragon Claw") con sot tu luc TRUOC raid,
+                            -- khien user tuong script bo raid di mua vo -> ghi de.
+                            SetTask("SubTask", "[M10] VAN con trong RAID, khong bo di dau")
                             local Found = false
                             for _, Mon in GetMonAsSortedRange() do
                                 local StartTick1 = os.time()
-                                while Mon and Mon:FindFirstChild("HumanoidRootPart") and Mon.Humanoid.Health > 0 and
+                                while Mon and Mon:FindFirstChild("HumanoidRootPart") and
+                                    Mon:FindFirstChild("Humanoid") and Mon.Humanoid.Health > 0 and
                                     CaculateDistance(Mon.HumanoidRootPart.Position) < 1000 and
                                     os.time() - StartTick1 < 60 and
                                     task.wait(.05) do
@@ -6321,20 +6506,34 @@ FunctionsHandler = {
                                         VirtualUser:CaptureController()
                                         VirtualUser:ClickButton1(Vector2.new(0,0))
                                     end)
-                                    CombatController.Attack(Mon.Name)
+                                    -- [M10] Attack ma nem loi (quai chet giua luot, mat
+                                    -- Humanoid) la giết ca vong raid qua pcall ben ngoai.
+                                    pcall(CombatController.Attack, Mon.Name)
                                     
-                                    local CheckIsland = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call()
-                                    if not CheckIsland then
-                                        SetTask("MainTask", "Auto Raid - Completed")
-                                        -- [M9] Nhu tren: xoa cache trai khi raid ket thuc.
-                                        M9KhoaRaid.fruit, M9KhoaRaid.fruitTick = nil, 0
-                                        return
+                                    -- [M10] truoc day: kiem tra dao MOI 0.05s theo KHOANG
+                                    -- CACH -> 1 luc bi hat vang la bo raid. Nay toi da
+                                    -- 1 lan/giay va do bang su kien dien + an han 4s.
+                                    if not M10NhipKiem or os.clock() - M10NhipKiem >= 1 then
+                                        M10NhipKiem = os.clock()
+                                        if not M10ConTrongRaid() then
+                                            SetTask("MainTask", "Auto Raid - Completed")
+                                            M9KhoaRaid.fruit, M9KhoaRaid.fruitTick = nil, 0
+                                            BaoM1("[M10] RAID ket thuc giua luot danh | " ..
+                                                tostring(M10TenDao or "?"))
+                                            return
+                                        end
                                     end
                                 end
                             end
 
                             if not Found then
-                                TweenController.Create(CurrentIsland.Position + Vector3.new(0, 25, 0))
+                                -- [M10] Chi bay khi con model song; instance cu (da bi
+                                -- game xoa giua 2 gate) ma cham .Position la NOI LOI.
+                                if DaoGan and DaoGan.Parent then
+                                    pcall(function()
+                                        TweenController.Create(DaoGan.Position + Vector3.new(0, 25, 0))
+                                    end)
+                                end
                             end
                         end
                     end
@@ -6349,7 +6548,8 @@ FunctionsHandler = {
                 -- NGUNG FAM VIN VIN = dung cau "roi thoat ra mat, khong danh gi nua".
                 local vanConODao, vanConChip = false, false
                 pcall(function()
-                    vanConODao = FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call() ~= nil
+                    vanConODao = (FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call() or
+                        M10DaoRaid()) ~= nil
                 end)
                 pcall(function()
                     vanConChip = CheckSpecialMicrochip() ~= nil
@@ -6469,7 +6669,10 @@ FunctionsHandler = {
                         TidePassed = true
                         table.insert(RemoveList, "Tide Keeper")
                     end
-                    if ScriptStorage.Backpack.Yama then
+                    -- [M12] cung signal "getInventory" da chet: ban cu khong loai 3 con Elite
+                    -- khoi danh sach boss du choi da co Yama -> BossesTask keo nhan vat di san
+                    -- Elite VO ICH.  M12DaCoTool doc Tool that trong balo.
+                    if M12DaCoTool and M12DaCoTool("Yama") then
                         print("Elite")
                         table.insert(RemoveList, "Deandre")
                         table.insert(RemoveList, "Urban")
@@ -6731,17 +6934,112 @@ FunctionsHandler = {
                         function()
                             alert("1102", "rejoin")
                             task.wait(30)
+                            -- [M11] Day la rejoin TREN THREAD RIENG, no no SAU 30s bat ke
+                            -- luc do dang giua RAID -> "thoat ra mat". Dang raid thi bo qua.
+                            if M11DangRaid and M11DangRaid() then
+                                print("[M11] ThirdSeaPuzzle hen rejoin luc dang RAID -> Huy rejoin")
+                                return
+                            end
                             SafeRejoinOrHop("Rejoin")
                        end
                     )
 
                     alert("attack")
+                    -- [M11] Vong NAY chay o thread rieng va KHONG CO DIEU KIEN THOAT ->
+                    -- mot lan ThirdSeaPuzzle bat dau la no keo nhan vat di theo "rip_indra"
+                    -- (Attack -> khu vuc -> TweenController.Create) MAI MAI, ke ca luc
+                    -- dang trong RAID. Day la thu pham "vua load map raid la bay di luon,
+                    -- ko biet trung nhiem vu gi". Dang raid thi vong nay nghi.
                     while task.wait() do
-                        CombatController.Attack("rip_indra")
+                        if not M11DangRaid() then
+                            CombatController.Attack("rip_indra")
+                        end
                     end
                 end
             end
         )
+
+        -- [M12] "DA CO KIEM" PHAI doc tu Tool THAT nam trong Character/Backpack.
+        -- ScriptStorage.Backpack duoc nap bang CommF_ "getInventory" (RefreshInventory 1256),
+        -- va remote DO DA CHET tren build game hien tai (tra nil) -> Backpack.Yama = nil
+        -- VINH VIEN du trong balo da nam cay Yama.  Task "Yama" nam o TasksOrder thu 10
+        -- (TRUOC LevelFarm 17) -> khi Refresh lan ra true, MOI TICK no keo nhan vat bay toi
+        -- Thac Nuoc Sea 3 (5251, 37, 453) = dung hinh "co roi ma cu bay toi do".
+        -- ScriptStorage.Tools (metatable 968) live-quet Character + Backpack theo Ten nen
+        -- M12DaCoTool dung cach quet do, long them GetAttribute("OriginalName") vi nhieu tool
+        -- bi doi ten khi equip.  Ket qua DUOC DINH: da co thi khong bao gio di lay nua.
+        M12DaCo = {}
+        M12ScanDen = 0
+        M12YamaDen = 0
+        M12YamaDaLog = false
+        M12YamaChoDen = 0
+        function M12DaCoTool(ten)
+            if M12DaCo[ten] then
+                return true
+            end
+            if os.clock() < M12ScanDen then
+                return false
+            end
+            M12ScanDen = os.clock() + 5
+            local co = false
+            pcall(function()
+                if ScriptStorage.Backpack and ScriptStorage.Backpack[ten] then
+                    co = true
+                    return
+                end
+                local lp = game:GetService("Players").LocalPlayer
+                local list = {}
+                if lp.Character then
+                    for _, t in ipairs(lp.Character:GetChildren()) do
+                        table.insert(list, t)
+                    end
+                end
+                local bag = lp:FindFirstChild("Backpack")
+                if bag then
+                    for _, t in ipairs(bag:GetChildren()) do
+                        table.insert(list, t)
+                    end
+                end
+                for _, t in ipairs(list) do
+                    if t:IsA("Tool") and (t.Name == ten or t:GetAttribute("OriginalName") == ten) then
+                        co = true
+                        return
+                    end
+                end
+            end)
+            if co then
+                M12DaCo[ten] = true
+            end
+            return co
+        end
+
+        -- [M12] Thac Nuoc Sea 3 co 'SealedKatana' chua + nhan vat cach do bao xa.
+        -- Cache 1s vi Refresh bi goi 30-60 lan/giay.
+        M12ThacCache = {den = 0, coKatana = false, cach = 99999}
+        function M12YamaThac()
+            if os.clock() < M12ThacCache.den then
+                return M12ThacCache.coKatana, M12ThacCache.cach
+            end
+            M12ThacCache.den = os.clock() + 1
+            local co = false
+            local cach = 99999
+            pcall(function()
+                local Map = workspace:FindFirstChild("Map")
+                local wf = Map and Map:FindFirstChild("Waterfall")
+                if wf then
+                    co = wf:FindFirstChild("SealedKatana") ~= nil
+                end
+                local lp = game:GetService("Players").LocalPlayer
+                local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    cach =
+                        (hrp.Position - Vector3.new(5251.89990234375, 37.18115234375, 453.6022644042969)).Magnitude
+                end
+            end)
+            M12ThacCache.coKatana = co
+            M12ThacCache.cach = cach
+            return co, cach
+        end
 
         FunctionsHandler.Yama:RegisterMethod(
             "Refresh",
@@ -6750,15 +7048,57 @@ FunctionsHandler = {
                     return
                 end
 
-                if ScriptStorage.Backpack.Yama then
+                if M12DaCoTool("Yama") then
+                    if not M12YamaDaLog then
+                        M12YamaDaLog = true
+                        BaoM1("[M12] Da co Yama trong balo -> NGUNG di lay kiem")
+                    end
                     return
                 end
 
-                if not FunctionsHandler.Yama:Get("EliteCount") then
-                    FunctionsHandler.Yama:Set("EliteCount", Remotes.CommF_:InvokeServer("EliteHunter", "Progress"))
+                -- Ban cu luu "EliteCount" 1 lan; neu server tra nil/chuoi thi dieu kien
+                -- `if not Get(...)` goi LAI remote BLOCKING MOI TICK.  Lan nay chi chap
+                -- nhan so va co nhip 30s.
+                local dem = FunctionsHandler.Yama:Get("EliteCount")
+                if type(dem) ~= "number" then
+                    if os.clock() >= M12YamaDen then
+                        M12YamaDen = os.clock() + 30
+                        local ok, resp = pcall(function()
+                            return Remotes.CommF_:InvokeServer("EliteHunter", "Progress")
+                        end)
+                        local so = nil
+                        if ok then
+                            if type(resp) == "number" then
+                                so = resp
+                            elseif type(resp) == "table" then
+                                so = tonumber(resp[1] or resp.Count or resp.Progress)
+                            end
+                        end
+                        if so then
+                            FunctionsHandler.Yama:Set("EliteCount", so)
+                            dem = so
+                        end
+                    end
                 end
 
-                if FunctionsHandler.Yama:Get("EliteCount") >= 30 then
+                if type(dem) == "number" and dem >= 30 then
+                    -- [M12] PHAI chan o Refresh, khong phai Start: RefreshTasksData (7304)
+                    -- goi Start cua task dau tien co Refresh = true roi RETURN, nen neu Start
+                    -- tra nil de "nghi" thi LevelFarm van bi doi tick = nhan vat dung yen.
+                    if os.clock() < M12YamaChoDen then
+                        return
+                    end
+                    local coKatana, cach = M12YamaThac()
+                    if not coKatana and cach < 600 then
+                        M12YamaChoDen = os.clock() + 300
+                        BaoM1(
+                            string.format(
+                                "[M12] Thac nuoc CHUA co 'SealedKatana' (da den gan, cach %.0f studs) -> nghi lay kiem 5 phut, fam tiep",
+                                cach
+                            )
+                        )
+                        return
+                    end
                     return true
                 end
             end
@@ -6767,19 +7107,30 @@ FunctionsHandler = {
         FunctionsHandler.Yama:RegisterMethod(
             "Start",
             function()
-                if SeaIndex == 3 then 
-                if
-                    not workspace.Map:FindFirstChild("Waterfall") then
-                         return TweenController.Create(CFrame.new(5251.89990234375, 37.18115234375, 453.6022644042969))
-                    else
-                        if not workspace.Map.Waterfall:FindFirstChild("SealedKatana") then
-                         return TweenController.Create(CFrame.new(5251.89990234375, 37.18115234375, 453.6022644042969))
-
-                        end
-                 return                fireclickdetector(workspace.Map.Waterfall.SealedKatana.Hitbox.ClickDetector)
-
+                if SeaIndex ~= 3 then
+                    return
                 end
-            end
+
+                if M12DaCoTool("Yama") then
+                    return
+                end
+
+                local coKatana, cach = M12YamaThac()
+
+                if coKatana then
+                    local ok, err = pcall(function()
+                        fireclickdetector(
+                            workspace.Map.Waterfall.SealedKatana.Hitbox.ClickDetector
+                        )
+                    end)
+                    BaoM1(
+                        "[M12] Kay Yama o Thac Nuoc -> " ..
+                            (ok and "OK" or ("loi " .. tostring(err)))
+                    )
+                    return
+                end
+
+                return TweenController.Create(CFrame.new(5251.89990234375, 37.18115234375, 453.6022644042969))
             end
         )
 
@@ -7612,7 +7963,9 @@ FunctionsHandler = {
                     local oldpos = game.Players.LocalPlayer.Character.HumanoidRootPart.Position 
                     repeat wait() 
                     until tick() - old >= 5*60 or oldpos ~= game.Players.LocalPlayer.Character.HumanoidRootPart.Position 
-                    if tick() - old >= 5*60 then 
+                    if tick() - old >= 5*60 and not (M11DangRaid and M11DangRaid()) then
+                        -- [M11] Dang raid thi KHONG tu do server (mat tien do raid); vong nay
+                        -- tu dong do lai vi tri o luot tiep theo.
                         Hop("Stuck start Rejoin")
                     end
                 end)
@@ -7627,6 +7980,25 @@ FunctionsHandler = {
         function RefreshTasksData()
             if _G.Stop then
                 return
+            end
+            -- [M11] TU CHUA KE (khong can chan uu tien): vong raid chay DONG BO ben trong
+            -- Start:Call ben duoi, nen khi ham nay chay thi Start DA RETURN roi. Ma flag
+            -- IsInRaidProcess / IsRaidStarting van con = true la khoa RUI (Start bi loi,
+            -- bi _G.Stop, hoac raid ket thuc luc con Microchip trong bag). Le ra thi
+            -- LevelFarm.Refresh (4126) + vong Melees (8021) cung doc flag do -> NHAN VAT
+            -- DUNG YEN VINH VIEN = "dang raid bo di mat roi, khong danh gi". Mo khoa,
+            -- in ly do len HUD va fam tiep NGAY (khong cho mot giay dung yen nao).
+            if M11DangRaid() then
+                if not M11RuiKhoaDen or os.clock() >= M11RuiKhoaDen then
+                    M11RuiKhoaDen = os.clock() + 10
+                    BaoM1("[M11] Raid ket thuc ma khoa van rem (Start da xong) -> mo khoa, fam tiep | task " ..
+                        tostring(CurrentTask))
+                end
+                getgenv().IsRaidStarting = false
+                getgenv().InRaidSafe = false
+                FunctionsHandler.RaidController:Set("IsInRaidProcess", false)
+                M11RaidThread = nil
+                M9KhoaRaid.fruit, M9KhoaRaid.fruitTick = nil, 0
             end
             for _, TaskName in TasksOrder do
                 local Task = FunctionsHandler[TaskName]
@@ -7756,7 +8128,10 @@ FunctionsHandler = {
         -- Chạy NearbyHopHandler định kỳ nếu người dùng chủ động bật AutoHop
         task.spawn(function()
             while task.wait(5) do
-                if not _G.Stop and Config and Config.Configuration and Config.Configuration.AutoHop then
+                -- [M11] Dang RAID thi KHONG hop server: co player khac dung canh trong 30s
+                -- (dao raid rat dong) la LowHop o day = mat toan bo tien do raid.
+                if not _G.Stop and Config and Config.Configuration and Config.Configuration.AutoHop
+                    and not (M11DangRaid and M11DangRaid()) then
                     pcall(NearbyHopHandler)
                 end
             end
@@ -7965,7 +8340,11 @@ FunctionsHandler = {
                     " | [M9] " .. tostring(FunctionsHandler.RaidController:Get("CurrentChip") or "-") ..
                     (IsInRaid and " DANG RAID" or "") ..
                     ((M9KhoaRaid.failMuteUntil or 0) > os.clock() and (" | nghi " ..
-                        tostring(math.floor(M9KhoaRaid.failMuteUntil - os.clock())) .. "s") or ""))
+                        tostring(math.floor(M9KhoaRaid.failMuteUntil - os.clock())) .. "s") or "") ..
+                    -- [M11] Dem lan mot thread khac bi tu choi keo nhan vat luc dang raid.
+                    -- > 0 = M11 dang lam viec dung; van bay di = doan gay khong qua
+                    -- TweenController.Create/Attack (gui anh dong nay).
+                    ((M11DemBiChan or 0) > 0 and (" | [M11] chan " .. tostring(M11DemBiChan)) or ""))
             end
         end
 
