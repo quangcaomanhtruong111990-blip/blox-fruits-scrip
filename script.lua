@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "(SEA 1 ONLY)"
+        NameHub.Text = "sanglove v1.0"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5077,8 +5077,15 @@ FunctionsHandler = {
                         local curAmount = (PlayerData and tonumber(PlayerData[currency])) or 0
                         local reqVal = tonumber(reqAmount) or 0
                         if curAmount < reqVal then
+                            SetTask("MainTask", "Melee | Farm " .. tostring(currency) .. " de mua " .. tostring(targetMelee))
                             SetTask("SubTask", "Farming " .. tostring(currency) .. " (" .. curAmount .. "/" .. reqVal .. ") for " .. targetMelee)
-                            return -- Chưa đủ tiền thì tiếp tục farm bằng võ cũ, không làm gì thêm!
+                            -- [FIX] Chi return o day lam bot dung im tan cho: MeleesController
+                            -- luon thang Refresh dau tien trong TasksOrder nen LevelFarm khong
+                            -- bao gio duoc scheduler goi -> phai tu goi LevelFarm.Start tai day
+                            if FunctionsHandler.LevelFarm and FunctionsHandler.LevelFarm.Methods and FunctionsHandler.LevelFarm.Methods.Start then
+                                pcall(function() FunctionsHandler.LevelFarm.Methods.Start:Call() end)
+                            end
+                            return
                         end
                     end
                 end
