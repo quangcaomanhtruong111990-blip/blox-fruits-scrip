@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1"
+        NameHub.Text = "sea 1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5999,7 +5999,37 @@ FunctionsHandler = {
         FruitScanSeenCount = 0
 
         -- Loc theo ten, plain=true cho nhanh (khong phai pattern)
+        -- [FIX] "Blox Fruit Dealer" / "Fruit Gacha" cung chua chu "Fruit" nen bot
+        -- nhan lam trai roi va bo toi tan NPC. Chan ten NPC + loc folder NPCs.
+        FruitNpcWords = {"Dealer", "Gacha", "Trader", "NPC", "Shop", "Store", "Chest", "Crate", "Island", "Boat", "Ship", "Quest"}
+        function FruitNameBad(nm)
+            for _, w in ipairs(FruitNpcWords) do
+                if string.find(nm, w, 1, true) then
+                    return true
+                end
+            end
+            return false
+        end
+
+        -- NPC (ke ca Blox Fruit Dealer) nam trong folder NPCs/Shops -> khong phai trai roi
+        function IsInNpcFolder(obj)
+            local p = obj and obj.Parent
+            local guard = 0
+            while p and p ~= workspace and guard < 12 do
+                local pn = p.Name
+                if pn == "NPCs" or pn == "Shops" or pn == "Quest" or pn == "Arenas" then
+                    return true
+                end
+                p = p.Parent
+                guard = guard + 1
+            end
+            return false
+        end
+
         local function FruitNameHit(nm)
+            if FruitNameBad(nm) then
+                return false
+            end
             if string.find(nm, "Fruit", 1, true) then
                 return true
             end
@@ -6055,6 +6085,9 @@ FunctionsHandler = {
             local nm = obj.Name
             -- Do ten truoc khi lam nhung thu dat hon
             if not FruitNameHit(nm) and not (cl == "Tool" and obj.ToolTip == "Blox Fruit") then
+                return false
+            end
+            if FruitNameBad(nm) or IsInNpcFolder(obj) then
                 return false
             end
             if Players:FindFirstChild(nm) then
