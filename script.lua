@@ -300,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sea 1"
+        NameHub.Text = "(SEA 1 ONLY)"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -6001,7 +6001,7 @@ FunctionsHandler = {
         -- Loc theo ten, plain=true cho nhanh (khong phai pattern)
         -- [FIX] "Blox Fruit Dealer" / "Fruit Gacha" cung chua chu "Fruit" nen bot
         -- nhan lam trai roi va bo toi tan NPC. Chan ten NPC + loc folder NPCs.
-        FruitNpcWords = {"Dealer", "Gacha", "Trader", "NPC", "Shop", "Store", "Chest", "Crate", "Island", "Boat", "Ship", "Quest"}
+        FruitNpcWords = {"Dealer", "Gacha", "Trader", "NPC", "Shop", "Store", "Chest", "Crate", "Island", "Boat", "Ship", "Quest", "Statue", "Stand", "Pedestal", "Prop", "Decor", "Model", "Spawn", "Dummy"}
         function FruitNameBad(nm)
             for _, w in ipairs(FruitNpcWords) do
                 if string.find(nm, w, 1, true) then
@@ -6028,6 +6028,12 @@ FunctionsHandler = {
 
         local function FruitNameHit(nm)
             if FruitNameBad(nm) then
+                return false
+            end
+            -- [FIX] Cai tuong / do trang tri ten "Fruit1", "Fruit2"... nam tren dao.
+            -- Trai that LUON co ten loai dung TRUOC chu Fruit ("Flame Fruit"),
+            -- con ten BAT DAU bang "Fruit" thi chac chan do -> bo qua.
+            if string.match(nm, "^%s*[Ff]ruit") then
                 return false
             end
             if string.find(nm, "Fruit", 1, true) then
