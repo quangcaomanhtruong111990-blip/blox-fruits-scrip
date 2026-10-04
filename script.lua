@@ -80,7 +80,8 @@ Config =
             },
             Settings = {
                 ["Fragments"] = 5000,
-                FruitRescanDelay = 45,         -- giay / 1 lan quet lai toan ban do tim trai
+                FruitRescanDelay = 45,         -- giay / 1 lan quet nong (re, khong di toan ban do)
+                FruitDeepScanDelay = 300,      -- giay / 1 lan quet SAU toan ban do (dat, de khong lag)
                 FruitReachTimeout = 30,        -- giay toi da bay toi 1 trai, qua thi bo qua tam thoi
                 FruitSkipDuration = 90,        -- giay danh dau bo qua trai khong lay duoc
                 QuestGracePeriod = 25,       -- Thời gian ân hạn cơ bản sau khi nhận Quest (tự động cộng thêm thời gian bay nếu bãi quái xa)
@@ -299,7 +300,7 @@ end)
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.0 (SEA 1 ONLY)"
+        NameHub.Text = "sanglove v1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -2307,7 +2308,44 @@ ScriptStorage = {
             Remotes.CommF_:InvokeServer("AbandonQuest")
         end
 
+        -- [PERF] Tim frame Quest co cache. Di qua TOAN BO PlayerGui:GetDescendants() moi frame
+        -- la nguyen nhan lag lon nhat tren dien thoai -> chi quet lai khi cache chet, toi da 2s/lan
+        QuestFrameCache = {Frame = nil, NextTry = 0}
+        function FindQuestFrameCached()
+            local player = game:GetService("Players").LocalPlayer
+            local pgui = player and player:FindFirstChild("PlayerGui")
+            if not pgui then
+                return nil
+            end
+            local mainGui = pgui:FindFirstChild("Main") or pgui:FindFirstChild("MainGui") or pgui:FindFirstChild("Hud")
+            local questFrame = mainGui and (mainGui:FindFirstChild("Quest") or mainGui:FindFirstChild("QuestFrame"))
+            if questFrame then
+                return questFrame
+            end
+            local cached = QuestFrameCache.Frame
+            if cached and cached.Parent then
+                return cached
+            end
+            if tick() < QuestFrameCache.NextTry then
+                return nil
+            end
+            QuestFrameCache.NextTry = tick() + 2
+            for _, child in pairs(pgui:GetDescendants()) do
+                if child.Name == "Quest" and (child:IsA("Frame") or child:IsA("CanvasGroup") or child:IsA("GuiObject")) then
+                    QuestFrameCache.Frame = child
+                    return child
+                end
+            end
+            QuestFrameCache.Frame = nil
+            return nil
+        end
+
         function QuestManager.HasActiveQuest()
+            -- [PERF] Ham nay goi MOI FRAME; no duyet toan bo cay UI cua frame Quest
+            -- -> cache ket qua 0.5s de tiet kiem CPU tren dien thoai
+            if QuestUIPollCache and tick() < QuestUIPollCache.Next then
+                return table.unpack(QuestUIPollCache.Val, 1, 4)
+            end
             local hasQuest = false
             local cleanTitle, rawTitle = nil, nil
             local currentKills, maxKills = nil, nil
@@ -2325,15 +2363,7 @@ ScriptStorage = {
                 local pgui = player and player:FindFirstChild("PlayerGui")
                 local mainGui = pgui and (pgui:FindFirstChild("Main") or pgui:FindFirstChild("MainGui") or pgui:FindFirstChild("Hud"))
 
-                local questFrame = mainGui and (mainGui:FindFirstChild("Quest") or mainGui:FindFirstChild("QuestFrame"))
-                if not questFrame and pgui then
-                    for _, child in pairs(pgui:GetDescendants()) do
-                        if child.Name == "Quest" and (child:IsA("Frame") or child:IsA("CanvasGroup") or child:IsA("GuiObject")) then
-                            questFrame = child
-                            break
-                        end
-                    end
-                end
+                local questFrame = FindQuestFrameCached()
 
                 if questFrame and questFrame.Visible == true then
                     hasQuest = true
@@ -2389,7 +2419,10 @@ ScriptStorage = {
                 end
             end)
 
-            return hasQuest, currentKills, maxKills, cleanTitle or rawTitle or "ActiveQuest"
+            QuestUIPollCache = QuestUIPollCache or {}
+            QuestUIPollCache.Val = {hasQuest, currentKills, maxKills, cleanTitle or rawTitle or "ActiveQuest"}
+            QuestUIPollCache.Next = tick() + 0.5
+            return table.unpack(QuestUIPollCache.Val, 1, 4)
         end
 
         function QuestManager.GetCurrentClaimQuest(selfOrRaw, rawResponse)
@@ -2407,15 +2440,7 @@ ScriptStorage = {
                 local mainGui = pgui and (pgui:FindFirstChild("Main") or pgui:FindFirstChild("MainGui") or pgui:FindFirstChild("Hud"))
 
                 -- 1. Check PlayerGui.Main.Quest (Standard Blox Fruits quest UI)
-                local questFrame = mainGui and (mainGui:FindFirstChild("Quest") or mainGui:FindFirstChild("QuestFrame"))
-                if not questFrame and pgui then
-                    for _, child in pairs(pgui:GetDescendants()) do
-                        if child.Name == "Quest" and (child:IsA("Frame") or child:IsA("CanvasGroup") or child:IsA("GuiObject")) then
-                            questFrame = child
-                            break
-                        end
-                    end
-                end
+                local questFrame = FindQuestFrameCached()
 
                 if questFrame then
                     -- IMPORTANT: In Blox Fruits, Quest.Visible is false when no quest is active!
@@ -3655,14 +3680,29 @@ CombatController = {
                     end
 
                     if not Region or (type(Region) == "table" and #Region == 0) then
-                        pcall(function()
-                            for _, spawnObj in pairs(workspace:GetDescendants()) do
-                                if spawnObj.Name == Child or (spawnObj:IsA("BasePart") and string.find(spawnObj.Name, Child)) then
-                                    Region = {spawnObj.Position}
-                                    break
-                                end
+                        -- [PERF] Quet TOAN cay workspace rat lag tren dien thoai, va cho nay chay
+                        -- moi khi khong thay quai gan day -> cache ket qua 5 phut / ten quai
+                        MobRegionScanCache = MobRegionScanCache or {}
+                        local scanCache = MobRegionScanCache[Child]
+                        if scanCache and tick() < scanCache.Until then
+                            if scanCache.Pos then
+                                Region = {scanCache.Pos}
                             end
-                        end)
+                        else
+                            local foundPos = nil
+                            pcall(function()
+                                for _, spawnObj in pairs(workspace:GetDescendants()) do
+                                    if spawnObj:IsA("BasePart") and (spawnObj.Name == Child or string.find(spawnObj.Name, Child)) then
+                                        foundPos = spawnObj.Position
+                                        break
+                                    end
+                                end
+                            end)
+                            MobRegionScanCache[Child] = {Pos = foundPos, Until = tick() + 300}
+                            if foundPos then
+                                Region = {foundPos}
+                            end
+                        end
                     end
 
                     if Region and #Region > 0 then
@@ -5938,48 +5978,62 @@ FunctionsHandler = {
 
 
         -- ========================================================
-        -- [FRUIT SCAN] Quét trái ác quỷ TOÀN BẢN ĐỒ (kể cả model nằm sâu trong workspace)
-        -- FruitWatch lưu mọi model/co thể là trái; FruitSkipUntil bỏ qua trái không lấy được
+        -- [FRUIT SCAN v2] Quet trai ac quy - TOI UU CHO DIEN THOAI / MAY YEU
+        -- Ban cu quet GetDescendants() TOAN BAN DO moi 45s (hang chuc ngan doi tuong)
+        -- va FindNearestFruit chay MOI FRAME -> lag kinh hoai.
+        -- Ban nay: (1) lang nghe DescendantAdded voi bo loc sieu re,
+        -- (2) quet nong chi 2 cap, (3) quet sau only 1 luc bat dau + moi 5 phut,
+        -- (4) cache part / ten trai trong balo, (5) chan tim kiem 0.75s
         -- ========================================================
         FruitWatch = {}
         FruitSkipUntil = {}
+        FruitPartCache = {}
         CurrentFruitTarget = nil
         CurrentFruitTargetTime = 0
+        FruitOwnedCache = nil
+        FruitOwnedCacheTime = 0
+        FruitScanNextDeep = 0
+        FruitScanNextFind = 0
+        FruitScanNextPrune = 0
+        FruitScanNextBossPrint = 0
+        FruitScanSeenCount = 0
 
-        -- Part chuan de lay toa do cua 1 model trai (Handle, Hoac BasePart dau tien)
-        function GetFruitPart(obj)
-            local ok, res = pcall(function()
-                if not obj then return nil end
-                local h = obj:FindFirstChild("Handle")
-                if h and h:IsA("BasePart") then return h end
-                for _, c in ipairs(obj:GetChildren()) do
-                    if c:IsA("BasePart") then
-                        return c
-                    end
-                end
-                return nil
-            end)
-            if ok then return res end
-            return nil
+        -- Loc theo ten, plain=true cho nhanh (khong phai pattern)
+        local function FruitNameHit(nm)
+            if string.find(nm, "Fruit", 1, true) then
+                return true
+            end
+            if string.find(nm, "no Mi", 1, true) then
+                return true
+            end
+            return false
         end
 
-        function IsFruitLike(obj)
-            local ok, res = pcall(function()
-                if not obj then return false end
-                if not (obj:IsA("Model") or obj:IsA("Tool")) then return false end
-                local nm = tostring(obj.Name)
-                if Players:FindFirstChild(nm) then return false end
-                -- Ten trai o ban dat: "xxx Fruit" hoac "Kilo, Kilo no Mi", ToolTip = "Blox Fruit"
-                local nameMatch =
-                    string.find(nm, "Fruit") or string.find(nm, "no Mi") or obj.ToolTip == "Blox Fruit"
-                if not nameMatch then return false end
-                -- Co the khong ten la "Handle" -> chi can co it nhat 1 BasePart de lay duoc vi tri
-                if not GetFruitPart(obj) then return false end
-                -- Bo qua trai dang nam tren nhan vat / trong balo (chi nhan trai roi o ban dat)
-                if LocalPlayer.Character and obj:IsDescendantOf(LocalPlayer.Character) then return false end
-                return true
+        -- Part chuan de lay toa do cua 1 model trai (Handle, hoac BasePart dau tien) - co cache
+        function GetFruitPart(obj)
+            if not obj then
+                return nil
+            end
+            local cached = FruitPartCache[obj]
+            if cached and cached.Parent == obj then
+                return cached
+            end
+            local part = nil
+            pcall(function()
+                local h = obj:FindFirstChild("Handle")
+                if h and h:IsA("BasePart") then
+                    part = h
+                else
+                    for _, c in ipairs(obj:GetChildren()) do
+                        if c:IsA("BasePart") then
+                            part = c
+                            break
+                        end
+                    end
+                end
             end)
-            return (ok and res) or false
+            FruitPartCache[obj] = part
+            return part
         end
 
         function IsObjAlive(obj)
@@ -5990,15 +6044,67 @@ FunctionsHandler = {
             return alive
         end
 
+        function IsFruitLike(obj)
+            if not obj then
+                return false
+            end
+            local cl = obj.ClassName
+            if cl ~= "Model" and cl ~= "Tool" then
+                return false
+            end
+            local nm = obj.Name
+            -- Do ten truoc khi lam nhung thu dat hon
+            if not FruitNameHit(nm) and not (cl == "Tool" and obj.ToolTip == "Blox Fruit") then
+                return false
+            end
+            if Players:FindFirstChild(nm) then
+                return false
+            end
+            if not GetFruitPart(obj) then
+                return false
+            end
+            -- Bo qua trai dang nam tren nhan vat (chi lay trai roi o ban dat)
+            if LocalPlayer.Character and obj:IsDescendantOf(LocalPlayer.Character) then
+                return false
+            end
+            return true
+        end
+
         function TrackFruit(obj)
-            if IsFruitLike(obj) then
+            if FruitWatch[obj] then
+                return true
+            end
+            -- pcall o day vi con trai co the bi xoa bat ky luc nao
+            local ok, res = pcall(IsFruitLike, obj)
+            if ok and res then
                 FruitWatch[obj] = true
+                FruitScanSeenCount = FruitScanSeenCount + 1
+                print("[FruitScan] Thay trai:", tostring(obj.Name), "|", obj.ClassName)
                 return true
             end
             return false
         end
 
-        function ScanWorkspaceForFruits()
+        -- Quet nong: chi workspace + con truc tiep cua chung (hang tram doi tuong)
+        function ScanWorkspaceShallow()
+            local found = 0
+            pcall(function()
+                for _, obj in ipairs(workspace:GetChildren()) do
+                    if TrackFruit(obj) then
+                        found = found + 1
+                    end
+                    for _, c in ipairs(obj:GetChildren()) do
+                        if TrackFruit(c) then
+                            found = found + 1
+                        end
+                    end
+                end
+            end)
+            return found
+        end
+
+        -- Quet sau (dat): chi goi luc bat dau va moi FruitDeepScanDelay giay
+        function ScanWorkspaceDeep()
             local found = 0
             local okList, list = pcall(function()
                 return workspace:GetDescendants()
@@ -6008,22 +6114,30 @@ FunctionsHandler = {
                 return 0
             end
             for _, obj in ipairs(list or {}) do
-                local okOne, isF = pcall(TrackFruit, obj)
-                if okOne and isF then
+                local cl = obj.ClassName
+                if (cl == "Model" or cl == "Tool") and TrackFruit(obj) then
                     found = found + 1
-                elseif not okOne then
-                    warn("[FruitScan] Loi khi kiem tra 1 obj:", tostring(isF))
                 end
             end
-            print("[FruitScan] Quet", #(list or {}), "doi tuong ->", found, "trai kha nghi")
+            print("[FruitScan] Quet sau:", #(list or {}), "doi tuong ->", found, "trai")
             return found
         end
 
-        function PruneFruitWatch()
+        function ScanWorkspaceForFruits()
+            local found = ScanWorkspaceShallow()
+            if tick() >= FruitScanNextDeep then
+                FruitScanNextDeep = tick() + (tonumber(Config.Settings.FruitDeepScanDelay) or 300)
+                found = found + ScanWorkspaceDeep()
+            end
+            return found
+        end
+
+        function PruneFruitWatchRaw()
             for obj in pairs(FruitWatch) do
                 if not IsObjAlive(obj) then
                     FruitWatch[obj] = nil
                     FruitSkipUntil[obj] = nil
+                    FruitPartCache[obj] = nil
                     if CurrentFruitTarget == obj then
                         CurrentFruitTarget = nil
                     end
@@ -6031,10 +6145,20 @@ FunctionsHandler = {
             end
         end
 
+        -- CollectDrops.Refresh goi ham NAY moi frame -> chan 1s
+        function PruneFruitWatch()
+            local nowT = tick()
+            if nowT < FruitScanNextPrune then
+                return
+            end
+            FruitScanNextPrune = nowT + 1
+            PruneFruitWatchRaw()
+        end
+
         -- "Kilo, Kilo no Mi" / "Kilo Fruit" -> "Kilo Fruit" (de doi chieu balo)
         function NormalizeFruitName(nm)
             nm = tostring(nm)
-            if string.find(nm, "Fruit") then
+            if string.find(nm, "Fruit", 1, true) then
                 return nm
             end
             local first = string.match(nm, "^([%w%s]+),") or string.match(nm, "^(.-)%s+no%s+Mi") or nm
@@ -6042,15 +6166,32 @@ FunctionsHandler = {
             return first .. " Fruit"
         end
 
-        function FindNearestFruit()
-            local best, bestDist
-            local now = os.time()
-            local ownedNames = {}
+        -- Danh sach trai da co trong balo: chi lam lai moi 2 giay
+        function GetOwnedFruitNames()
+            local nowT = tick()
+            if FruitOwnedCache and (nowT - FruitOwnedCacheTime) < 2 then
+                return FruitOwnedCache
+            end
+            local owned = {}
             pcall(function()
                 for id in pairs(ScriptStorage.Backpack or {}) do
-                    ownedNames[FruitIdToName(tostring(id))] = true
+                    owned[FruitIdToName(tostring(id))] = true
                 end
             end)
+            FruitOwnedCache = owned
+            FruitOwnedCacheTime = nowT
+            return owned
+        end
+
+        function FindNearestFruitRaw()
+            local best, bestDist
+            local now = os.time()
+            local ownedNames = GetOwnedFruitNames()
+            local hasOwned = false
+            for _ in pairs(ownedNames) do
+                hasOwned = true
+                break
+            end
 
             for obj in pairs(FruitWatch) do
                 local blocked = FruitSkipUntil[obj]
@@ -6058,42 +6199,71 @@ FunctionsHandler = {
                     FruitSkipUntil[obj] = nil
                     blocked = nil
                 end
-                if not blocked and IsObjAlive(obj) then
-                    local dist = nil
-                    pcall(function()
-                        local part = GetFruitPart(obj)
-                        if not part then return end
-                        if ownedNames[NormalizeFruitName(obj.Name)] then return end
-                        dist = CaculateDistance(part.Position)
-                    end)
-                    if dist and (not bestDist or dist < bestDist) then
-                        bestDist = dist
-                        best = obj
+                if not blocked then
+                    local part = GetFruitPart(obj)
+                    if part and not (hasOwned and ownedNames[NormalizeFruitName(obj.Name)]) then
+                        local dist = CaculateDistance(part.Position)
+                        if dist and dist > 0 and (not bestDist or dist < bestDist) then
+                            bestDist = dist
+                            best = obj
+                        end
                     end
                 end
             end
             return best, bestDist
         end
 
-        -- Bat trai moi sinh ra o BAT KI vi tri nao tren ban do
+        -- Duoc goi trong CollectDrops.Refresh (moi frame) -> chan lai 0.75s
+        function FindNearestFruit()
+            local nowT = tick()
+            if nowT < FruitScanNextFind then
+                return FruitNearestCache
+            end
+            FruitScanNextFind = nowT + 0.75
+            FruitNearestCache = FindNearestFruitRaw()
+            return FruitNearestCache
+        end
+
+        -- Bat trai moi sinh ra o BAT KI vi tri nao, nhung voi bo loc re tien
         pcall(function()
             workspace.DescendantAdded:Connect(function(obj)
-                if obj:IsA("BasePart") then
-                    TrackFruit(obj.Parent)
-                else
-                    TrackFruit(obj)
+                if not obj then
+                    return
                 end
+                local target = obj
+                local cl = target.ClassName
+                if cl ~= "Model" and cl ~= "Tool" then
+                    -- Part/Sound/Effect... -> chi xem ten CHA, bo qua ngay neu cha khong phai Model/Tool
+                    if obj:IsA("BasePart") then
+                        target = obj.Parent
+                        if not target then
+                            return
+                        end
+                        cl = target.ClassName
+                        if cl ~= "Model" and cl ~= "Tool" then
+                            return
+                        end
+                    else
+                        return
+                    end
+                end
+                if FruitWatch[target] then
+                    return
+                end
+                if not FruitNameHit(target.Name) and not (cl == "Tool" and target.ToolTip == "Blox Fruit") then
+                    return
+                end
+                TrackFruit(target)
             end)
         end)
 
-        -- vong quet lai toan ban do dinh ky
+        -- Lan dau: in len man hinh de biet game dat ten trai nhu the nao (1 luot duyet, loc re)
         FruitScanDumped = false
 
-        -- Lan dau: in lenh man hinh de biet game dang dat ten trai / boss nhu the nao
         function DumpFruitCandidates()
             local matched = 0
             local namedFruit = 0
-            local bosses = {}
+            local total = 0
 
             local okList, list = pcall(function()
                 return workspace:GetDescendants()
@@ -6102,90 +6272,82 @@ FunctionsHandler = {
                 warn("[FruitDump] GetDescendants loi:", tostring(list))
                 return
             end
+            total = #(list or {})
 
             for _, obj in ipairs(list or {}) do
-                pcall(function()
-                    local nm = tostring(obj.Name)
-                    local isNameHit = string.find(nm, "Fruit") or string.find(nm, "no Mi")
-                    if isNameHit and (obj:IsA("Model") or obj:IsA("Tool")) then
+                local cl = obj.ClassName
+                if cl == "Model" or cl == "Tool" then
+                    local nm = obj.Name
+                    if FruitNameHit(nm) then
                         namedFruit = namedFruit + 1
-                        if matched < 25 then
+                        if matched < 12 then
                             print(
-                                "[FruitDump]", nm, "| class:", obj.ClassName, "| cha:",
+                                "[FruitDump]", tostring(nm), "| class:", cl, "| cha:",
                                 tostring(obj.Parent and obj.Parent.Name), "| part:",
                                 tostring(GetFruitPart(obj) and GetFruitPart(obj).Name or "khong co")
                             )
                             matched = matched + 1
                         end
+                        TrackFruit(obj)
                     end
-                    if obj:IsA("Model") and BossesOrder then
-                        for _, bName in ipairs(BossesOrder) do
-                            if nm == bName then
-                                table.insert(bosses, nm)
-                            end
-                        end
-                    end
-                end)
+                end
             end
 
-            print("[FruitDump] Tong so doi tuong:", #(list or {}), "| model/ten trai khop ten:", namedFruit)
-            print("[FruitDump] Boss dang co trong map:", #bosses > 0 and table.concat(bosses, ", ") or "khong co")
-
+            local watching = 0
+            for _ in pairs(FruitWatch) do
+                watching = watching + 1
+            end
+            print("[FruitDump] Tong doi tuong:", total, "| trai khop ten:", namedFruit, "| dang theo doi:", watching)
             FruitNotify(
                 "FRUIT DUMP",
-                string.format(
-                    "obj: %d | trai khop ten: %d | watch: %d | boss: %s",
-                    #(list or {}), namedFruit, (function()
-                        local c = 0
-                        for _ in pairs(FruitWatch) do c = c + 1 end
-                        return c
-                    end)(),
-                    #bosses > 0 and table.concat(bosses, ", ") or "0"
-                )
+                string.format("obj: %d | trai khop ten: %d | watch: %d", total, namedFruit, watching)
             )
         end
 
-        -- Liet ke boss that trong map + ly do BossesTask khong chon boss nao
+        -- Liet ke boss that trong map; in it lai de tranh spam log gay nong may
         function DumpBossInfo()
             local lvl = (ScriptStorage.PlayerData and tonumber(ScriptStorage.PlayerData.Level)) or 0
-            local enemyNames = {}
+            local enemyCount = 0
             local bossFound = {}
 
             pcall(function()
                 local folder = workspace:FindFirstChild("Enemies")
                 if not folder then
-                    print("[BossScan] workspace.Enemies chua ton tai")
                     return
                 end
                 for _, e in ipairs(folder:GetChildren()) do
-                    table.insert(enemyNames, e.Name)
-                    local hum = e:FindFirstChildOfClass("Humanoid")
-                    local hrp = e:FindFirstChild("HumanoidRootPart")
-                    local dist = hrp and math.floor(CaculateDistance(hrp.Position)) or -1
+                    enemyCount = enemyCount + 1
                     for _, bName in ipairs(BossesOrder or {}) do
                         if e.Name == bName then
+                            local hum = e:FindFirstChildOfClass("Humanoid")
+                            local hrp = e:FindFirstChild("HumanoidRootPart")
+                            local dist = hrp and math.floor(CaculateDistance(hrp.Position)) or -1
                             table.insert(bossFound, string.format("%s hp=%d dist=%d", bName, hum and math.floor(hum.Health) or -1, dist))
                         end
                     end
                 end
             end)
 
-            print("[BossScan] Lv:", lvl, "| Enemies:", #enemyNames, table.concat(enemyNames, ", "))
-            for _, bName in ipairs(BossesOrder or {}) do
-                local req = (BossesOrderLevel and tonumber(BossesOrderLevel[bName])) or 0
-                if req <= lvl then
-                    local present = false
-                    for _, f in ipairs(bossFound) do
-                        if string.find(f, "^" .. bName) then
-                            present = true
+            if tick() >= FruitScanNextBossPrint then
+                FruitScanNextBossPrint = tick() + 120
+                print("[BossScan] Lv:", lvl, "| Enemies:", enemyCount, "| boss trong map:", #bossFound)
+                for _, bName in ipairs(BossesOrder or {}) do
+                    local req = (BossesOrderLevel and tonumber(BossesOrderLevel[bName])) or 0
+                    if req <= lvl then
+                        local present = false
+                        for _, f in ipairs(bossFound) do
+                            if string.find(f, "^" .. bName) then
+                                present = true
+                            end
                         end
+                        print("[BossScan] " .. bName .. " (can lv " .. req .. "): " .. (present and "CO TRONG MAP" or "chua spawn"))
                     end
-                    print("[BossScan] " .. bName .. " (can lv " .. req .. "): " .. (present and "CO TRONG MAP" or "chua spawn"))
                 end
             end
             return bossFound
         end
 
+        -- vong quet lai dinh ky (nhe: khong con di toan ban do moi luot)
         task.spawn(function()
             task.wait(20)
             while not _G.Stop do
@@ -6194,10 +6356,10 @@ FunctionsHandler = {
                     DumpFruitCandidates()
                 end
                 local bossFound = DumpBossInfo()
-                PruneFruitWatch()
+                PruneFruitWatchRaw()
                 ScanWorkspaceForFruits()
                 if #bossFound > 0 and CurrentTask ~= "BossesTask" then
-                    FruitNotify("BOSS SCAN", "Co boss trong map: " .. table.concat(bossFound, ", ") .. " | task dang chay: " .. tostring(CurrentTask))
+                    FruitNotify("BOSS SCAN", "Co boss trong map: " .. bossFound[1] .. " | task dang chay: " .. tostring(CurrentTask))
                 end
                 task.wait(Config.Settings.FruitRescanDelay)
             end
