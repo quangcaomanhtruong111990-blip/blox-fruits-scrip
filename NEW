@@ -14,7 +14,11 @@ Config =
             },
             Items = {
                 -- Melees
-                AutoFullyMelees = true,
+                -- [FIX-27] TAM TAT cong tac cha: MeleesController.Refresh tra ve
+                -- dung gia tri nay, va GodHumanFlag chi duoc bat tu Start cua no,
+                -- nen false = khong con mua/nang cap melee, khong con farm
+                -- Godhuman vo tan. Muon bat lai: doi false thanh true.
+                AutoFullyMelees = false,
                 -- Swords
                 Saber = true,
                 CursedDualKatana = false,
@@ -171,7 +175,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function mmb()
-    print("[BUILD-28]")
+    print("[BUILD-44]")
         local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
         local Interface = {
             Instances = {}
@@ -246,7 +250,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.1"
+        NameHub.Text = "farm max lever"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1680,7 +1684,15 @@ ScriptStorage = {
             "SoulGuitar",
             "Tushita",
             "SpecialBossesTask",
-            "RaidController",
+            -- [FIX-28] RaidController la task dung im nay. No thang moi frame vi
+            -- Fragments 7350 < 10000 va Beli >= 100k, con "BeliChipCooldownUntil"
+            -- chi duoc DOC (4777) khong bao gio duoc GHI -> khong co cooldown nao
+            -- chan. Start cua no tim workspace.Map["Boat Castle"] (Sea 3) de mua
+            -- chip; model do khong ton tai -> task.wait(1) roi return, lap lai mai
+            --, khong lenh di chuyen nao ca -> nhan vat dung im, console chi thay
+            -- getInventory/getInventoryFruits (RefreshInventory 4813 chay moi lan
+            -- thu). Tac gia sea3:1744 da tu bo raid khoi TasksOrder cho ban Sea 3.
+            -- "RaidController",
             "Trevor",
             "UtillyItemsActivitation",
             "ColosseumPuzzle",
@@ -2025,7 +2037,7 @@ ScriptStorage = {
             function()
                 local quests = game.ReplicatedStorage:FindFirstChild("Quests")
                 if quests then
-                    QuestManager.Quests = safe_require(quests, 2)
+                    QuestManager.GameQuests = safe_require(quests, 2)
                 else
                     print("[FIX-6] Khong co ReplicatedStorage.Quests")
                 end
@@ -2033,6 +2045,243 @@ ScriptStorage = {
         )
 
         print("[BC-A] qua FIX-4/5/6, DataLoaded = " .. tostring(DaNenData()))
+        -- [FIX-34] PORT NGUYEN KHOI quest cua script dang chay dc tren may ban
+        -- (file 7795 dong dinh kem): bang quest + toa do NPC quest HARD-CODE.
+        -- Bat buoc phai port: ban nay lay toa do NPC quest duy nhat tu
+        -- require(ReplicatedStorage.GuideModule), ma require(GuideModule) treo VINH VIEN
+        -- tren may nay (FIX-4/FIX-17) -> Self.CurrentNpc luon nil -> LevelFarm dung o
+        -- dong 'elseif not NpcPosition', khong SetTask nao -> HUD MainTask : n/a va
+        -- nhan vat dung im. Doan nay khong doc GuideModule luc sync nen khong treo.
+
+        BuiltInQuests = { -- [FIX-34] global co y: tranh gioi han 200 local cua ham mmb
+            -- Sea 1
+            BanditQuest1 = { { Task = { ["Bandit"] = 5 }, LevelReq = 1, Name = "Bandit" } },
+            JungleQuest = { { Task = { ["Monkey"] = 6 }, LevelReq = 10, Name = "Monkey" }, { Task = { ["Gorilla"] = 8 }, LevelReq = 15, Name = "Gorilla" } },
+            BuggyQuest1 = { { Task = { ["Pirate"] = 8 }, LevelReq = 30, Name = "Pirate" }, { Task = { ["Brute"] = 8 }, LevelReq = 40, Name = "Brute" } },
+            DesertQuest = { { Task = { ["Desert Bandit"] = 8 }, LevelReq = 60, Name = "Desert Bandit" }, { Task = { ["Desert Officer"] = 6 }, LevelReq = 75, Name = "Desert Officer" } },
+            SnowQuest = { { Task = { ["Snow Bandit"] = 7 }, LevelReq = 90, Name = "Snow Bandit" }, { Task = { ["Snowman"] = 8 }, LevelReq = 100, Name = "Snowman" } },
+            MarineQuest2 = { { Task = { ["Chief Petty Officer"] = 8 }, LevelReq = 120, Name = "Chief Petty Officer" } },
+            SkyQuest = { { Task = { ["Sky Bandit"] = 7 }, LevelReq = 150, Name = "Sky Bandit" }, { Task = { ["Dark Master"] = 8 }, LevelReq = 175, Name = "Dark Master" } },
+            PrisonerQuest = { { Task = { ["Prisoner"] = 8 }, LevelReq = 190, Name = "Prisoner" }, { Task = { ["Dangerous Prisoner"] = 8 }, LevelReq = 210, Name = "Dangerous Prisoner" } },
+            ColosseumQuest = { { Task = { ["Toga Warrior"] = 7 }, LevelReq = 250, Name = "Toga Warrior" }, { Task = { ["Gladiator"] = 8 }, LevelReq = 275, Name = "Gladiator" } },
+            MagmaQuest = { { Task = { ["Military Soldier"] = 8 }, LevelReq = 300, Name = "Military Soldier" }, { Task = { ["Military Spy"] = 8 }, LevelReq = 325, Name = "Military Spy" } },
+            FishmanQuest = { { Task = { ["Fishman Warrior"] = 8 }, LevelReq = 375, Name = "Fishman Warrior" }, { Task = { ["Fishman Commando"] = 7 }, LevelReq = 400, Name = "Fishman Commando" } },
+            SkyExp1Quest = { { Task = { ["Gods Guard"] = 7 }, LevelReq = 450, Name = "Gods Guard" }, { Task = { ["Shanda"] = 8 }, LevelReq = 475, Name = "Shanda" } },
+            SkyExp2Quest = { { Task = { ["Royal Squad"] = 8 }, LevelReq = 525, Name = "Royal Squad" }, { Task = { ["Royal Soldier"] = 8 }, LevelReq = 550, Name = "Royal Soldier" } },
+            FountainQuest = { { Task = { ["Galley Pirate"] = 8 }, LevelReq = 625, Name = "Galley Pirate" }, { Task = { ["Galley Captain"] = 8 }, LevelReq = 650, Name = "Galley Captain" } },
+
+            -- Sea 2
+            Area1Quest = { { Task = { ["Raider"] = 8 }, LevelReq = 700, Name = "Raider" }, { Task = { ["Mercenary"] = 8 }, LevelReq = 725, Name = "Mercenary" } },
+            Area2Quest = { { Task = { ["Swan Pirate"] = 8 }, LevelReq = 775, Name = "Swan Pirate" }, { Task = { ["Factory Staff"] = 8 }, LevelReq = 800, Name = "Factory Staff" } },
+            MarineQuest3 = { { Task = { ["Marine Lieutenant"] = 8 }, LevelReq = 875, Name = "Marine Lieutenant" }, { Task = { ["Marine Captain"] = 8 }, LevelReq = 900, Name = "Marine Captain" } },
+            ZombieQuest = { { Task = { ["Zombie"] = 8 }, LevelReq = 950, Name = "Zombie" }, { Task = { ["Vampire"] = 8 }, LevelReq = 975, Name = "Vampire" } },
+            SnowMountainQuest = { { Task = { ["Snow Trooper"] = 8 }, LevelReq = 1000, Name = "Snow Trooper" }, { Task = { ["Winter Warrior"] = 8 }, LevelReq = 1050, Name = "Winter Warrior" } },
+            IceSideQuest = { { Task = { ["Lab Subordinate"] = 8 }, LevelReq = 1100, Name = "Lab Subordinate" }, { Task = { ["Horned Warrior"] = 8 }, LevelReq = 1125, Name = "Horned Warrior" } },
+            FireSideQuest = { { Task = { ["Magma Ninja"] = 8 }, LevelReq = 1175, Name = "Magma Ninja" }, { Task = { ["Lava Pirate"] = 8 }, LevelReq = 1200, Name = "Lava Pirate" } },
+            ShipQuest1 = { { Task = { ["Ship Deckhand"] = 8 }, LevelReq = 1250, Name = "Ship Deckhand" }, { Task = { ["Ship Engineer"] = 8 }, LevelReq = 1275, Name = "Ship Engineer" } },
+            ShipQuest2 = { { Task = { ["Ship Steward"] = 8 }, LevelReq = 1300, Name = "Ship Steward" }, { Task = { ["Ship Officer"] = 8 }, LevelReq = 1325, Name = "Ship Officer" } },
+            FrostQuest = { { Task = { ["Arctic Warrior"] = 8 }, LevelReq = 1350, Name = "Arctic Warrior" }, { Task = { ["Snow Lurker"] = 8 }, LevelReq = 1375, Name = "Snow Lurker" } },
+            ForgottenQuest = { { Task = { ["Sea Soldier"] = 8 }, LevelReq = 1425, Name = "Sea Soldier" }, { Task = { ["Water Fighter"] = 8 }, LevelReq = 1450, Name = "Water Fighter" } },
+
+            -- Sea 3
+            PiratePortQuest = { { Task = { ["Pirate Millionaire"] = 8 }, LevelReq = 1500, Name = "Pirate Millionaire" }, { Task = { ["Pistol Billionaire"] = 8 }, LevelReq = 1525, Name = "Pistol Billionaire" } },
+            AmazonQuest = { { Task = { ["Dragon Crew Warrior"] = 8 }, LevelReq = 1575, Name = "Dragon Crew Warrior" }, { Task = { ["Dragon Crew Archer"] = 8 }, LevelReq = 1600, Name = "Dragon Crew Archer" } },
+            AmazonQuest2 = { { Task = { ["Female Islander"] = 8 }, LevelReq = 1625, Name = "Female Islander" }, { Task = { ["Giant Islander"] = 8 }, LevelReq = 1650, Name = "Giant Islander" } },
+            MarineTreeIsland = { { Task = { ["Marine Commodore"] = 8 }, LevelReq = 1700, Name = "Marine Commodore" }, { Task = { ["Rear Admiral"] = 8 }, LevelReq = 1725, Name = "Rear Admiral" } },
+            DeepForestIsland = { { Task = { ["Fishman Raider"] = 8 }, LevelReq = 1775, Name = "Fishman Raider" }, { Task = { ["Fishman Captain"] = 8 }, LevelReq = 1800, Name = "Fishman Captain" } },
+            DeepForestIsland2 = { { Task = { ["Forest Pirate"] = 8 }, LevelReq = 1825, Name = "Forest Pirate" }, { Task = { ["Mythological Pirate"] = 8 }, LevelReq = 1850, Name = "Mythological Pirate" } },
+            HauntedQuest1 = { { Task = { ["Reborn Skeleton"] = 8 }, LevelReq = 1975, Name = "Reborn Skeleton" }, { Task = { ["Living Zombie"] = 8 }, LevelReq = 2000, Name = "Living Zombie" } },
+            HauntedQuest2 = { { Task = { ["Demonic Soul"] = 8 }, LevelReq = 2025, Name = "Demonic Soul" }, { Task = { ["Posessed Mummy"] = 8 }, LevelReq = 2050, Name = "Posessed Mummy" } },
+            PeanutQuest = { { Task = { ["Peanut Scout"] = 8 }, LevelReq = 2075, Name = "Peanut Scout" }, { Task = { ["Peanut President"] = 8 }, LevelReq = 2100, Name = "Peanut President" } },
+            IceCreamIslandQuest = { { Task = { ["Ice Cream Chef"] = 8 }, LevelReq = 2125, Name = "Ice Cream Chef" }, { Task = { ["Ice Cream Commander"] = 8 }, LevelReq = 2150, Name = "Ice Cream Commander" } },
+            CakeQuest1 = { { Task = { ["Cookie Crafter"] = 8 }, LevelReq = 2200, Name = "Cookie Crafter" }, { Task = { ["Cake Guard"] = 8 }, LevelReq = 2225, Name = "Cake Guard" } },
+            CakeQuest2 = { { Task = { ["Baking Staff"] = 8 }, LevelReq = 2275, Name = "Baking Staff" }, { Task = { ["Head Baker"] = 8 }, LevelReq = 2300, Name = "Head Baker" } },
+            ChocQuest1 = { { Task = { ["Cocoa Warrior"] = 8 }, LevelReq = 2300, Name = "Cocoa Warrior" }, { Task = { ["Chocolate Bar Battler"] = 8 }, LevelReq = 2325, Name = "Chocolate Bar Battler" } },
+            ChocQuest2 = { { Task = { ["Sweet Thief"] = 8 }, LevelReq = 2350, Name = "Sweet Thief" }, { Task = { ["Candy Rebel"] = 8 }, LevelReq = 2375, Name = "Candy Rebel" } },
+            CandyQuest1 = { { Task = { ["Candy Pirate"] = 8 }, LevelReq = 2400, Name = "Candy Pirate" }, { Task = { ["Snow Demon"] = 8 }, LevelReq = 2425, Name = "Snow Demon" } },
+            TikiQuest1 = { { Task = { ["Sun-kissed Warrior"] = 8 }, LevelReq = 2450, Name = "Sun-kissed Warrior" }, { Task = { ["Isle Outlaw"] = 8 }, LevelReq = 2475, Name = "Isle Outlaw" } },
+            TikiQuest2 = { { Task = { ["Island Boy"] = 8 }, LevelReq = 2500, Name = "Island Boy" }, { Task = { ["Sun-kissed Champion"] = 8 }, LevelReq = 2525, Name = "Sun-kissed Champion" } },
+            SubmergedQuest1 = { { Task = { ["Deepsea Raider"] = 8 }, LevelReq = 2550, Name = "Deepsea Raider" }, { Task = { ["Ocean Prophet"] = 8 }, LevelReq = 2575, Name = "Ocean Prophet" } },
+            SubmergedQuest2 = { { Task = { ["Abyssal Sentinel"] = 8 }, LevelReq = 2600, Name = "Abyssal Sentinel" }, { Task = { ["Grand Devotee"] = 8 }, LevelReq = 2625, Name = "Grand Devotee" } }
+        }
+        BuiltInNpcPositions = { -- global co y (xem ghi chu tren)
+            BanditQuest1 = Vector3.new(1060, 16, 1549),
+            JungleQuest = Vector3.new(-1600, 37, 153),
+            BuggyQuest1 = Vector3.new(-1140, 4, 3828),
+            DesertQuest = Vector3.new(896, 6, 4390),
+            SnowQuest = Vector3.new(1386, 87, -1298),
+            MarineQuest2 = Vector3.new(-5035, 29, 4325),
+            SkyQuest = Vector3.new(-4840, 718, -2620),
+            PrisonerQuest = Vector3.new(4840, 6, 743),
+            ColosseumQuest = Vector3.new(-1575, 7, -2985),
+            MagmaQuest = Vector3.new(-5315, 9, 8515),
+            FishmanQuest = Vector3.new(61122, 18, 1568),
+            SkyExp1Quest = Vector3.new(-7720, 5545, -450),
+            SkyExp2Quest = Vector3.new(-7780, 5607, -1450),
+            FountainQuest = Vector3.new(5258, 39, 4050),
+            Area1Quest = Vector3.new(-426, 73, 1836),
+            Area2Quest = Vector3.new(634, 73, 918),
+            MarineQuest3 = Vector3.new(-2443, 73, -3217),
+            ZombieQuest = Vector3.new(-5492, 49, -795),
+            SnowMountainQuest = Vector3.new(607, 401, -5371),
+            IceSideQuest = Vector3.new(-6061, 16, -4904),
+            FireSideQuest = Vector3.new(-5430, 16, -5296),
+            ShipQuest1 = Vector3.new(1038, 125, 32911),
+            ShipQuest2 = Vector3.new(969, 125, 33243),
+            FrostQuest = Vector3.new(5668, 28, -6485),
+            ForgottenQuest = Vector3.new(-3055, 237, -10145),
+            PiratePortQuest = Vector3.new(-288, 44, 5580),
+            AmazonQuest = Vector3.new(5833, 52, -1103),
+            AmazonQuest2 = Vector3.new(5446, 602, 749),
+            MarineTreeIsland = Vector3.new(2180, 29, -6737),
+            DeepForestIsland = Vector3.new(-10582, 331, -8758),
+            DeepForestIsland2 = Vector3.new(-13274, 332, -7628),
+            HauntedQuest1 = Vector3.new(-9482, 142, 5565),
+            HauntedQuest2 = Vector3.new(-9515, 142, 5520),
+            PeanutQuest = Vector3.new(-2104, 38, -10193),
+            IceCreamIslandQuest = Vector3.new(-822, 66, -10965),
+            CakeQuest1 = Vector3.new(-2020, 38, -12025),
+            CakeQuest2 = Vector3.new(-1928, 38, -12850),
+            ChocQuest1 = Vector3.new(231, 25, -12200),
+            ChocQuest2 = Vector3.new(151, 25, -12775),
+            CandyQuest1 = Vector3.new(-1150, 14, -14445),
+            TikiQuest1 = Vector3.new(-16540, 55, 1050),
+            TikiQuest2 = Vector3.new(-16540, 55, 450),
+            SubmergedQuest1 = Vector3.new(11450, -2138, 9700),
+            SubmergedQuest2 = Vector3.new(11700, -2138, 10600)
+        }
+        Sea1Quests = {
+            "BanditQuest1", "JungleQuest", "BuggyQuest1", "DesertQuest", "SnowQuest",
+            "MarineQuest2", "SkyQuest", "ColosseumQuest", "MagmaQuest",
+            "FishmanQuest", "SkyExp1Quest", "SkyExp2Quest", "FountainQuest"
+        }
+        Sea2Quests = {
+            "Area1Quest", "Area2Quest", "MarineQuest3", "ZombieQuest", "SnowMountainQuest",
+            "IceSideQuest", "FireSideQuest", "ShipQuest1", "ShipQuest2", "FrostQuest", "ForgottenQuest"
+        }
+        Sea3Quests = {
+            "PiratePortQuest", "AmazonQuest", "AmazonQuest2", "MarineTreeIsland",
+            "DeepForestIsland", "DeepForestIsland2", "HauntedQuest1", "HauntedQuest2",
+            "PeanutQuest", "IceCreamIslandQuest", "CakeQuest1", "CakeQuest2",
+            "ChocQuest1", "ChocQuest2", "CandyQuest1", "TikiQuest1", "TikiQuest2"
+        }
+        QuestNpcCandidateNames = {
+            BanditQuest1 = {"Bandit Quest Giver", "Quest Giver"},
+            JungleQuest = {"Jungle Quest Giver", "Quest Giver"},
+            BuggyQuest1 = {"Pirate Quest Giver", "Buggy Quest Giver", "Quest Giver"},
+            DesertQuest = {"Desert Quest Giver", "Quest Giver"},
+            SnowQuest = {"Snow Quest Giver", "Quest Giver"},
+            MarineQuest2 = {"Marine Quest Giver", "Quest Giver"},
+            SkyQuest = {"Sky Quest Giver", "Sky Quest", "Quest Giver", "Sky Adventure"},
+            PrisonerQuest = {"Prison Quest Giver", "Warden", "Quest Giver"},
+            ColosseumQuest = {"Colosseum Quest Giver", "Quest Giver"},
+            MagmaQuest = {"Magma Quest Giver", "Quest Giver"},
+            FishmanQuest = {"Fishman Quest Giver", "Quest Giver"},
+            SkyExp1Quest = {"Sky Quest Giver 1", "Sky Quest 1", "Sky Quest Giver", "Quest Giver"},
+            SkyExp2Quest = {"Sky Quest Giver 2", "Sky Quest 2", "Sky Quest Giver", "Quest Giver"},
+            FountainQuest = {"Fountain Quest Giver", "Quest Giver"},
+            Area1Quest = {"Area 1 Quest Giver", "Area 1", "Quest Giver"},
+            Area2Quest = {"Area 2 Quest Giver", "Area 2", "Quest Giver"},
+            MarineQuest3 = {"Marine Quest Giver", "Quest Giver"},
+            ZombieQuest = {"Zombie Quest Giver", "Quest Giver"},
+            SnowMountainQuest = {"Snow Mountain Quest Giver", "Quest Giver"},
+            IceSideQuest = {"Ice Side Quest Giver", "Quest Giver"},
+            FireSideQuest = {"Fire Side Quest Giver", "Quest Giver"},
+            ShipQuest1 = {"Ship Quest Giver 1", "Ship Quest 1", "Quest Giver"},
+            ShipQuest2 = {"Ship Quest Giver 2", "Ship Quest 2", "Quest Giver"},
+            FrostQuest = {"Frost Quest Giver", "Quest Giver"},
+            ForgottenQuest = {"Forgotten Quest Giver", "Quest Giver"},
+            PiratePortQuest = {"Pirate Port Quest Giver", "Quest Giver"},
+            AmazonQuest = {"Amazon Quest Giver", "Quest Giver"},
+            AmazonQuest2 = {"Amazon Quest Giver 2", "Quest Giver"},
+            MarineTreeIsland = {"Marine Tree Quest Giver", "Marine Tree Island", "Quest Giver"},
+            DeepForestIsland = {"Deep Forest Quest Giver", "Deep Forest Island", "Quest Giver"},
+            DeepForestIsland2 = {"Deep Forest Quest Giver 2", "Deep Forest Island 2", "Quest Giver"},
+            HauntedQuest1 = {"Haunted Quest Giver 1", "Haunted Quest Giver", "Quest Giver"},
+            HauntedQuest2 = {"Haunted Quest Giver 2", "Quest Giver"},
+            PeanutQuest = {"Peanut Quest Giver", "Quest Giver"},
+            IceCreamIslandQuest = {"Ice Cream Quest Giver", "Quest Giver"},
+            CakeQuest1 = {"Cake Quest Giver 1", "Quest Giver"},
+            CakeQuest2 = {"Cake Quest Giver 2", "Quest Giver"},
+            ChocQuest1 = {"Chocolate Quest Giver 1", "Quest Giver"},
+            ChocQuest2 = {"Chocolate Quest Giver 2", "Quest Giver"},
+            CandyQuest1 = {"Candy Quest Giver 1", "Quest Giver"},
+            TikiQuest1 = {"Tiki Quest Giver 1", "Quest Giver"},
+            TikiQuest2 = {"Tiki Quest Giver 2", "Quest Giver"},
+            SubmergedQuest1 = {"Submerged Quest Giver 1", "Quest Giver"},
+            SubmergedQuest2 = {"Submerged Quest Giver 2", "Quest Giver"}
+        }
+        function QuestManager.FindLiveNpc(Self, QuestId, TargetMobName)
+            local foundPos = nil
+            pcall(function()
+                local wsNpcs = workspace:FindFirstChild("NPCs")
+                local refPos = (QuestId and BuiltInNpcPositions[QuestId]) or nil
+                if not refPos and TargetMobName then
+                    if ScriptStorage.MobRegions and ScriptStorage.MobRegions[TargetMobName] and #ScriptStorage.MobRegions[TargetMobName] > 0 then
+                        local r = ScriptStorage.MobRegions[TargetMobName][1]
+                        refPos = (typeof(r) == "CFrame" and r.Position) or (typeof(r) == "Vector3" and r)
+                    elseif MobPositionsFallback and MobPositionsFallback[TargetMobName] then
+                        local r = MobPositionsFallback[TargetMobName]
+                        refPos = (typeof(r) == "CFrame" and r.Position) or (typeof(r) == "Vector3" and r)
+                    end
+                end
+
+                if not refPos then
+                    return nil
+                end
+
+                -- Quét model trong workspace.NPCs để chọn đúng NPC đứng gần refPos trên cùng hòn đảo
+                -- KHÔNG dùng wsNpcs:FindFirstChild vì các NPC đều bị đặt tên trùng nhau ("Quest Giver")
+                -- CHỈ chấp nhận NPC model nằm trong bán kính 300 studs quanh refPos chuẩn!
+                if wsNpcs then
+                    local bestDist = 300
+                    local bestNpcPos = nil
+                    local candidateList = (QuestId and QuestNpcCandidateNames[QuestId]) or {"Quest Giver"}
+
+                    for _, npcObj in ipairs(wsNpcs:GetChildren()) do
+                        if npcObj:IsA("Model") then
+                            local nName = npcObj.Name
+                            local isGiver = string.find(nName, "Quest") or string.find(nName, "Giver") or table.find(candidateList, nName)
+                            if isGiver then
+                                local hrp = npcObj:FindFirstChild("HumanoidRootPart") or npcObj:FindFirstChild("Head") or npcObj.PrimaryPart or npcObj:FindFirstChildWhichIsA("BasePart")
+                                local p = hrp and hrp.Position or (npcObj.GetPivot and npcObj:GetPivot().Position)
+                                if p then
+                                    local sameAltitude = true
+                                    if refPos.Y > 4000 and p.Y < 4000 then sameAltitude = false end
+                                    if refPos.Y < 2000 and p.Y > 4000 then sameAltitude = false end
+                                    if refPos.X > 50000 and p.X < 20000 then sameAltitude = false end
+                                    if refPos.X < 20000 and p.X > 50000 then sameAltitude = false end
+
+                                    if sameAltitude then
+                                        local d = (p - refPos).Magnitude
+                                        if d < bestDist then
+                                            bestDist = d
+                                            bestNpcPos = p
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    if bestNpcPos then
+                        foundPos = bestNpcPos
+                        return
+                    end
+                end
+
+                -- Nếu không tìm thấy live model trong 300 studs, sử dụng chính xác refPos (BuiltInNpcPositions)
+                foundPos = refPos
+            end)
+            return foundPos
+        end
+        QuestManager.Quests = BuiltInQuests
+        -- Cong them du lieu quest cua chinh game neu require() keo ve duoc trong 2s.
+        if QuestManager.GameQuests and type(QuestManager.GameQuests) == "table" then
+            for k, v in pairs(QuestManager.GameQuests) do
+                QuestManager.Quests[k] = v
+            end
+        end
+
         function QuestManager.Set(Self, Index, Value)
             Self[Index] = Value
         end
@@ -2059,25 +2308,35 @@ ScriptStorage = {
                     end
                 end
 
-                local QuestLevelFlag = 0
+                local pLevel = ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level or 1
+                local allowedQuests = (SeaIndex == 1 and Sea1Quests) or (SeaIndex == 2 and Sea2Quests) or Sea3Quests
+                local QuestLevelFlag = -1
                 local CurrentQuestData = nil
+                local BestQuestId = nil
 
-                if QuestManager and QuestManager.Quests then
-                    for QuestID, QuestDatas in pairs(QuestManager.Quests) do
-                        if not QuestManager.BlacklistedQuestIds or not QuestManager.BlacklistedQuestIds[QuestID] then
-                            if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq and ScriptStorage and ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level then
-                                if QuestDatas[1].LevelReq >= QuestLevelFlag and QuestDatas[1].LevelReq <= ScriptStorage.PlayerData.Level then
-                                    QuestLevelFlag = QuestDatas[1].LevelReq
-                                    CurrentQuestData = QuestDatas
-                                    Self.CurrentQuestId = QuestID
-                                    if ScriptStorage.PlayerData.Level >= 1500 and SeaIndex == 2 and QuestID == "ForgottenQuest" then
-                                        break
-                                    end
+                for _, QuestID in ipairs(allowedQuests) do
+                    if not QuestManager.BlacklistedQuestIds or not QuestManager.BlacklistedQuestIds[QuestID] then
+                        local QuestDatas = (QuestManager.Quests and QuestManager.Quests[QuestID]) or BuiltInQuests[QuestID]
+                        if QuestDatas and QuestDatas[1] and QuestDatas[1].LevelReq then
+                            if QuestDatas[1].LevelReq <= pLevel and QuestDatas[1].LevelReq > QuestLevelFlag then
+                                QuestLevelFlag = QuestDatas[1].LevelReq
+                                -- Make a shallow copy of table so modifications don't corrupt BuiltInQuests
+                                local copied = {}
+                                for idx, entry in ipairs(QuestDatas) do
+                                    table.insert(copied, entry)
                                 end
+                                CurrentQuestData = copied
+                                BestQuestId = QuestID
                             end
                         end
                     end
                 end
+
+                if BestQuestId then
+                    Self.CurrentQuestId = BestQuestId
+                end
+
+                Self.CurrentNpc = nil
 
                 if CurrentQuestData and #CurrentQuestData > 0 then
                     local LastQuest = CurrentQuestData[#CurrentQuestData]
@@ -2089,23 +2348,27 @@ ScriptStorage = {
                         end
                     end
 
-                    local guideModule = game:GetService("ReplicatedStorage"):FindFirstChild("GuideModule")
-                    -- [FIX-17] Cung require(GuideModule) da giet init o FIX-4, nay no
-                    -- ngot vao day: RefreshQuest duoc goi o 6153 (ngay sau SetText
-                    -- "Refreshing Player Items..."), require() yield vo han -> HUD dung
-                    -- chot o dong do, khong co [ERROR] nao vi pcall an loi. sea1 chi
-                    -- require GuideModule mot lan trong task.spawn nen khong chan init.
-                    local guideData = safe_require(guideModule, 1)
-                    if guideData and guideData.Data and guideData.Data.NPCList then
-                        for i, v in pairs(guideData.Data.NPCList) do
-                            if v and v.Levels and CurrentQuestData[#CurrentQuestData] then
-                                for _, v1 in pairs(v.Levels) do
-                                    if v1 == CurrentQuestData[#CurrentQuestData].LevelReq then
-                                        Self.CurrentNpc = i.CFrame
-                                    end
+                    -- Xác định quái mục tiêu cho quest hiện tại
+                    local targetMobName = nil
+                    for qIdx = #CurrentQuestData, 1, -1 do
+                        local qData = CurrentQuestData[qIdx]
+                        if qData and qData.LevelReq and qData.LevelReq <= pLevel then
+                            if qData.Task then
+                                for mName in pairs(qData.Task) do
+                                    targetMobName = mName
+                                    break
                                 end
                             end
+                            break
                         end
+                    end
+
+                    -- 1. ƯU TIÊN SỐ 1: Quét trực tiếp NPC Model đang spawn trong workspace.NPCs trên cùng hòn đảo
+                    local liveNpcPos = QuestManager:FindLiveNpc(Self.CurrentQuestId, targetMobName)
+                    if liveNpcPos then
+                        Self.CurrentNpc = liveNpcPos
+                    elseif Self.CurrentQuestId and BuiltInNpcPositions[Self.CurrentQuestId] then
+                        Self.CurrentNpc = BuiltInNpcPositions[Self.CurrentQuestId]
                     end
                 end
 
@@ -2114,17 +2377,26 @@ ScriptStorage = {
         end
 
         function QuestManager.GetCurrentQuest(Self)
-            local QuestIndex =
-                Self.CurrentQuests[Self.CurrentLevel] and
-                Self.CurrentQuests[Self.CurrentLevel].LevelReq <= ScriptStorage.PlayerData.Level and
-                Self.CurrentLevel or
-                1
-
-            --print(Self.CurrentQuests[QuestIndex], Self.CurrentQuests[QuestIndex].NameMon)
-
-            for Name in Self.CurrentQuests[QuestIndex].Task do
-                return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, Self.CurrentQuests[QuestIndex].Name
+            if not Self.CurrentQuests or #Self.CurrentQuests == 0 then
+                return nil, Self.CurrentNpc, Self.CurrentQuestId, 1, nil
             end
+            local pLvl = (ScriptStorage.PlayerData and ScriptStorage.PlayerData.Level) or 1
+            local QuestIndex = 1
+            -- Chọn sub-quest cao nhất mà người chơi đã đủ cấp độ nhận
+            for qIdx = #Self.CurrentQuests, 1, -1 do
+                local qData = Self.CurrentQuests[qIdx]
+                if qData and qData.LevelReq and qData.LevelReq <= pLvl then
+                    QuestIndex = qIdx
+                    break
+                end
+            end
+
+            if Self.CurrentQuests[QuestIndex] and Self.CurrentQuests[QuestIndex].Task then
+                for Name in pairs(Self.CurrentQuests[QuestIndex].Task) do
+                    return Name, Self.CurrentNpc, Self.CurrentQuestId, QuestIndex, Self.CurrentQuests[QuestIndex].Name
+                end
+            end
+            return nil, Self.CurrentNpc, Self.CurrentQuestId, 1, nil
         end
 
         function QuestManager.MarkAsCompleted(Self)
@@ -2148,6 +2420,138 @@ ScriptStorage = {
 
         function QuestManager.StartQuest(QuestId, QuestLevel)
             return Remotes.CommF_:InvokeServer("StartQuest", QuestId, QuestLevel)
+        end
+
+        -- [FIX-35] Port QuestManager.HasActiveQuest tu script dang chay dc (2430).
+        -- Trieu chung lan nay: log in "remote fired StartQuest TikiQuest2 2" sau
+        -- 3 giay lai in nua, nhan mai ma khong danh. Ly do: LevelFarm hoi "da co
+        -- quest chua" bang cach doc label tren HUD, ma HUD client nay tieng Viet
+        -- va thu tu node khong giong gia dinh tac gia. Ban nay dung 2 thu:
+        --  + LastQuestClaimTick: vua nhan xong thi COI NHU dang co quest trong
+        --    khoang thoi gian an han (8s + thoi gian bay ra bai guai), nen khong
+        --    bao gio nhan lai lien tuc.
+        --  + Quet toan bo label trong frame Quest tim dinh dang "(X/Y)" -> khong
+        --    can doc ten quest bang tieng Anh.
+        function QuestManager.HasActiveQuest(MobHint)
+            -- [FIX-37] Probe [FIX-36] tra loi quyet dinh:
+            --   questFrame=Players.<you>.PlayerGui.Main.Quest visible=false
+            -- tuc la frame do game AN (Visible=false) ngay khi ban DANG CO
+            -- nhiem vu (panel "Isle Champion 0/8" ban nhin thay la mot GUI khac).
+            -- Toan bo ban cua tac gia (va lan port truoc cua minh) lay
+            -- "Main.Quest.Visible" lam dieu kien -> luon false -> luc nao cung
+            -- bao "chua co quest" -> het an han lai StartQuest -> reset 0/8 ->
+            -- bay ve NPC roi lai bay ra bai (dung cai ban goi la "bay di bay lai").
+            -- Cach moi: khong tin ten node cung khong tin Visible cua frame.
+            -- Tim TextLabel DANG RENDER THAT (AbsoluteSize > 0, tu do la an toan
+            -- voi cha an) chua bo dem "x/y" (y <= 50). Co = dang co nhiem vu.
+            -- Quet PlayerGui rat dat nen ket qua duoc cache 0.5 giay.
+            local baseGracePeriod = (Config and Config.Settings and tonumber(Config.Settings.QuestGracePeriod)) or 8
+            local gracePeriod = math.max(baseGracePeriod, tonumber(getgenv().DynamicQuestGracePeriod) or baseGracePeriod)
+            local inGrace = (getgenv().LastQuestClaimTick and (tick() - getgenv().LastQuestClaimTick < gracePeriod)) and true or false
+
+            local now = tick()
+            local hint = MobHint and tostring(MobHint) or ""
+            -- [FIX-40] Cache phai theo MobHint: doi bai guai (doi quest) thi ket
+            -- qua cu khong con dung.
+            if
+                not QuestProgressCache or QuestProgressCache.Hint ~= hint or
+                    now - (QuestProgressCache.Next or 0) >= 0.5
+             then
+                local has, cur, max, txt, mob = false, nil, nil, "", false
+                pcall(function()
+                    local pgui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                    if not pgui then
+                        return
+                    end
+                    local lowHint = hint ~= "" and string.lower(hint) or ""
+                    for _, obj in pairs(pgui:GetDescendants()) do
+                        if
+                            (obj:IsA("TextLabel") or obj:IsA("TextButton")) and obj.Visible and
+                                obj.AbsoluteSize.X > 0 and obj.AbsoluteSize.Y > 0 and
+                                obj.Text and
+                                obj.Text ~= ""
+                         then
+                            local t = obj.Text
+                            if lowHint ~= "" and not mob and string.find(string.lower(t), lowHint, 1, true) then
+                                mob = true
+                            end
+                            local isReward =
+                                string.find(t, "Beli") or string.find(t, "beli") or string.find(t, "Exp") or
+                                    string.find(t, "exp") or
+                                    string.find(t, "Reward") or
+                                    string.find(t, "%+") or
+                                    string.find(t, "%$")
+                            if not isReward then
+                                -- [FIX-42] PHAI LA BO DEM TRON VEN "x/y". Probe
+                                -- bat duoc canh sai:
+                                --   txt="Region: US-W | Players: 17/20 | Total Bounty: 50,031,309"
+                                -- tuc la chi can CHUA "x/y" thi no dem luon bo dem
+                                -- so nguoi choi trong server bang. Panel nhiem vu
+                                -- ghi dung "5/8" nen bat buoc ca chuoi.
+                                local c, tt = string.match(t, "^%s*(%d+)%s*/%s*(%d+)%s*$")
+                                if not c then
+                                    c, tt = string.match(t, "^%s*%((%d+)%s*/%s*(%d+)%)%s*$")
+                                end
+                                c, tt = tonumber(c), tonumber(tt)
+                                if c and tt and tt > 1 and tt <= 50 and c <= tt then
+                                    -- [FIX-42] GIU CAI DAU TIEN: khi mobLabel false
+                                    -- (panel tieng Viet) vong duyet khong break som
+                                    -- nen neu gan lap lien thi bo dem cuoi cung
+                                    -- (khong phai cua nhiem vu) se ghi de.
+                                    if not has then
+                                        has, cur, max, txt = true, c, tt, t
+                                    end
+                                    if mob or lowHint == "" then
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+                QuestProgressCache = {Next = now, Has = has, Cur = cur, Max = max, Txt = txt, Mob = mob, Hint = hint}
+            end
+
+            local cache = QuestProgressCache or {Has = false, Cur = nil, Max = nil, Mob = false, Hint = ""}
+            -- [FIX-40] "Co bo dem x/y o dau do tren man hinh" KHONG dang voi "co
+            -- nhiem vu dang chay": Blox Fruits con nhieu label x/y khac (style,
+            -- race, do an...). Neu chi can bo dem thi questUI = true mai mai,
+            -- LevelFarm khong bao gio vao nhanh nhan quest nua (ban bao "co nhan
+            -- gi dau"). Dieu kien chat: bo dem VA label chua ten con guai cua
+            -- chinh quest dang lam. Chua duoc MobHint (goi khong tham so) thi
+            -- giung nguyen nhu cu.
+            -- [FIX-42] Panel nhiem vu tren client nay la TIENG VIET ("Danh bai 8
+            -- Nha Vo Dich Dao Tiki"), con MobHint lay tu du lieu game la TIENG
+            -- ANH ("Isle Champion") -> mobLabel nhieu khi false. Van giu dieu kien
+            -- ten de chong nhan dam bo dem khac, nhung sau khi vua nhan quest
+            -- (inGrace) thi bo dem "x/y" du tin.
+            local questUI = cache.Has and (hint == "" or cache.Mob == true or inGrace)
+            local hasQuest = questUI or inGrace
+            local currentKills, maxKills = cache.Cur, cache.Max
+
+            -- [FIX-37] XONG NHIEM VU: duoc tinh la xong khi bo dem cham
+            -- max (8/8) -> tra "khong con quest" de LevelFarm bay di nhan cai
+            -- KE TIEP, thay vi danh mai mot bai da chet.
+            if hasQuest and currentKills and maxKills and currentKills >= maxKills then
+                hasQuest = false
+                getgenv().LastQuestClaimTick = nil
+            end
+
+            if not QuestProbeNext or tick() >= QuestProbeNext then
+                QuestProbeNext = tick() + 10
+                print(
+                    "[FIX-40] questUI=" ..
+                        tostring(questUI) ..
+                        " counter=" ..
+                            tostring(cache.Has) ..
+                            " mobLabel=" .. tostring(cache.Mob) .. " hint=" .. hint ..
+                            " prog=" .. tostring(currentKills) .. "/" .. tostring(maxKills) ..
+                            " grace=" .. string.format("%.1f", gracePeriod) .. " inGrace=" .. tostring(inGrace) ..
+                            " txt=" .. tostring(cache.Txt)
+                )
+            end
+
+            return hasQuest, currentKills, maxKills
         end
 
         ScriptStorage.MobRegions = {}
@@ -2373,7 +2777,7 @@ ScriptStorage = {
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (100)
-            local Speed = (CurrentDist < 18) and 25 or 250
+            local Speed = (CurrentDist < 18) and 25 or 150
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -2946,6 +3350,26 @@ CombatController = {
                                     alert("Stuck", "Mob health unchanged")
                                     _G.Stop = true
                                     SafeRejoinOrHop("Rejoin")
+                                    -- [FIX-44] _G.Stop trong ca file CHI duoc BAT
+                                    -- (o day), khong co bat ky cho nao TAT no. Ma
+                                    -- RefreshTasksData (6811) mo dau bang
+                                    -- `if _G.Stop then return end` -> toan bo hub
+                                    -- dung han. SafeRejoinOrHop chi la
+                                    -- TeleportService:Teleport trong pcall: neu no
+                                    -- bi chan thi khong co load lai nao ca, va
+                                    -- nhan vat dung im mai mai = "danh xong het
+                                    -- nhiem vu do la ko thay nhan nua". Cho no 15s
+                                    -- roi tu hoi, farm tiep.
+                                    task.spawn(
+                                        function()
+                                            task.wait(15)
+                                            if _G.Stop then
+                                                _G.Stop = false
+                                                print("[FIX-44] Rejoin khong xay ra -> mo khoa _G.Stop, farm tiep")
+                                            end
+                                        end
+                                    )
+                                    return
 
                                 end
 
@@ -3043,11 +3467,20 @@ CombatController = {
                     CurrentPosition = Region[CombatController.CurrentIndex]
 
                     local Count2 = os.time()
-                    TweenController.Create(CurrentPosition + Vector3.new(0, 35, 35))
-                    if CaculateDistance(CurrentPosition + Vector3.new(0, 35, 35)) < 15 then
-                        CombatController.CurrentIndex = CombatController.CurrentIndex + 1
+                    -- [FIX-41] BO buoc doi sang diem spawn ke tiep khi da toi noi.
+                    -- Do chinh la "bay long vong chang mat" ban bao: bai guai da
+                    -- chet het -> ve den diem 1 lai bi day sang diem 2, 3, ... roi
+                    -- vong sau lai quay lai. Script dang chay dc luon gi
+                    -- CurrentIndex o diem dau tien va chi bay lai DUNG mot cho do
+                    -- (attachment 3853-3867), het guai thi dung cho respawn.
+                    -- [FIX-43] Them buoc: da o trong bai guai thi HOAN TOAN khong
+                    -- phat lenh bay nua. Ban cu moi vong khong tim thay con nao la
+                    -- goi lai TweenController; lenh bay bi khoi dong lai lien tuc
+                    -- nen nhan vat lac/loan bay khong dung trong bai (ban bao "cu
+                    -- bay danh met"). Het guai thi DUNG IM cho respawn.
+                    if CaculateDistance(CurrentPosition) > 300 then
+                        TweenController.Create(CurrentPosition + Vector3.new(0, 35, 35))
                     end
-
                 end
             end
         end
@@ -3183,13 +3616,71 @@ FunctionsHandler = {
         end
 
         function GetCurrentClaimQuest(RawResponse)
-            local QuestTitle =
-                game.Players.LocalPlayer.PlayerGui.Main.Quest.Visible and
-                game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text:gsub(
-                    "%s*Defeat%s*(%d*)%s*(.-)%s*%b()",
-                    "%2"
-                )
-            return (type(QuestTitle) == "string" and string.gsub(QuestTitle, "Military ", "Mil. ") or QuestTitle), game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
+            -- [FIX-32] Loi cu: ham nay index truc tiep
+            -- PlayerGui.Main.Quest.Container.QuestTitle.Title, thieu 1 node la
+            -- throw; ma RefreshTasksData goi Start trong pcall (6261) nen khong
+            -- in ra gi ca -> nhan quest xong dung im, khong hieu tai sao.
+            -- Nay tim bang FindFirstChild + pcall, khong doc chu tren HUD
+            -- (client nay label la TIENG VIET nen moi so sanh voi chu TIENG
+            -- ANH deu liu ra nil).
+            local title, raw
+            -- [FIX-33] Loc cua label (lay tu script dang chay dc, 2553): label
+            -- "0/8" hoac "1500 Exp" KHONG phai ten quest. Neu khong loc thi
+            -- FindFirstChildWhichIsA("TextLabel") hay cham trung label tien do,
+            -- title luon truthy -> bot tuong la luk nao cung dang co quest ->
+            -- chi Attack(MonName) roi dung im, khong bao gio di nhan.
+            local function IsTitleText(t)
+                if type(t) ~= "string" or t == "" then
+                    return false
+                end
+                if string.match(t, "^%s*%(?%d+%s*/%s*%d+%)?%s*$") then
+                    return false
+                end
+                if string.match(t, "^%d+$") then
+                    return false
+                end
+                if string.match(t, "^%s*%$?[%d,]+%s*[Ee]xp") or string.match(t, "^%s*%$?[%d,]+%s*[Bb]eli") then
+                    return false
+                end
+                return true
+            end
+
+            pcall(function()
+                local pgui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                local main = pgui and pgui:FindFirstChild("Main")
+                local quest = main and main:FindFirstChild("Quest")
+                if not quest or quest.Visible == false then
+                    return
+                end
+                local container = quest:FindFirstChild("Container") or quest
+                local titleNode = container:FindFirstChild("QuestTitle") or container
+                -- Thu theo do tin cay (khongquet toan bo cay GUI vi ham nay
+                -- duoc goi moi vong RefreshTasksData): Title -> chinh
+                -- QuestTitle -> TextLabel dau tien cua QuestTitle -> cua
+                -- Container.
+                local candidates = {}
+                if titleNode then
+                    candidates[#candidates + 1] = titleNode:FindFirstChild("Title")
+                    candidates[#candidates + 1] = titleNode
+                    candidates[#candidates + 1] = titleNode:FindFirstChildWhichIsA("TextLabel")
+                end
+                candidates[#candidates + 1] = container:FindFirstChildWhichIsA("TextLabel")
+                for _, lbl in candidates do
+                    if lbl and lbl:IsA("TextLabel") and IsTitleText(lbl.Text) then
+                        raw = lbl.Text
+                        break
+                    end
+                end
+                if raw then
+                    -- Lay phan ten tru "(0/8)": chi de kiem co quest, khong so
+                    -- sanh chu nghia la (HUD client nay la tieng Viet).
+                    title = string.match(raw, "^%s*(.-)%s*%(%d+%s*/%s*%d+%)%s*$") or raw
+                end
+            end)
+            if RawResponse then
+                return raw
+            end
+            return title, raw
         end
 
  
@@ -3445,16 +3936,38 @@ FunctionsHandler = {
                         print("[FIX-22] Backpack has " .. Count .. " items | " .. table.concat(Parts, " | "))
                     end
 
-                    local Material, MaterialData = (function()
-                        getgenv()["     mphm >< <3"] = {}
-                        for Material, MaterialData in GodhumanMaterials do
-                            if (ScriptStorage.Backpack[Material] or {Count = 0}).Count < MaterialData[1] then
-                                getgenv()["     mphm >< <3"] = {Material, MaterialData}
-                            end
+                    local Material, MaterialData
+                    -- [FIX-26] Cach cu: "khong doc duoc" bi hieu la "thieu".
+                    -- Tren client nay getInventory khong tra ve muc nao, ca 4 thu
+                    -- vat luon bi coi la thieu -> bot farm Godhuman vo tan va nhay
+                    -- Sea 2 <-> Sea 3, trong khi Stash da du (43/99/28/99).
+                    -- Nay chi duoc farm khi THUC SU doc duoc danh sach nguyen lieu;
+                    -- khong doc duoc thi bo qua Godhuman 5 phut roi thu lai,
+                    -- tra quyen cho LevelFarm.
+                    local Readable = 0
+                    for MaterialName in GodhumanMaterials do
+                        if ScriptStorage.Backpack and ScriptStorage.Backpack[MaterialName] then
+                            Readable = Readable + 1
                         end
+                    end
 
-                        return unpack(getgenv()["     mphm >< <3"])
-                    end)()
+                    if Readable == 0 then
+                        GodHumanRetryAt = os.time() + 300
+                        GodHumanFlag = false
+                        print(
+                            "[FIX-26] getInventory khong doc duoc nguyen lieu -> bo qua Godhuman den " ..
+                                tostring(GodHumanRetryAt) .. ", quay lai LevelFarm"
+                        )
+                        return
+                    end
+
+                    getgenv()["     mphm >< <3"] = {}
+                    for Mat, MatData in GodhumanMaterials do
+                        if (ScriptStorage.Backpack[Mat] or {Count = 0}).Count < MatData[1] then
+                            getgenv()["     mphm >< <3"] = {Mat, MatData}
+                        end
+                    end
+                    Material, MaterialData = unpack(getgenv()["     mphm >< <3"])
 
                     if Material then
                         if SeaIndex ~= MaterialData[2] then
@@ -3598,46 +4111,17 @@ FunctionsHandler = {
                     return
                 end
             end
-                if
-                    PlayerLevel >= 2025 and
-                        (GetExpBoost() == 0 or
-                            PlayerLevel == MaxLevel) and
-                        (ScriptStorage.Backpack.Bones or {Count = 0}).Count < 500 and SeaIndex == 3
-                then
-                    SetTask("MainTask", "Resource Farming | Bones | For X2 Mastery/Beli")
-                    
-
-                    CurrentClaimQuest3 = GetCurrentClaimQuest(true)
-
-                    if CurrentClaimQuest3 then
-                        if not string.find(CurrentClaimQuest3, "Demonic") then
-                            QuestManager.AbandonQuest()
-                            return
-                        else
-                            CombatController.Attack(
-                                {
-                                    "Reborn Skeleton",
-                                    "Living Zombie",
-                                    "Demonic Soul",
-                                    "Posessed Mummy"
-                                }
-                            )
-                            return
-                        end
-                    else
-                        -- [FIX-18] sea1 khong con dong print nay (no in moi frame).
-                        local npcModel = ScriptStorage.NPCs["Haunted Castle Quest Giver 2"] or workspace.NPCs:FindFirstChild("Haunted Castle Quest Giver 2") or game.ReplicatedStorage.NPCs:FindFirstChild("Haunted Castle Quest Giver 2")
-                        local NpcPosition1 = npcModel and npcModel:GetModelCFrame() or CFrame.new(-9515, 142, 5520)
-
-                        TweenController.Create(NpcPosition1 + Vector3.new(0, 5, 3))
-                        if CaculateDistance(NpcPosition1) < 25 then
-                            task.wait(0.5)
-                            QuestManager.StartQuest("HauntedQuest2", 1)
-                            task.wait(0.5)
-                        end
-                        return
-                    end
-                end
+                -- [FIX-30] DA CAT nhanh "Resource Farming | Bones" (gate cu:
+                -- PlayerLevel >= 2025 ... SeaIndex == 3). Ly do:
+                --  + Script ban dang chay tren may nay KHONG co nhanh nay. No chi
+                --    TIEU Bones (>= 50 -> tween -8727,143,6249 -> InvokeServer
+                --    "Bones","Buy",1,1); phan do van con nguyen o 3414-3434.
+                --  + Nhanh bi cat nam TRUOC chuoi "if Level == 1/2/4" va ca hai
+                --    nhanh con cua no deu `return`, nen no an sat LevelFarm: lv
+                --    2721 bi git o day, bay toi NPC Haunted Castle roi dung im
+                --    (HUD "Resource Farming | Bones" + DebugLine LevelFarm).
+                --  + No nhan HauntedQuest2 roi so title TIENG ANH voi HUD tieng
+                --    Viet -> khong bao gio khop nen khong bao gio danh.
 
                 if Level == 1 then
                     SetTask("MainTask", "Level Farming | Skip Mode | Floor " .. Level)
@@ -3650,39 +4134,159 @@ FunctionsHandler = {
                     CombatController.Attack({"Royal Soldier", "Royal Squad"})
                 elseif Level == 4 then
                     local MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
-                    CurrentClaimQuest1 = GetCurrentClaimQuest()
-                    if CurrentClaimQuest1 then
-                        if CurrentClaimQuest1 ~= QuestTitle and CurrentClaimQuest1 ~= (QuestTitle .. "s") then
-                            AbandonedCount = AbandonedCount and AbandonedCount + 1 or 0
-                            if AbandonedCount > 20 then 
-                            SafeRejoinOrHop("Rejoin")
-                            end
-                            alert("Abandon Quest", CurrentClaimQuest1 or '' .. ' / ' .. QuestTitle or '')
-                            return QuestManager.AbandonQuest()
-                        end
-                    else
-                        if not NpcPosition then
-                            return QuestManager:RefreshQuest() and Report("failed to get npc position quest 528")
-                        end
-                        TweenController.Create(NpcPosition + Vector3.new(0, 5, 3))
-                        SetTask("MainTask", "Level Farming | " .. MonName .. " | Claiming Quest")
-                        if CaculateDistance(NpcPosition) > 10 then
+                    -- [FIX-35] Dung HasActiveQuest (co thoi gian an han sau khi
+                    -- nhan) thay vi chi doc ten quest tren HUD: ban cu in
+                    -- "remote fired StartQuest TikiQuest2 2" moi 3 giay va khong
+                    -- bao gio danh.
+                    local hasQuestNow = QuestManager.HasActiveQuest(MonName)
+                    if hasQuestNow then
+                        SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Defeating Enemies")
+                        if MonName then
+                            CombatController.Attack(MonName)
                             return
                         end
-
-                        task.wait(2)
-                        LevelFarmTTL = 0
-                        QuestManager.StartQuest(QuestId, QuestIndex)
-                        task.wait(1)
+                        -- Co quest ma khong biet danh con nao (du lieu quest chua
+                        -- nap) -> nap lai roi vong sau danh, khong Attack(nil).
+                        return QuestManager:RefreshQuest()
                     end
 
-                    SetTask("MainTask", "Level Farming | " .. MonName .. " | Defeating Enemies")
-                    local AttackTime1 = os.time()
-                    CombatController.Attack(MonName)
-                    LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
-                    if LevelFarmTTL > 160 then
-                    -- Hop("Level TTL is bigger than 160, hop")
+                    -- [FIX-41] Khi CHUA co quest active: nap lai du lieu quest theo
+                    -- cap hien tai ROI, sau do moi chon quest (giong script dang
+                    -- chay dc). NpcPosition cache co the nil nen cung cap nhat o
+                    -- day chu khong thoat som nhu ban cu.
+                    -- Neu bo buoc RefreshQuest nay thi sau khi xong quest no lai
+                    -- nhan dung quest cu (du lieu cache), khong tien sang muc tiep.
+                    QuestManager:RefreshQuest()
+                    MonName, NpcPosition, QuestId, QuestIndex, QuestTitle = QuestManager:GetCurrentQuest()
+                    -- [FIX-41] Khong con chan o day bang NpcPosition: nhan quest da
+                    -- la "instant" nen toa do NPC khong can nua; dung QuestId/
+                    -- QuestIndex ben duoi de chan.
+
+                    -- [FIX-38] Thu tu moi: KIEM TRA CHAN TRUOC, BAY DI SAU.
+                    -- [FIX-36] dat TweenController Create o TRUOC lenh chan, nen
+                    -- moi vong bi chan van lenh bay ve NPC -> trieu chung ban gui
+                    -- "danh tai o bay ve vi tri cu quest lai". Gio vong bi chan
+                    -- khong con lenh di chuyen nao, no o lai bai guai va danh.
+                    if not QuestId or not QuestIndex then
+                        QuestManager:RefreshQuest()
+                        return
                     end
+
+                    local claimKey = tostring(QuestId) .. "_" .. tostring(QuestIndex)
+                    if QuestClaimKey == claimKey and tick() - (QuestClaimTick or 0) < 25 then
+                        SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Defeating Enemies")
+                        if MonName then
+                            CombatController.Attack(MonName)
+                        end
+                        return
+                    end
+
+                    -- [FIX-41] NHAN QUEST KHONG CAN BAY: script dang chay dc goi
+                    -- StartQuest ngay tai bai guai (attachment 4515: "Claiming
+                    -- Quest (Instant at Mob Area)") va van duoc server chap nhan.
+                    -- Ban cu buoc phai bay toi NPC va dung o trong ban kinh 10
+                    -- studs: khi toa do NPC lay tu BuiltInNpcPositions cu hoac NPC
+                    -- khong o dung cho do thi khong bao gio du gan -> vong lap nao
+                    -- cung phat lai lenh bay ve do = HUD ding o "Claiming Quest"
+                    -- (dung cai ban mo ta) va nhan luon quest ke tiep.
+                    SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Claiming Quest")
+
+                    local mobPos = nil
+                    pcall(function()
+                        local region = MonName and ScriptStorage.MobRegions and ScriptStorage.MobRegions[MonName]
+                        local r = (region and region[1]) or (MonName and MobPositionsFallback and MobPositionsFallback[MonName])
+                        if r then
+                            mobPos = (typeof(r) == "CFrame" and r.Position) or (typeof(r) == "Vector3" and r)
+                        end
+                    end)
+                    -- [FIX-41] An han tinh tu CHO DANG DUNG ra bai guai (truoc day
+                    -- tinh tu NPC), vi bay gio khong con di chuyen khi nhan nua.
+                    local distToMob = (mobPos and CaculateDistance(mobPos)) or 0
+                    getgenv().DynamicQuestGracePeriod = 8 + math.clamp(distToMob / 160, 0, 30)
+
+                    QuestClaimKey = claimKey
+                    QuestClaimTick = tick()
+                    getgenv().LastQuestClaimTick = tick()
+
+                    LevelFarmTTL = 0
+                    QuestManager.StartQuest(QuestId, QuestIndex)
+                    -- [FIX-42] Khong con wait 2s truoc khi nhan (do la cho bay toi
+                    -- NPC, ma bay gio nhan tai cho). Va HUD phai ghi "Defeating
+                    -- Enemies" ngay khi bat dau vong farm: ban nay de SetTask do
+                    -- SAU vong lap nen su that la no dang danh (panel 5/8) ma HUD
+                    -- van ghi "Claiming Quest" suot 300 giay.
+                    SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Defeating Enemies")
+
+                    -- [FIX-38] SAU KHI NHAN QUEST: O LAI BAI GUAI. Vong nay chi goi
+                    -- CombatController.Attack (tu no di chuyen den con guai gan
+                    -- nhat), tuyet doi khong co lenh bay ve NPC, nen het trieu
+                    -- chung "bay di bay lai". Thoat vong khi:
+                    --  + tien do du X/X (xong nhiem vu) -> vong ngoai thay khong con
+                    --    quest nen se bay den NPC nhan nhiem vu ke tiep;
+                    --  + hoac UI mat hon 2s khi da den bai guai du lau;
+                    --  + hoac an toan 300s.
+                    local farmStart = os.time()
+                    local arrivedAtMob = false
+                    local lastCur, lastMax = nil, nil
+                    local goneSince = nil
+                    while task.wait(0.05) do
+                        if _G.Stop then
+                            break
+                        end
+
+                        if
+                            not arrivedAtMob and
+                                ((mobPos and CaculateDistance(mobPos) <= 350) or os.time() - farmStart >= 15)
+                     then
+                            arrivedAtMob = true
+                        end
+
+                        local isActive, cK, tK = QuestManager.HasActiveQuest(MonName)
+                        if isActive then
+                            goneSince = nil
+                            if cK and tK and tK > 0 then
+                                lastCur, lastMax = cK, tK
+                                if cK >= tK then
+                                    break
+                                end
+                            end
+                        elseif arrivedAtMob and os.time() - farmStart >= 20 then
+                            if not goneSince then
+                                goneSince = os.clock()
+                            elseif
+                                os.clock() - goneSince >= 2 and
+                                    (
+                                        not lastCur or not lastMax or lastCur >= lastMax or
+                                            -- [FIX-43] Diem nan cua "ko di nhan nua
+                                            -- ma cu bay danh mai: panel bien mat
+                                            -- luc tien do con 5/8 (game an panel
+                                            -- ngay khi xong / doi quest) thi dieu
+                                            -- kien cu khong cho thoat, vong nay keo
+                                            -- dai het 300s danh lai. Gio giu toi da
+                                            -- 20s mat UI roi van coi la xong.
+                                            os.clock() - goneSince >= 20
+                                     )
+                             then
+                                break
+                            end
+                        else
+                            goneSince = nil
+                        end
+
+                        local AttackTime1 = os.time()
+                        CombatController.Attack(MonName)
+                        LevelFarmTTL = LevelFarmTTL + os.time() - AttackTime1
+
+                        if os.time() - farmStart > 300 then
+                            break
+                        end
+                    end
+
+                    -- Xoa an han de vong ngoai doc dung trang thai quest vua xong.
+                    getgenv().LastQuestClaimTick = nil
+                    getgenv().DynamicQuestGracePeriod = nil
+                    SetTask("MainTask", "Level Farming | " .. tostring(MonName) .. " | Defeating Enemies")
+                    return
                 end
             end
         )
@@ -4034,7 +4638,12 @@ FunctionsHandler = {
                                 break
                             end
                         end
-                        if Melee == "Godhuman" then
+                        if Melee == "Godhuman" and not (GodHumanRetryAt and os.time() < GodHumanRetryAt) then
+                            -- [FIX-26] Server tra ve STRING moi lan khong mua duoc
+                            -- (log: "Response_ false string"), nen dieu kien
+                            -- type(...) == "string" o duoi bat GodHumanFlag = true
+                            -- VINH VIEN. Cho den khi doc duoc nguyen lieu that,
+                            -- GodHumanRetryAt giu cho no im lang.
                             if (ScriptStorage.Melees["Dragon Talon"] or 0) > 399 then
                                 if not ScriptStorage.Melees.Godhuman then
                                     if SeaIndex == 3 then
@@ -6247,7 +6856,18 @@ FunctionsHandler = {
                                     pcall(function() ScriptStorage.Interface.SetText("DebugLine", TaskName) end)
                                 end
                                 if Start then
-                                    pcall(function() Start:Call(RefreshValue) end)
+                                    -- [FIX-32] pcall an cua ham Start la ly do moi
+                                    -- lan "nhan quest xong dung im" khong co dong
+                                    -- loi nao tren console. In ra ten task + loi.
+                                    local okStart, errStart =
+                                        pcall(
+                                        function()
+                                            Start:Call(RefreshValue)
+                                        end
+                                    )
+                                    if not okStart then
+                                        print("[FIX-32] Task '" .. tostring(TaskName) .. "' loi trong Start: " .. tostring(errStart))
+                                    end
                                 end
                                 return
                             end
