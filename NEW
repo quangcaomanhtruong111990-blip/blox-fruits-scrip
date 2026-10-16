@@ -179,7 +179,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function mmb()
-    print("[BUILD-58]")
+    print("[BUILD-59]")
         local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
         local Interface = {
             Instances = {}
@@ -254,7 +254,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.1"
+        NameHub.Text = "3TN"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -5230,15 +5230,22 @@ FunctionsHandler = {
                     return
                 elseif Progress == 1 then
                     SetTask("MainTask", "Auto Bartilo Quest - Defeating 50x Swan Pirate")
-                    local CurrentQuest, RawText = QuestManager:GetCurrentClaimQuest()
-
-                    if CurrentQuest then
-                        if not string.find(RawText, "50") then
-                            QuestManager.AbandonQuest()
-                        else
-                            CombatController.Attack("Swan Pirate")
-                        end
-                    else
+                    -- [FIX-59] Tai sao dung yen: QuestManager.GetCurrentClaimQuest
+                    -- (2529) lay dieu kien tu PlayerGui.Main.Quest.Visible va doc
+                    -- label TIENG ANH "Defeat N Mob (x)". Frame do game AN tren
+                    -- client nay (probe [FIX-37]: Visible=false ngay khi dang co
+                    -- nhiem vu) -> ham luon tra ve false -> nhanh nay goi
+                    -- StartQuest BartiloQuest moi giay (log "remote fired
+                    -- StartQuest BartiloQuest 1") va KHONG goi
+                    -- Attack("Swan Pirate") lan nao, nen nhan vat dung im.
+                    -- Doi sang dem bo dem "x/y" dang render that (Ham HasActiveQuest
+                    -- cua [FIX-42], khong doc chu tieng Anh). max==50 la quest
+                    -- Bartilo; nguoi khac thi nhan lai, co chot 15s de khong spam.
+                    local hasQuest, _, maxKills = QuestManager.HasActiveQuest()
+                    if hasQuest and maxKills == 50 then
+                        CombatController.Attack("Swan Pirate")
+                    elseif not getgenv().BartiloClaimAt or tick() - getgenv().BartiloClaimAt > 15 then
+                        getgenv().BartiloClaimAt = tick()
                         QuestManager.StartQuest("BartiloQuest", 1)
                     end
                 elseif Progress == 2 then
