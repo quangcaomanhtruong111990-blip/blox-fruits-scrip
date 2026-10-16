@@ -18,12 +18,16 @@ Config =
                 -- dung gia tri nay, va GodHumanFlag chi duoc bat tu Start cua no,
                 -- nen false = khong con mua/nang cap melee, khong con farm
                 -- Godhuman vo tan. Muon bat lai: doi false thanh true.
-                AutoFullyMelees = false,
+                -- [FIX-46] DA BAT LAI (user hoi "sao chi co farm ko vay ko co
+                -- nhan vay"). Lenh thoat Godhuman vo tan cua [FIX-26] van con:
+                -- khong doc duoc vat lieu thi tu tat flag + nghi 300s, khong
+                -- farm vo tan nhu truoc day nua.
+                AutoFullyMelees = true,
                 -- Swords
                 Saber = true,
-                CursedDualKatana = false,
+                CursedDualKatana = true,
                 -- Guns
-                SoulGuitar = false,
+                SoulGuitar = true,
                 -- Upgrades
 
                 RaceV2 = false,
@@ -175,7 +179,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function mmb()
-    print("[BUILD-44]")
+    print("[BUILD-57]")
         local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
         local Interface = {
             Instances = {}
@@ -250,7 +254,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "farm max lever"
+        NameHub.Text = "sanglove v1.1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -1230,6 +1234,116 @@ ScriptStorage = {
         end
 
 
+        -- [FIX-45] ---- Cay gate cat trai vao ruong (Treasure Inventory) ----
+        -- Ba quy tac user da noi: (1) raid dang chay -> KHONG cat,
+        -- (2) binh thuong nhan trai -> van cat, (3) ruong DA CO trai ->
+        -- ngung cat va chuyen sang farm Fragments (raid diem F).
+        -- Duoc dat o day vi RefreshPlayerData (1314) chay trong luc init,
+        -- truoc khi vong quay 60s o cuoi file duoc khai bao.
+        ChestFruitCache = {Count = nil, Until = 0}
+
+        -- So trai trong ruong; nil = doc KHONG DUOC (khac voi 0 = ruong trong).
+        function GetChestFruitCount()
+            local now = os.clock()
+            if ChestFruitCache.Count ~= nil and now < ChestFruitCache.Until then
+                return ChestFruitCache.Count
+            end
+            local ok, fruits = pcall(
+                function()
+                    return Remotes.CommF_:InvokeServer("getInventoryFruits")
+                end
+            )
+            if not ok or type(fruits) ~= "table" then
+                return nil
+            end
+            local count = 0
+            for _, fruit in pairs(fruits) do
+                if type(fruit) == "table" and (fruit.Name or fruit.Id) then
+                    count = count + 1
+                end
+            end
+            ChestFruitCache.Count = count
+            ChestFruitCache.Until = now + 3
+            return count
+        end
+
+        function IsInRaidNow()
+            local ok, val = pcall(
+                function()
+                    if not FunctionsHandler or not FunctionsHandler.RaidController then
+                        return false
+                    end
+                    if FunctionsHandler.RaidController:Get("IsInRaidProcess") then
+                        return true
+                    end
+                    return FunctionsHandler.RaidController.Methods.GetCurrentRaidIsland:Call() ~= nil
+                end
+            )
+            if ok then
+                return val == true
+            end
+            return false
+        end
+
+        function CanStoreFruit()
+            if IsInRaidNow() then
+                print("[FIX-45] bo qua cat trai: dang trong raid")
+                return false
+            end
+            local count = GetChestFruitCount()
+            if count ~= nil and count > 0 then
+                print("[FIX-45] bo qua cat trai: ruong da co " .. tostring(count) .. " trai")
+                return false
+            end
+            return true
+        end
+
+        -- Cat moi trai dang nam trong Backpack/Character. Port tu script
+        -- standalone "TU DONG CAT RUONG", them pcall tung muc de 1 loi
+        -- khong lam hong ca danh sach.
+        function StoreCarriedFruits(tag)
+            local list = {}
+            pcall(
+                function()
+                    local backpack = LocalPlayer:FindFirstChild("Backpack")
+                    if backpack then
+                        for _, item in ipairs(backpack:GetChildren()) do
+                            if item:IsA("Tool") and (string.find(item.Name, "Fruit") or item.ToolTip == "Blox Fruit") then
+                                table.insert(list, item)
+                            end
+                        end
+                    end
+                    local char = LocalPlayer.Character
+                    if char then
+                        for _, item in ipairs(char:GetChildren()) do
+                            if item:IsA("Tool") and (string.find(item.Name, "Fruit") or item.ToolTip == "Blox Fruit") then
+                                table.insert(list, item)
+                            end
+                        end
+                    end
+                end
+            )
+            local stored = 0
+            for _, tool in ipairs(list) do
+                local fruitName = tool:GetAttribute("OriginalName") or tool.Name
+                if not table.find(ScriptStorage.IgnoreStoreFruits, fruitName) then
+                    local ok, res = pcall(
+                        function()
+                            return Remotes.CommF_:InvokeServer("StoreFruit", fruitName, tool)
+                        end
+                    )
+                    if ok then
+                        print("[FIX-45] " .. tag .. " stored " .. tostring(fruitName) .. " -> " .. tostring(res))
+                        stored = stored + 1
+                    else
+                        print("[FIX-45] " .. tag .. " StoreFruit " .. tostring(fruitName) .. " error: " .. tostring(res))
+                    end
+                    task.wait(0.35)
+                end
+            end
+            return stored
+        end
+
         function ResearchMoves(Child)
             if Child and tostring(Child) == "V" then
                 if ScriptStorage.Connections.BurstCheck then
@@ -1334,8 +1448,12 @@ ScriptStorage = {
                                 end
                                 LocalPlayer.Character:FindFirstChild(Child.Name).EatRemote:InvokeServer()
                             end
-                            local StoreResult =
-                                Remotes.CommF_:InvokeServer("StoreFruit", Child:GetAttribute("OriginalName"), Child)
+                            -- [FIX-45] gate: raid dang chay hoac ruong da co trai
+                            -- thi de yen tool, khong goi StoreFruit.
+                            if CanStoreFruit() then
+                                local StoreResult =
+                                    Remotes.CommF_:InvokeServer("StoreFruit", Child:GetAttribute("OriginalName"), Child)
+                            end
                         end
                     )
                 end
@@ -2707,6 +2825,64 @@ ScriptStorage = {
         
         -- TweenController
         
+        -- [FIX-53] Dao Nguoi Ca nam o X ~ 61122 (FishmanQuest / Water Kung-fu
+        -- Teacher), tuc la cach Sea 1 hon 60000 studs: bay Thuong (100 st/giay)
+        -- thi 10 phut moi toi, va 200s khong thay guai la hub bao "Error while
+        -- farming, rejoin" roi hop sever. Cach cua game: cho nhan vat ngoi vung
+        -- xoay nuoc o (4035.3, -4.0, -1857.0) roi server keo thang xuong dao.
+        -- (Diem (3952.6, 7.0, -1666.5) gan do chi la moc ben bo.)
+        FishmanWhirlpool = Vector3.new(4035.3, -4.0, -1857.0)
+        FishmanIslandMinX = 50000
+        
+        -- [FIX-54] Chet roi bam nut Respawn cua game: Blox Fruits tra nhan vat ve
+        -- diem spawn gan nhat (Sea 1), nhanh hon nhieu so voi bay 57000 studs
+        -- nguoc ve bo. Co 3 lan va nghi 25s/lan de khong co chet lien hoi neu
+        -- diem spawn cung nam duoi dao.
+        function RespawnToLeaveFishman()
+            local Now = os.clock()
+            if LeaveFishmanAt and Now - LeaveFishmanAt < 25 then
+                return
+            end
+            LeaveFishmanAt = Now
+            LeaveFishmanTries = (LeaveFishmanTries or 0) + 1
+            LastFound = os.time()
+            print("[FIX-54] Roi dao Nguoi Ca bang respawn (lan " .. tostring(LeaveFishmanTries) .. ")")
+            task.spawn(
+                function()
+                    local LP = game.Players.LocalPlayer
+                    pcall(
+                        function()
+                            local Hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                            if Hum then
+                                Hum.Health = 0
+                            end
+                        end
+                    )
+                    task.wait(1.5)
+                    pcall(
+                        function()
+                            local Main = LP:FindFirstChild("PlayerGui") and LP.PlayerGui:FindFirstChild("Main")
+                            if not Main then
+                                return
+                            end
+                            for _, Obj in ipairs(Main:GetDescendants()) do
+                                if
+                                    Obj:IsA("TextButton") and
+                                        (
+                                            string.find(Obj.Name, "Respawn") or
+                                                (Obj.Parent and string.find(Obj.Parent.Name, "Respawn"))
+                                        )
+                                 then
+                                    Obj.MouseButton1Click:Fire()
+                                    break
+                                end
+                            end
+                        end
+                    )
+                end
+            )
+        end
+        
         function TweenController.Create(Position)
             -- 1. KIỂM TRA CƠ BẢN
             local Character = game.Players.LocalPlayer.Character
@@ -2721,11 +2897,48 @@ ScriptStorage = {
             local RootPart = Character.HumanoidRootPart
             local CurrentDist = (RootPart.Position - TargetCFrame.Position).Magnitude
         
+            -- [FIX-53] Dang o Sea 1 ma dich ben kia la dao Nguoi Ca (X > 50000):
+            -- doi huong sang vung xoay nuoc va de cho do keo xuong. Khong tao
+            -- Tween khi da ngoi trong xoay (5s/lan) vi Tween se keo nguoc len
+            -- mat nuoc, de loi kep cua server bi ghi de; het 5s chua bi keo thi
+            -- ngoi lai tam xoay 1 lan nua. Moi lan ngoi thi cap nhat LastFound de
+            -- tinh tien trinh, khong bi "Error while farming, rejoin" hop sever.
+            if
+                SeaIndex == 1 and TargetCFrame.Position.X > FishmanIslandMinX and
+                    RootPart.Position.X < FishmanIslandMinX
+             then
+                LeaveFishmanTries = 0
+                local DistPool = (RootPart.Position - FishmanWhirlpool).Magnitude
+                local PoolNow = os.clock()
+                if DistPool > 120 then
+                    FishmanDipUntil = nil
+                    TargetCFrame = CFrame.new(FishmanWhirlpool)
+                    CurrentDist = DistPool
+                elseif not FishmanDipUntil or PoolNow < FishmanDipUntil then
+                    FishmanDipUntil = FishmanDipUntil or (PoolNow + 5)
+                    LastFound = os.time()
+                    if TweenInstance then
+                        TweenInstance:Cancel()
+                    end
+                    TweenController._isCreating = false
+                    return
+                else
+                    FishmanDipUntil = PoolNow + 5
+                    TargetCFrame = CFrame.new(FishmanWhirlpool)
+                    CurrentDist = DistPool
+                end
+            end
+        
             -- 2. CHỐNG GIẬT (Smarter Check)
             -- Nếu đang có Tween chạy và mục tiêu mới quá gần mục tiêu cũ, hoặc nhân vật đã gần đích -> Bỏ qua
             if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing then
                 if CurrentDist < 5 then return end -- Đã đủ gần, không cần tạo thêm
             end
+        
+            -- [FIX-51] DA HOAN TOAN [FIX-50]: hai chan (sticky target 1s/1.5s va
+            -- tat BodyVelocity luc bay) khien viec di chuyen bi loi tren may ban,
+            -- nen quay lai dung nhu ban dau: Create goi lan nao la Cancel tween cu
+            -- mo tween moi, BodyVelocity "eltrul" luon gi MaxForce = math.huge.
         
             TweenController._isCreating = true
         
@@ -2748,11 +2961,21 @@ ScriptStorage = {
                 bv.Parent = head
             end
         
-            -- 5. LOGIC DI CHUYỂN ĐẶC BIỆT (Sea 3 Submarine / Portals)
-            if CurrentDist > 500 then
-                if SeaIndex ~= 3 then
-                    GetPortal(TargetCFrame)
-                end
+            -- 5. LOGIC DI CHUYEN DAC BIET (Sea 3 Submarine / Portals)
+            -- [FIX-54] DA TAT GetPortal/requestEntrance hoan toan. Ban cu moi lan
+            -- mo lai la log "remote fired requestEntrance -4607.82, 872.54,
+            -- -1667.55" chay lien tuc + hang tram warning "set the parent of
+            -- Portal to NULL" -> lag may (ban bao "dung goi nua lagg qua"). Di
+            -- xa thi bay Thuong hoac dung vong xoay [FIX-53], khong xin cong.
+            if
+                CurrentDist > 500 and SeaIndex == 1 and
+                    RootPart.Position.X > FishmanIslandMinX and
+                    TargetCFrame.Position.X < FishmanIslandMinX and (LeaveFishmanTries or 0) < 3
+             then
+                -- [FIX-54] Roi kho dao Nguoi Ca: bay nguoc 57000 studs thi 10
+                -- phut moi ve, nen respawn de game tra ve diem spawn o Sea 1.
+                RespawnToLeaveFishman()
+                return
             end
         
             -- Kiểm tra di chuyển sang Submerged Island (Sea 3)
@@ -2777,7 +3000,7 @@ ScriptStorage = {
             end
         
             -- Tính toán tốc độ: Nếu gần thì đi chậm (25), nếu xa thì đi nhanh (100)
-            local Speed = (CurrentDist < 18) and 25 or 150
+            local Speed = (CurrentDist < 18) and 25 or 210
             local Time = CurrentDist / Speed
         
             TweenInstance = Services.TweenService:Create(
@@ -3069,6 +3292,88 @@ ScriptStorage = {
             )
         end
 
+        -- [FIX-55] 3 dam may set cua vo dien (noi dung ban cap moi): 3 dam nam
+        -- gan nhau va bat buoc danh M1 kiem, dung chieu se khong ton mau. Vi vay
+        -- ham nay CHI goi Funcs:Attack (RegisterAttack + RegisterHit = M1 dam
+        -- danh), khong bao gio cham toi skill/fruity/gun. Chi can lam 1 lan cho
+        -- vo dien v1; xong thi gan co de nhung lan kiem tra sau bo qua.
+        function KillThunderClouds()
+            if getgenv().ElectricClawCloudsDone then
+                return
+            end
+            local Started = os.time()
+            local FirstSighting = nil
+            local Equipped = false
+            local EmptyRun = 0
+            print("[FIX-55] Di tim 3 dam may set (danh M1 kiem)...")
+            while os.time() - Started < 180 do
+                task.wait(0.1)
+                local Nearest, NearestHum = nil, nil
+                local Live = 0
+                pcall(
+                    function()
+                        local Roots = {workspace}
+                        if workspace:FindFirstChild("Enemies") then
+                            table.insert(Roots, workspace.Enemies)
+                        end
+                        if workspace:FindFirstChild("Map") then
+                            table.insert(Roots, workspace.Map)
+                        end
+                        for _, Root in ipairs(Roots) do
+                            for _, Obj in ipairs(Root:GetChildren()) do
+                                if string.find(string.lower(Obj.Name), "cloud") then
+                                    local Hum = Obj:FindFirstChildOfClass("Humanoid")
+                                    local HRP = Obj:FindFirstChild("HumanoidRootPart")
+                                    if Hum and HRP and Hum.Health > 0 then
+                                        Live = Live + 1
+                                        local D = CaculateDistance(HRP.Position)
+                                        if not Nearest or D < Nearest then
+                                            Nearest, NearestHum = D, HRP
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                )
+                if Nearest then
+                    EmptyRun = 0
+                    FirstSighting = os.time()
+                    if not Equipped then
+                        Equipped = true
+                        pcall(
+                            function()
+                                FunctionsHandler.LocalPlayerController.Methods.EquipTool:Call("Sword")
+                            end
+                        )
+                    end
+                    TweenController.Create(NearestHum.Position + Vector3.new(0, 5, 0))
+                    if Nearest <= 60 then
+                        _G.FastAttack = os.time()
+                        pcall(function() Funcs:Attack() end)
+                    end
+                else
+                    EmptyRun = EmptyRun + 1
+                    -- Da tung thay may ma 1s lien tiep khong con con nao = diet
+                    -- xong (dem lien tuc vi 1 lan an khong du, may co the chua
+                    -- kip render).
+                    if FirstSighting and EmptyRun >= 10 then
+                        print("[FIX-55] 3 dam may set da bi diet het (" .. tostring(os.time() - FirstSighting) .. "s)")
+                        getgenv().ElectricClawCloudsDone = true
+                        return
+                    end
+                    -- 12s ma khong thay con nao: ten khong chua "Cloud" hoac may
+                    -- chua spawn -> khong chan luong nhan nua.
+                    if EmptyRun >= 120 then
+                        print("[FIX-55] Khong tim thay dam may set nao trong workspace -> bo qua buoc danh may")
+                        getgenv().ElectricClawCloudsDone = true
+                        return
+                    end
+                end
+            end
+            print("[FIX-55] Het 180s ma dam may van con -> tiep tuc luong nhan vo")
+        end
+
         
         -- Comprehensive Mob Spawn Coordinates Fallback (Chống kẹt/đứng im khi mob chưa render)
         local MobPositionsFallback = {
@@ -3270,9 +3575,15 @@ CombatController = {
 
         function CombatController.Attack(MobTable, NearbyHit, Range, Callback)
             -- Cache GuideModule env để tránh gọi getsenv nhiều lần
-            local GuideEnv = pcall(function()
-                return GetGuideEnv()
-            end) and GetGuideEnv()
+            -- [FIX-49] Ban cu goi GetGuideEnv HAI lan moi frame (lan 1 trong
+            -- pcall de thu, lan 2 de lay gia tri). Khong duoc bo pcall:
+            -- GetGuideEnv la `local function` khai bao o 3639, TUC LA SAU ham
+            -- Attack nay, nen tai day ten no van la GLOBAL = nil; goi thang
+            -- khong pcall se "attempt to call a nil value" moi frame.
+            local GuideEnv = nil
+            pcall(function()
+                GuideEnv = GetGuideEnv()
+            end)
 
             if ScriptStorage.Tools["Sweet Chalice"] and GuideEnv and GuideEnv["_G"]["InCombat"] then
                 TweenController.Create(Vector3.new(0, 0, 0))
@@ -3442,15 +3753,30 @@ CombatController = {
                     end
 
                     if not Region then
-                        -- Thử tìm trong EnemySpawns trong Workspace
-                        pcall(function()
-                            for _, spawnObj in pairs(workspace:GetDescendants()) do
-                                if spawnObj.Name == Child or (spawnObj:IsA("BasePart") and string.find(spawnObj.Name, Child)) then
-                                    Region = {spawnObj.Position}
-                                    break
+                        -- [FIX-49] Day la ly do lag thu hai: quet TOAN BO cay
+                        -- workspace that `workspace:GetDescendants()` moi frame.
+                        -- No chay lien tuc khi ten duoc truyen vao Attack khong
+                        -- co trong MobRegions/MobPositionsFallback, ma
+                        -- MeleesController thi goi Attack("Black Leg") - ten VO,
+                        -- khong phai ten guai - nen khong bao gio thay, va lan
+                        -- quet nao cung dat gia. Ket qua that bai duoc giu 15s.
+                        local ProbeKey = tostring(Child)
+                        MobSpawnProbeCache = MobSpawnProbeCache or {}
+                        local ProbeNow = os.clock()
+                        local Cached = MobSpawnProbeCache[ProbeKey]
+                        if not Cached or ProbeNow - (Cached.At or 0) >= 15 then
+                            Cached = {At = ProbeNow, Hit = nil}
+                            MobSpawnProbeCache[ProbeKey] = Cached
+                            pcall(function()
+                                for _, spawnObj in pairs(workspace:GetDescendants()) do
+                                    if spawnObj.Name == Child or (spawnObj:IsA("BasePart") and string.find(spawnObj.Name, Child)) then
+                                        Cached.Hit = {spawnObj.Position}
+                                        break
+                                    end
                                 end
-                            end
-                        end)
+                            end)
+                        end
+                        Region = Cached.Hit
                     end
 
                     if not Region then
@@ -4234,6 +4560,19 @@ FunctionsHandler = {
                             break
                         end
 
+                        -- [FIX-47] Vong nay giu thread cua vong lap CHINH (no nam
+                        -- trong LevelFarm.Start, duoc goi boi RefreshTasksData).
+                        -- Ma MeleesController.Start lai duoc goi SAU
+                        -- RefreshTasksData o cung vong lap do -> trong luc vong nay
+                        -- chay thi khong co bat ky lan goi nao cho melee, tuc la
+                        -- "tien du ma khong di mua vo". Cho no chay toi da 10s roi
+                        -- tra dieu khien ve vong chinh; viec danh xong nhiem vu van
+                        -- do nhanh ben ngoai xu ly (HasActiveQuest that thi nhan
+                        -- quest khac, con quest active thi Attack tai cho).
+                        if os.time() - farmStart >= 10 then
+                            break
+                        end
+
                         if
                             not arrivedAtMob and
                                 ((mobPos and CaculateDistance(mobPos) <= 350) or os.time() - farmStart >= 15)
@@ -4705,6 +5044,8 @@ FunctionsHandler = {
                                                     " / " .. Data.NextLevelRequirement .. " )."
                                 )
                                 -- Luôn attack ĐỂ TĂNG MASTERY, bất kể đã sở hữu melee chưa
+                                -- [FIX-57] DA HOAN TAC [FIX-56] (goi LevelFarm.Start o
+                                -- day lam loi), quay lai dung nhu ban dau.
                                 CombatController.Attack(Melee)
                                 -- Chỉ mua nếu chưa có — KHÔNG block raid khi farm mastery
                                 if not ScriptStorage.Tools[Melee] then
@@ -5759,12 +6100,30 @@ FunctionsHandler = {
                         ScriptStorage.Tools["Red Key"]:Destroy()
                     end
                 elseif Type == "Previous Hero" then
-                    Remotes.CommF_:InvokeServer("BuyElectricClaw", "Start")
+                    -- [FIX-55] "Start" chi lan dau: no sinh ra 3 dam may set. Da
+                    -- diet xong thi lan sau kiem tra nhan thang, khong goi lai.
+                    if not getgenv().ElectricClawCloudsDone then
+                        Remotes.CommF_:InvokeServer("BuyElectricClaw", "Start")
+                    end
                     task.wait(3)
-                    repeat
+                    -- [FIX-55] Gan co bay toi dai bang 20s: ban cu dung vong
+                    -- repeat...until khong gioi han, neu toa do nay nam o bien
+                    -- khac (Sea 1 vs Sea 2 la 2 server khac nhau) thi
+                    -- DistanceFromCharacter khong bao gio < 30 -> thread ket hang
+                    -- o day, khong bao gio toi buoc danh dam may.
+                    local StageAt = os.time()
+                    while
+                        os.time() - StageAt < 20 and
+                            game.Players.LocalPlayer:DistanceFromCharacter(Vector3.new(-12548, 332.378, -7617)) >=
+                            30 do
                         task.wait()
                         TweenController.Create(CFrame.new(-12548, 332.378 + math.random(-2, 2), -7617))
-                    until game.Players.LocalPlayer:DistanceFromCharacter(Vector3.new(-12548, 332.378, -7617)) < 30
+                    end
+
+                    -- [FIX-55] Den dai: diet 3 dam may set bang M1 kiem truoc khi
+                    -- server cho Buy, neu khong BuyElectricClaw luong tra ve khac
+                    -- 1 va vo dien v1 khong bao gio duoc nhan.
+                    KillThunderClouds()
 
                     Data = MeleePrices["Electric Claw"]
                     Data.Buy(1)
@@ -7013,42 +7372,145 @@ FunctionsHandler = {
             
         )
 
-        -- Cấu hình thời gian
-        local CHECK_INTERVAL = 60 -- Kiểm tra mỗi 1 phút để đảm bảo không lỡ nhịp
-        local lastBuy = 0
+        -- [FIX-45] ---- Random trai moi 60s + dieu khien farm Fragments ----
+        -- Port tu script standalone "RANDOM TRAI TU XA & TU DONG CAT RUONG",
+        -- them 2 dieu kien user yeu cau: khong cat khi dang raid, va ruong da
+        -- co trai thi ngung cat de di raid kiem Fragments (diem F).
+        local CHECK_INTERVAL = 60
+        local RAID_TASK = "RaidController"
+        local RAID_ISLAND_NAMES = {nil, "CircleIsland", "Boat Castle"}
 
-        task.spawn(function()
-            while true do
-                pcall(function()
-                    -- 1. Kiểm tra sự tồn tại của Remotes
-                    if Remotes and Remotes.CommF_ then
-                        
-                        -- 2. Gọi hàm cộng điểm (nếu có)
-                        if type(AddPoint) == "function" then
-                            AddPoint()
-                        end
+        -- Start cua RaidController tim "RaidSummon2" trong dao raid o tren; khong
+        -- co no thi return lan luot moi ~1s ma khong phat lenh di chuyen nao =>
+        -- nhan vat dung im (xem [FIX-28]). Chi bat task khi dao nay nam duoc.
+        local function RaidIslandReady()
+            local ok, ready = pcall(
+                function()
+                    local rootName = RAID_ISLAND_NAMES[SeaIndex]
+                    if not rootName then
+                        return false
+                    end
+                    local island =
+                        (workspace.Map and workspace.Map:FindFirstChild(rootName)) or workspace:FindFirstChild(rootName)
+                    return island ~= nil and island:FindFirstChild("RaidSummon2") ~= nil
+                end
+            )
+            return (ok and ready) == true
+        end
 
-                        -- 3. Thực hiện mua trái ác quỷ
-                        -- Blox Fruits trả về thông tin thời gian nếu chưa đủ 2 tiếng
-                        local result = Remotes.CommF_:InvokeServer("Cousin", "Buy")
-                        
-                        if result then
-                            print("[Random Fruit] Kết quả: ", tostring(result))
-                            
-                            -- Nếu mua thành công hoặc thông báo liên quan đến thời gian
-                            -- Bạn có thể thêm logic cất trái ác quỷ vào kho ở đây
-                            if string.find(tostring(result), "Unboxed") or string.find(tostring(result), "Eat") then
-                                print("success: " .. tostring(result))
+        -- [FIX-48] GachaNetworkRF tra ve BANG; in truc tiep thi log chi ra
+        -- "table: 0x...", nen tom tat vai key dau tien ra chuoi de do.
+        local function DescribeRoll(v)
+            if type(v) ~= "table" then
+                return tostring(v)
+            end
+            local parts, total = {}, 0
+            for Key, Val in pairs(v) do
+                total = total + 1
+                if #parts < 6 and type(Val) ~= "table" then
+                    parts[#parts + 1] = tostring(Key) .. "=" .. tostring(Val)
+                end
+            end
+            return "table(n=" .. tostring(total) .. ") " .. table.concat(parts, ", ")
+        end
+
+        -- Dung dung thu tu cua ban paste: "Cousin" "Buy" truoc, chi khi no khong
+        -- tra ve gia tri nao moi thu GachaNetworkRF (Context=Purchase,
+        -- BoxName=ZiolesGacha) -> khong lo quay 2 lan trong cung 1 nhip.
+        -- Khong dung WaitForChild o day: tren client nay no tung gay infinite
+        -- yield (dong "HauntedPuzzle" trong log).
+        local function RollFruit()
+            local ok, res = pcall(
+                function()
+                    return Remotes.CommF_:InvokeServer("Cousin", "Buy")
+                end
+            )
+            if ok and res ~= nil and res ~= false then
+                return res, "Cousin"
+            end
+
+            local ok2, res2 = pcall(
+                function()
+                    local Modules = game:GetService("ReplicatedStorage"):FindFirstChild("Modules")
+                    local Net = Modules and Modules:FindFirstChild("Net")
+                    local GachaRF = Net and Net:FindFirstChild("RF/GachaNetworkRF")
+                    if not GachaRF then
+                        return nil
+                    end
+                    return GachaRF:InvokeServer({Context = "Purchase", BoxName = "ZiolesGacha"})
+                end
+            )
+            if ok2 and res2 ~= nil then
+                return res2, "GachaNetworkRF"
+            end
+            return nil, "Cousin"
+        end
+
+        task.spawn(
+            function()
+                task.wait(10)
+                while true do
+                    local ok, err = pcall(
+                        function()
+                            if not (Remotes and Remotes.CommF_) then
+                                print("[FIX-45] chua co Remotes.CommF_ -> bo qua 1 lan quay")
+                                return
+                            end
+
+                            if type(AddPoint) == "function" then
+                                AddPoint()
+                            end
+
+                            -- Ruong da co trai => ngung cat va bat farm diem F.
+                            local chestCount = GetChestFruitCount()
+                            local orderIdx = table.find(TasksOrder, RAID_TASK)
+                            if chestCount ~= nil and chestCount > 0 then
+                                if not orderIdx then
+                                    if RaidIslandReady() then
+                                        table.insert(TasksOrder, table.find(TasksOrder, "LevelFarm") or (#TasksOrder + 1), RAID_TASK)
+                                        print(
+                                            "[FIX-45] ruong co " .. tostring(chestCount) ..
+                                                " trai -> bat RaidController de farm diem F"
+                                        )
+                                    else
+                                        print(
+                                            "[FIX-45] ruong co trai nhung dao raid (" ..
+                                                tostring(RAID_ISLAND_NAMES[SeaIndex]) ..
+                                                ") khong ton tai -> van farm cap nhat, khong bat raid"
+                                        )
+                                    end
+                                end
+                            elseif orderIdx and not IsInRaidNow() then
+                                table.remove(TasksOrder, orderIdx)
+                                print("[FIX-45] ruong da trong -> tat RaidController, quay lai LevelFarm")
+                            end
+
+                            -- Cat trai dang mang TRUOC khi quay (duoc phep moi cat).
+                            if CanStoreFruit() then
+                                StoreCarriedFruits("pre-roll")
+                            end
+
+                            -- [FIX-48] Quay dung theo ban paste: "Cousin" truoc,
+                            -- neu no khong tra ve gi thi moi thu GachaNetworkRF.
+                            local result, via = RollFruit()
+                            print("[FIX-48] random trai (" .. tostring(via) .. "): " .. DescribeRoll(result))
+                            if result ~= nil and result ~= false then
+                                task.wait(1.5)
+                                if CanStoreFruit() then
+                                    StoreCarriedFruits("post-roll")
+                                else
+                                    print("[FIX-45] trai quay duoc giu nguyen vi gate cat trai dang tat")
+                                end
                             end
                         end
-                    else
-                        warn("error: " .. tostring(result))
+                    )
+                    if not ok then
+                        print("[FIX-45] vong quay 60s bi loi: " .. tostring(err))
                     end
-                end)
-                
-                task.wait(CHECK_INTERVAL)
+                    task.wait(CHECK_INTERVAL)
+                end
             end
-        end)
+        )
 
        
         while task.wait() do
@@ -7062,7 +7524,10 @@ FunctionsHandler = {
             local IsInRaid = FunctionsHandler.RaidController and FunctionsHandler.RaidController:Get("IsInRaidProcess")
             if not IsInRaid then
                 -- [FIX-3] Nam NGOAI xpcall: thieu MeleesController la chet han vong chinh.
-                pcall(
+                -- [FIX-47] pcall AN loi cua melee chinh la ly do "tien du ma vo
+                -- khong duoc mua" khong co dau vet tren console. In ra, toi da
+                -- 1 lan / 10s de khong nghet log.
+                local okMelee, errMelee = pcall(
                     function()
                         local melee = FunctionsHandler.MeleesController
                         if melee and melee.Methods and melee.Methods.Start then
@@ -7070,6 +7535,10 @@ FunctionsHandler = {
                         end
                     end
                 )
+                if not okMelee and (not MeleeErrAt or os.time() - MeleeErrAt > 10) then
+                    MeleeErrAt = os.time()
+                    print("[FIX-47] MeleesController.Start bi loi: " .. tostring(errMelee))
+                end
             end
             -- [FIX-18] Xoa 3 lenh print(0)/(1)/(2) ma tac gia de lai trong vong lap
             -- chay moi frame: no in ~180 dong/giay va lam nghet cua so log.
