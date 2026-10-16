@@ -179,7 +179,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function mmb()
-    print("[BUILD-57]")
+    print("[BUILD-58]")
         local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
         local Interface = {
             Instances = {}
@@ -254,7 +254,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "3TN"
+        NameHub.Text = "sanglove v1.1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -3421,7 +3421,10 @@ ScriptStorage = {
             -- Sea 2 Mobs
             ["Raider"] = Vector3.new(-760, 50, 2400),
             ["Mercenary"] = Vector3.new(-950, 50, 2600),
-            ["Swan Pirate"] = Vector3.new(700, 120, 1200),
+            -- [FIX-58] Toa do Swan Pirate that cua nguoi dung. Diem cu
+            -- (700,120,1200) chi cach cho guai thuc ~286 stud, nam trong
+            -- cay 300 stud cua [FIX-43] nen hub nghi "da toi" dung yen.
+            ["Swan Pirate"] = Vector3.new(976.8, 73.1, 1141.7),
             ["Factory Staff"] = Vector3.new(400, 75, -300),
             ["Marine Lieutenant"] = Vector3.new(-2800, 75, -3000),
             ["Marine Captain"] = Vector3.new(-3100, 75, -3200),
