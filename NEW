@@ -9,7 +9,7 @@ Config =
                 HopWhenIdle = true,
                 AutoHop = true,
                 AutoHopDelay = 60 * 60,
-                FpsBoost = false,
+                FpsBoost = true,
                 ["IdleCheck"] = 150, -- every (x) seconds if not moving rejoin
             },
             Items = {
@@ -25,9 +25,9 @@ Config =
                 AutoFullyMelees = true,
                 -- Swords
                 Saber = true,
-                CursedDualKatana = true,
+                CursedDualKatana = false,
                 -- Guns
-                SoulGuitar = true,
+                SoulGuitar = false,
                 -- Upgrades
 
                 RaceV2 = false,
@@ -179,7 +179,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
     end
 
     function mmb()
-    print("[BUILD-60]")
+    print("[BUILD-63]")
         local Orders = {"Task1", "Task2", "Currencies", "Melees", "LiveTime", "DebugLine"}
         local Interface = {
             Instances = {}
@@ -3421,10 +3421,7 @@ ScriptStorage = {
             -- Sea 2 Mobs
             ["Raider"] = Vector3.new(-760, 50, 2400),
             ["Mercenary"] = Vector3.new(-950, 50, 2600),
-            -- [FIX-58] Toa do Swan Pirate that cua nguoi dung. Diem cu
-            -- (700,120,1200) chi cach cho guai thuc ~286 stud, nam trong
-            -- cay 300 stud cua [FIX-43] nen hub nghi "da toi" dung yen.
-            ["Swan Pirate"] = Vector3.new(976.8, 73.1, 1141.7),
+            ["Swan Pirate"] = Vector3.new(700, 120, 1200),
             ["Factory Staff"] = Vector3.new(400, 75, -300),
             ["Marine Lieutenant"] = Vector3.new(-2800, 75, -3000),
             ["Marine Captain"] = Vector3.new(-3100, 75, -3200),
@@ -3598,10 +3595,10 @@ CombatController = {
 
             -- [FIX-60] MonResult KHONG co chu "local" o dau file -> no la bien
             -- TOAN CUC. Ma vong chinh chay RefreshTasksData roi MOI chay
-            -- MeleesController.Start (7540), va melee goi Attack("Electro") /
+            -- MeleesController.Start, va melee goi Attack("Electro") /
             -- Attack("Black Leg") - ten VO, khong phai ten guai -> Search tra
             -- nil -> ghi MonResult = nil xen vao giua luc coroutine dang farm
-            -- (while task.wait(0.1) o 3625 doc lai MonResult o 3636) ->
+            -- (vong while task.wait(0.1) doc lai MonResult moi buoc) ->
             -- "attempt to index a nil value" lam chet coroutine cua quest ->
             -- nhan vat dung im, va DevConsole in ra xau loi. Gan "local" de moi
             -- lan Attack co target cua rieng no, lenh nay khong ghi de lenh kia.
@@ -5241,75 +5238,23 @@ FunctionsHandler = {
                     return
                 elseif Progress == 1 then
                     SetTask("MainTask", "Auto Bartilo Quest - Defeating 50x Swan Pirate")
-                    -- [FIX-59] Tai sao dung yen: QuestManager.GetCurrentClaimQuest
-                    -- (2529) lay dieu kien tu PlayerGui.Main.Quest.Visible va doc
-                    -- label TIENG ANH "Defeat N Mob (x)". Frame do game AN tren
-                    -- client nay (probe [FIX-37]: Visible=false ngay khi dang co
-                    -- nhiem vu) -> ham luon tra ve false -> nhanh nay goi
-                    -- StartQuest BartiloQuest moi giay (log "remote fired
-                    -- StartQuest BartiloQuest 1") va KHONG goi
-                    -- Attack("Swan Pirate") lan nao, nen nhan vat dung im.
-                    -- Doi sang dem bo dem "x/y" dang render that (Ham HasActiveQuest
-                    -- cua [FIX-42], khong doc chu tieng Anh).
-                    local hasQuest, curKills, maxKills = QuestManager.HasActiveQuest()
-                    -- [FIX-60] LOG DO DAC (1 lan / 5s) de ket luan dung lieu,
-                    -- khong doan muon nua. Cac chi so:
-                    --   swanAlive / nearest = con bao nhieu model "Swan Pirate"
-                    --     song trong workspace.Enemies, con gan nhat bao nhieu stud
-                    --   regionDist = khoang cach toi diem "Swan Pirate" trong
-                    --     MobPositionsFallback. Cay 300 stud (3810): <=300 thi hub
-                    --     tu choi bay vi nghi "da den bai guai".
-                    --   stop = _G.Stop = true thi RefreshTasksData dung het.
-                    if not getgenv().BartiloProbeAt or tick() - getgenv().BartiloProbeAt >= 5 then
-                        getgenv().BartiloProbeAt = tick()
-                        local Alive, Nearest, RegionDist = 0, -1, -1
-                        pcall(
-                            function()
-                                local lp = game:GetService("Players").LocalPlayer
-                                local myHrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-                                for _, m in pairs(game:GetService("Workspace").Enemies:GetChildren()) do
-                                    if m.Name == "Swan Pirate" then
-                                        local hum = m:FindFirstChild("Humanoid")
-                                        local hrp = m:FindFirstChild("HumanoidRootPart")
-                                        if hum and hrp and hum.Health > 0 then
-                                            Alive = Alive + 1
-                                            if myHrp then
-                                                local d = (hrp.Position - myHrp.Position).Magnitude
-                                                if Nearest < 0 or d < Nearest then
-                                                    Nearest = d
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                                RegionDist = CaculateDistance(MobPositionsFallback["Swan Pirate"])
-                            end
-                        )
-                        print(
-                            "[FIX-60] swanAlive=" ..
-                                Alive ..
-                                    " nearest=" ..
-                                        (Nearest < 0 and "none" or string.format("%.0f", Nearest)) ..
-                                        " regionDist=" ..
-                                        (RegionDist < 0 and "err" or string.format("%.0f", RegionDist)) ..
-                                        " hasQuest=" ..
-                                        tostring(hasQuest) ..
-                                        " prog=" .. tostring(curKills) .. "/" .. tostring(maxKills) ..
-                                        " stop=" .. tostring(_G.Stop)
-                        )
-                    end
-                    -- [FIX-60] Refresh cua chinh no da doc
-                    -- CommF_:InvokeServer("BartiloQuestProgress") va tra
-                    -- KilledBandits=false (Progress==1) tuc la dang o buoc 1 cua
-                    -- Bartilo -> cu danh Swan Pirate, khong can doc ten quest tren
-                    -- HUD nua (co khi label "x/y" dau tien ma HasActiveQuest bat
-                    -- duoc la cua GUI khac). Chi nhan quest khi HUD khong thay nhiem
-                    -- vu nao, toi da 1 lan / 15s de khong spam remote
-                    -- (spam = reset 0/50).
-                    if hasQuest then
-                        CombatController.Attack("Swan Pirate")
-                    elseif not getgenv().BartiloClaimAt or tick() - getgenv().BartiloClaimAt > 15 then
-                        getgenv().BartiloClaimAt = tick()
+                    -- [FIX-63] CHI doi dong DOC HUD, giu nguyen cay quyet dinh cua
+                    -- tac gia. Ham cu (2529) can PlayerGui.Main.Quest.Visible = true
+                    -- va label TIENG ANH "Defeat N Mob (x)"; tren client nay frame do
+                    -- an (probe [FIX-37]) nen no tra false mai -> nhanh Attack ben
+                    -- duoi khong bao gio chay. HasActiveQuest dem bo dem "x/y" dang
+                    -- render that; quest nay co max = 50 nen RawText duoc lap thanh
+                    -- "50", dieu kien string.find ben duoi van dung nhu thiet ke.
+                    local hasQuest, _, maxKills = QuestManager.HasActiveQuest()
+                    local CurrentQuest, RawText = hasQuest, (hasQuest and tostring(maxKills) or "")
+
+                    if CurrentQuest then
+                        if not string.find(RawText, "50") then
+                            QuestManager.AbandonQuest()
+                        else
+                            CombatController.Attack("Swan Pirate")
+                        end
+                    else
                         QuestManager.StartQuest("BartiloQuest", 1)
                     end
                 elseif Progress == 2 then
