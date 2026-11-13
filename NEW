@@ -80,7 +80,9 @@ repeat
     task.wait() 
     game.ReplicatedStorage.Remotes.CommF_:InvokeServer('SetTeam', 'Pirates')
 until game.Players.LocalPlayer.Character
-game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
+pcall(function() -- [MOB-1] mobile co the khong co promptOverlay -> chuoi nay lam chet ca script ngay luc inject
+    game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(CheckKick)
+end)
     if os.time() >= 1756319996 then
     --  while true do end
     end
@@ -254,7 +256,7 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
         NameHub.BorderColor3 = Color3.fromRGB(0, 0, 0)
         NameHub.BorderSizePixel = 0
         NameHub.Font = Enum.Font.FredokaOne
-        NameHub.Text = "sanglove v1.1"
+        NameHub.Text = "sanglove v1"
 
         local UIStroke = Instance.new("UIStroke")
         UIStroke.Parent = NameHub
@@ -768,10 +770,16 @@ game:GetService('CoreGui').RobloxPromptGui.promptOverlay.ChildAdded:Connect(Chec
 
         StartTime = os.time()
 
-        OldSessionTime =
-            isfile(".tdif-" .. game.Players.LocalPlayer.Name) and
-            tonumber(readfile(".tdif-" .. game.Players.LocalPlayer.Name)) or
-            0
+        OldSessionTime = 0 -- [MOB-2] isfile/readfile thuoc executor; khong co thi coi nhu 0, khong chet
+        pcall(function()
+            if type(isfile) ~= "function" or type(readfile) ~= "function" then
+                return
+            end
+            local TdifKey = ".tdif-" .. game.Players.LocalPlayer.Name
+            if isfile(TdifKey) then
+                OldSessionTime = tonumber(readfile(TdifKey)) or 0
+            end
+        end)
 
            
         if Config.Configuration.blackscreen then 
@@ -2167,9 +2175,13 @@ ScriptStorage = {
 
         function SendKey(key, hold)
             (function()
-                game:GetService("VirtualInputManager"):SendKeyEvent(true, key, false, game)
+                pcall(function() -- [MOB-4] mobile khong co ban phim; SendKeyEvent co the loi
+                    game:GetService("VirtualInputManager"):SendKeyEvent(true, key, false, game)
+                end)
                 task.wait(hold)
-                game:GetService("VirtualInputManager"):SendKeyEvent(false, key, false, game)
+                pcall(function()
+                    game:GetService("VirtualInputManager"):SendKeyEvent(false, key, false, game)
+                end)
             end)()
         end
 
@@ -8709,12 +8721,18 @@ FunctionsHandler = {
         LowHop = function(Reason, PlayerLimit)
             local servers = {}
             local Limit = PlayerLimit or 5
-            local req =
-                game:HttpGet(
-                "https://games.roblox.com/v1/games/" ..
-                    game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=true"
-            )
-            local body = game:GetService("HttpService"):JSONDecode(req)
+            local req, body
+            local OkHttp = pcall(function() -- [MOB-5] HttpGet/JSONDecode loi la mat ca nhanh hop server
+                req =
+                    game:HttpGet(
+                    "https://games.roblox.com/v1/games/" ..
+                        game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=true"
+                )
+                body = game:GetService("HttpService"):JSONDecode(req)
+            end)
+            if not OkHttp or not body then
+                return
+            end
         
             if body and body.data then
                 for i, v in next, body.data do
@@ -9220,7 +9238,14 @@ FunctionsHandler = {
                             local Elapsed = os.time() - StartTime
                             local TotalElapsed = Elapsed + OldSessionTime
 
-                            writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
+                            if TotalElapsed - (getgenv().TdifLastSaved or -999) >= 60 then -- [MOB-3] 1s -> 60s, co pcall
+                                getgenv().TdifLastSaved = TotalElapsed
+                                pcall(function()
+                                    if type(writefile) == "function" then
+                                        writefile(".tdif-" .. game.Players.LocalPlayer.Name, tostring(TotalElapsed))
+                                    end
+                                end)
+                            end
 
                             if ScriptStorage.Interface then
                                 SetText(
